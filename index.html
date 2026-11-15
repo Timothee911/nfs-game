@@ -178,32 +178,37 @@
             --IB: clamp(11.5px, 2.8vh, 29.5px); --IH: clamp(54.1px, 9.4vh, 100px); --TH: clamp(57.4px, 10.7vh, 118.9px); --PX: 2vw;
         }
         #lobby { position: absolute; inset: 0; z-index: 100; overflow: hidden; background: var(--gx-ink); color: var(--gx-text); font-family: 'Barlow', 'Segoe UI', sans-serif; pointer-events: auto; }
-        /* Décor : studio de garage plein écran (mur éclairé, néons au plafond, sol brillant en perspective) */
-        #lobby .gx-bg { position: absolute; inset: 0; overflow: hidden; background: #07080c; }
-        #lobby .gx-wall { position: absolute; inset: 0 0 38% 0;
+        /* Décor : entrepôt abandonné sombre (grandes fenêtres au soleil couchant, pilier, sol de béton humide, brume) */
+        #lobby .gx-bg { position: absolute; inset: 0; overflow: hidden; background: #050505; }
+        #lobby .gx-wall { position: absolute; inset: 0 0 34% 0;
             background:
-                radial-gradient(ellipse 60% 70% at 62% 78%, rgba(255,176,104,0.34), transparent 70%),
-                radial-gradient(ellipse 45% 60% at 14% 70%, rgba(80,120,255,0.20), transparent 72%),
-                linear-gradient(180deg, #05060a 0%, #0d1220 42%, #1a1d2b 78%, #241f26 100%); }
-        #lobby .gx-panels { position: absolute; inset: 0 0 38% 0; opacity: 0.55;
-            background-image: linear-gradient(90deg, rgba(0,0,0,0.65) 0 3px, transparent 3px), linear-gradient(0deg, rgba(0,0,0,0.5) 0 3px, transparent 3px);
-            background-size: 11.11% 100%, 100% 33.34%;
-            -webkit-mask-image: linear-gradient(180deg, transparent 6%, #000 70%); mask-image: linear-gradient(180deg, transparent 6%, #000 70%); }
-        #lobby .gx-strip { position: absolute; top: 0; height: 2.6%; width: 40%; left: 30%; border-radius: 0 0 10px 10px;
-            background: linear-gradient(180deg, rgba(255,245,225,0.98), rgba(255,215,170,0.75)); box-shadow: 0 0 60px 18px rgba(255,205,150,0.40), 0 20px 120px 40px rgba(255,190,130,0.20); }
-        #lobby .gx-strip.s2 { top: 11%; height: 1.6%; width: 78%; left: 11%; opacity: 0.6; border-radius: 6px; box-shadow: 0 0 40px 10px rgba(130,170,255,0.4); background: linear-gradient(90deg, transparent, rgba(190,210,255,0.95) 20%, rgba(190,210,255,0.95) 80%, transparent); }
-        #lobby .gx-beams { position: absolute; inset: 0 0 38% 0;
-            background: conic-gradient(from 180deg at 50% -6%, transparent 0 158deg, rgba(255,214,170,0.10) 164deg, transparent 172deg, transparent 188deg, rgba(255,214,170,0.10) 196deg, transparent 202deg 360deg);
-            mix-blend-mode: screen; }
-        #lobby .gx-floor { position: absolute; left: 0; right: 0; top: 62%; bottom: 0; overflow: hidden;
-            background: linear-gradient(180deg, #1a1a22 0%, #0e0e14 40%, #050508 100%); }
-        #lobby .gx-floor::before { content: ''; position: absolute; left: -60%; right: -60%; top: 0; height: 260%; transform-origin: 50% 0; transform: perspective(520px) rotateX(64deg);
-            background-image: linear-gradient(90deg, rgba(255,255,255,0.10) 0 2px, transparent 2px), linear-gradient(0deg, rgba(255,255,255,0.10) 0 2px, transparent 2px);
-            background-size: 9% 9%; opacity: 0.55; }
-        #lobby .gx-floor::after { content: ''; position: absolute; inset: 0;
-            background: radial-gradient(ellipse 46% 60% at 56% 0%, rgba(255,198,140,0.46), transparent 72%), linear-gradient(180deg, rgba(255,255,255,0.10), transparent 30%); }
-        #lobby .gx-refl { position: absolute; left: 22%; top: 62%; width: 70%; height: 22%; background: linear-gradient(180deg, rgba(255,205,150,0.55), transparent); filter: blur(26px); opacity: 0.30; }
-        #lobby .gx-vig { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse 90% 85% at 56% 50%, transparent 52%, rgba(0,0,0,0.62) 100%), linear-gradient(90deg, rgba(0,0,0,0.45), transparent 32%); }
+                radial-gradient(ellipse 50% 55% at 72% 8%, rgba(255,170,90,0.20), transparent 70%),
+                linear-gradient(180deg, #060505 0%, #0b0908 45%, #14100d 100%); }
+        /* Fenêtres : lueur orangée derrière un quadrillage de montants sombres */
+        #lobby .gx-win { position: absolute; top: -2%; height: 27%; overflow: hidden;
+            background:
+                linear-gradient(180deg, rgba(255,214,160,0.95) 0%, rgba(240,160,90,0.80) 45%, rgba(150,90,50,0.55) 100%);
+            filter: blur(0.6px) saturate(0.9); }
+        #lobby .gx-win::before { content: ''; position: absolute; inset: 0;
+            background-image: linear-gradient(90deg, #0a0807 0 9px, transparent 9px), linear-gradient(0deg, #0a0807 0 8px, transparent 8px);
+            background-size: calc(100% / var(--cols)) 100%, 100% calc(100% / 3); }
+        #lobby .gx-win::after { content: ''; position: absolute; inset: 0;
+            background: radial-gradient(ellipse at 30% 20%, rgba(0,0,0,0) 0 30%, rgba(30,18,10,0.55) 100%), repeating-linear-gradient(100deg, rgba(0,0,0,0.12) 0 3px, transparent 3px 14px); }
+        #lobby .gx-win.w1 { --cols: 4; left: 41%; width: 21%; }
+        #lobby .gx-win.w2 { --cols: 4; left: 65%; width: 20%; opacity: 0.92; }
+        #lobby .gx-win.w3 { --cols: 2; left: 88%; width: 14%; opacity: 0.75; }
+        #lobby .gx-win.w4 { --cols: 2; left: 26%; width: 10%; top: 4%; height: 18%; opacity: 0.30; }
+        #lobby .gx-glow { position: absolute; left: 36%; right: 0; top: 0; height: 56%;
+            background: radial-gradient(ellipse 55% 65% at 62% 8%, rgba(255,170,100,0.38), transparent 72%); mix-blend-mode: screen; }
+        #lobby .gx-pillar { position: absolute; left: 34%; top: 0; width: 4.2%; height: 66%;
+            background: linear-gradient(90deg, #040404, #0e0c0b 60%, #060505); box-shadow: 0 0 60px 20px rgba(0,0,0,0.6); }
+        #lobby .gx-floor { position: absolute; left: 0; right: 0; top: 66%; bottom: 0;
+            background: linear-gradient(180deg, #17130f 0%, #0b0908 38%, #030303 100%); }
+        #lobby .gx-floor::before { content: ''; position: absolute; inset: 0;
+            background: radial-gradient(ellipse 60% 50% at 58% 0%, rgba(255,190,130,0.30), transparent 75%), repeating-linear-gradient(0deg, rgba(255,255,255,0.025) 0 2px, transparent 2px 22px); }
+        #lobby .gx-haze { position: absolute; inset: 0; pointer-events: none;
+            background: radial-gradient(ellipse 70% 30% at 55% 64%, rgba(200,170,140,0.16), transparent 70%), radial-gradient(ellipse 40% 25% at 20% 58%, rgba(180,150,120,0.07), transparent 70%); filter: blur(10px); }
+        #lobby .gx-vig { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse 85% 80% at 60% 52%, transparent 40%, rgba(0,0,0,0.78) 100%), linear-gradient(90deg, rgba(0,0,0,0.6), transparent 38%), linear-gradient(0deg, rgba(0,0,0,0.5), transparent 22%); }
         #lobby #car-preview { position: absolute; inset: 0; cursor: grab; touch-action: none; }
         #lobby #car-preview:active { cursor: grabbing; }
         #lobby #car-preview canvas { position: absolute; left: 0; top: 0; }
@@ -412,9 +417,9 @@
     
     <div id="lobby">
         <div class="gx-bg" aria-hidden="true">
-            <div class="gx-wall"></div><div class="gx-panels"></div><div class="gx-beams"></div>
-            <div class="gx-strip"></div><div class="gx-strip s2"></div>
-            <div class="gx-floor"></div><div class="gx-refl"></div>
+            <div class="gx-wall"></div><div class="gx-win w4"></div><div class="gx-win w1"></div><div class="gx-win w2"></div><div class="gx-win w3"></div>
+            <div class="gx-glow"></div><div class="gx-pillar"></div>
+            <div class="gx-floor"></div><div class="gx-haze"></div>
         </div>
         <div id="car-preview" title="Faites glisser pour tourner la voiture"></div>
         <div class="gx-vig" aria-hidden="true"></div>
