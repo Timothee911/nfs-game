@@ -312,7 +312,18 @@
 
         /* Réglages : sélecteurs + commandes */
         #lobby .gx-set { position: absolute; left: var(--PX); top: calc(var(--H) + 3vh); width: min(25vw, 470px); padding: 2.2vh 0 1.4vh; }
-        #lobby .gx-random { margin: 1.4vh 1.9vw 0; font: 500 clamp(12px, 1.6vh, 16px)/1.3 var(--gx-font, sans-serif); color: #a19d97; }
+        #lobby .gx-paint { position: absolute; left: 50%; bottom: calc(var(--F) + 4vh); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 1.2vh; }
+        #lobby .gx-paint-name { margin: 0; font: 500 clamp(16px, 2.6vh, 28px)/1 var(--gx-cond); letter-spacing: 0.04em; text-transform: uppercase; text-shadow: 0 2px 10px #000; }
+        #lobby .gx-paint-bar { display: flex; align-items: center; gap: 1vw; }
+        #lobby .gx-paint-row { display: flex; gap: clamp(8px, 1.1vw, 20px); padding: clamp(10px, 1.8vh, 20px) clamp(12px, 1.3vw, 24px); background: rgba(40,40,42,0.72); }
+        #lobby .gx-sw { all: unset; box-sizing: border-box; cursor: pointer; width: clamp(24px, 2vw, 40px); height: clamp(48px, 7.4vh, 80px); border-radius: 4px; border: 2px solid rgba(255,255,255,0.18);
+            background: linear-gradient(180deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.08) 22%, rgba(255,255,255,0) 46%, rgba(0,0,0,0.35) 52%, rgba(0,0,0,0.05) 100%), var(--c); transition: transform 0.12s, border-color 0.12s; }
+        #lobby .gx-sw:hover { border-color: rgba(255,255,255,0.6); }
+        #lobby .gx-sw.sel { border-color: #fff; transform: scale(1.08); box-shadow: 0 0 14px rgba(255,255,255,0.35); }
+        #lobby .gx-sw:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+        #lobby .gx-pa { all: unset; cursor: pointer; width: 0; height: 0; border: 9px solid transparent; }
+        #lobby .gx-pa.l { border-right: 12px solid #e8e8e8; border-left-width: 0; }
+        #lobby .gx-pa.r { border-left: 12px solid #e8e8e8; border-right-width: 0; }
         #lobby .gx-set h3, #lobby .gx-keys h3 { margin: 0 1.9vw 1.2vh; padding-bottom: 1.2vh; font: 500 clamp(18px, 2.8vh, 29.5px)/1 var(--gx-cond); border-bottom: 1px solid var(--gx-line-soft); }
         #lobby .gx-row { display: flex; justify-content: space-between; align-items: center; gap: 1vw; padding: 0.9vh 1.9vw; border: 1.5px solid transparent; cursor: pointer; font: 500 clamp(13.9px, 2.1vh, 22.1px)/1 var(--gx-cond); }
         #lobby .gx-row.sel { border-color: rgba(225,232,255,0.8); background: linear-gradient(90deg, var(--gx-sel), rgba(132,152,205,0.12)); }
@@ -326,7 +337,7 @@
         #lobby .gx-keys ul { list-style: none; margin: 0; padding: 0 1.9vw; display: grid; gap: 0.8vh; }
         #lobby .gx-keys li { display: flex; justify-content: space-between; align-items: center; font: 500 clamp(12.3px, 1.8vh, 18px)/1.2 var(--gx-cond); }
         #lobby .gx-keys kbd { padding: 2px 8px; border-radius: 4px; background: #e9e9e9; color: #111; font: 700 12px/1.4 'Barlow', sans-serif; }
-        #lobby .controls-info { margin: 1.4vh 1.9vw 0; padding-top: 1.2vh; border-top: 1px solid var(--gx-line-soft); }
+        #lobby .controls-info { margin: 0 1.3vw 1.2vh; padding-top: 1.2vh; border-top: 1px solid var(--gx-line-soft); }
         #lobby .reset-btn { all: unset; cursor: pointer; font: 500 13px/1.4 'Barlow', sans-serif; color: var(--gx-mute); text-decoration: underline; text-underline-offset: 3px; }
         #lobby .reset-btn:hover { color: #fff; }
         #lobby .gx-item:focus-visible, #lobby .gx-tile:focus-visible, #lobby .gx-hint:focus-visible, #lobby .gx-act:focus-visible, #lobby .reset-btn:focus-visible, #lobby .gx-pager button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
@@ -417,6 +428,7 @@
                     <h2>Objectifs en cours<small id="sl-name"></small></h2>
                     <ul class="gx-obj" id="sl-missions"></ul>
                     <p class="gx-note" id="sl-note"></p>
+                    <div class="controls-info"></div>
                 </aside>
             </section>
             <section class="gx-screen gx-lists" data-screen="lists" hidden>
@@ -433,20 +445,14 @@
                 <div class="gx-stats gx-panel" id="perf-stats"></div>
                 <div class="gx-tiles focus" id="perf-tiles"></div>
             </section>
-            <section class="gx-screen" data-screen="settings" hidden>
-                <div class="gx-set gx-panel" id="set-panel"></div>
-                <div class="gx-keys gx-panel">
-                    <h3>Commandes en course</h3>
-                    <ul>
-                        <li>Accélérer <kbd>Z</kbd></li>
-                        <li>Freiner <kbd>S</kbd></li>
-                        <li>Diriger <span><kbd>Q</kbd> <kbd>D</kbd></span></li>
-                        <li>Nitro <kbd>Espace</kbd></li>
-                        <li>Caméra <kbd>C</kbd></li>
-                        <li>Pause <kbd>P</kbd></li>
-                        <li>Son <kbd>M</kbd></li>
-                    </ul>
-                    <div class="controls-info"></div>
+            <section class="gx-screen" data-screen="paint" hidden>
+                <div class="gx-paint">
+                    <p class="gx-paint-name" id="paint-name"></p>
+                    <div class="gx-paint-bar">
+                        <button type="button" class="gx-pa l" data-step="-1" aria-label="Couleur précédente"></button>
+                        <div class="gx-paint-row gx-panel" id="paint-row" role="listbox" aria-label="Couleurs"></div>
+                        <button type="button" class="gx-pa r" data-step="1" aria-label="Couleur suivante"></button>
+                    </div>
                 </div>
             </section>
             <div class="gx-info" id="gx-info" hidden></div>
@@ -1047,7 +1053,7 @@
         const pick = (a) => a[Math.floor(Math.random() * a.length)];
         const hex6 = (c) => '#' + c.toString(16).padStart(6, '0');
 
-        const CAR_COLORS = [{n:'Rouge signal',c:0xe3262e},{n:'Bleu golfe',c:0x2f6bff},{n:'Or des dunes',c:0xe8b33c},{n:'Vert jade',c:0x13a37a},{n:'Violet nuit',c:0x6c3cf0},{n:'Blanc perle',c:0xeeeee8}];
+        const CAR_COLORS = [{n:'Gris titane',c:0x6f747c},{n:'Noir carbone',c:0x18191c},{n:'Orange solaire',c:0xf0661c},{n:'Bleu golfe',c:0x2f6bff},{n:'Argent lunaire',c:0xb9c0c9},{n:'Rouge signal',c:0xe3262e},{n:'Or des dunes',c:0xe8b33c},{n:'Vert jade',c:0x13a37a},{n:'Violet nuit',c:0x6c3cf0},{n:'Blanc perle',c:0xeeeee8}];
         const RED = 0xe3262e, BLUE = 0x2f6bff;
         const MAP_CHOICES = [['random', 'Aléatoire'], ['dubai', 'Dubaï'], ['alpes', 'Alpes'], ['tokyo', 'Tokyo de nuit'], ['arctique', 'Arctique']];
         const MAP_DESC = { random: 'Tiré au sort à chaque course', dubai: 'Désert et gratte-ciel au coucher du soleil', alpes: 'Forêts de sapins et sommets enneigés', tokyo: 'Ville de nuit, néons et lampadaires', arctique: 'Neige et glace à perte de vue' };
@@ -1058,7 +1064,6 @@
         try {
             const sm = localStorage.getItem('nfsDubaiMap'), sw = localStorage.getItem('nfsDubaiWx'), sl = localStorage.getItem('nfsDubaiLevel');
             const sc = parseInt(localStorage.getItem('nfsDubaiColor'), 10);
-            if(LEVELS.some(c => c[0] === sl)) currentDifficulty = sl;
             if(CAR_COLORS.some(o => o.c === sc)) carColor = sc;
         } catch (e) {}
         function setCarColor(car, hex) { car.bodyMat.color.setHex(hex); car.bodyMat.emissive.setHex(hex); }
@@ -1096,6 +1101,7 @@
             list: '<path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/>',
             car: '<path d="M3 16v-3l2-5h14l2 5v3M3 16h18M3 16v2h3v-2m12 0v2h3v-2M7 12.5h.01M17 12.5h.01"/>',
             wrench: '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/>',
+            brush: '<path d="M14 4l6 6-8 8-6-6zM6 12l-2 6 6-2M15 7l2 2"/>',
             sliders: '<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M14 4v4M8 10v4M16 16v4"/>',
             moteur: '<path d="M22 4h20v13H22zM22 8h20M22 12h20M32 17v9"/><circle cx="32" cy="30" r="5"/><path d="M14 30h13M37 30h13"/>',
             turbo: '<circle cx="32" cy="20" r="15"/><circle cx="32" cy="20" r="4"/><path d="M32 5c5 4 5 9 0 11M47 20c-4 5-9 5-11 0M32 35c-5-4-5-9 0-11M17 20c4-5 9-5 11 0"/>',
@@ -1131,17 +1137,17 @@
         const fr1 = (x) => x.toFixed(1).replace('.', ',');
 
         // ====== Interface du garage ======
-        const SCREENS = ['home', 'lists', 'cars', 'perf', 'settings'];
-        const TITLES = { home: 'Garage', lists: 'Choisir une Speedliste', cars: 'Garage / Changer de voiture', perf: 'Garage / Améliorer performance', settings: 'Garage / Réglages de course' };
-        const SHIFT = { home: -0.02, lists: 0, cars: 0.08, perf: 0.08, settings: 0.04 };
+        const SCREENS = ['home', 'lists', 'cars', 'perf', 'paint'];
+        const TITLES = { home: 'Garage', lists: 'Choisir une Speedliste', cars: 'Garage / Changer de voiture', perf: 'Garage / Améliorer performance', paint: 'Personnaliser la voiture / Peinture' };
+        const SHIFT = { home: -0.02, lists: 0, cars: 0.08, perf: 0.08, paint: 0 };
         const MENU = [
             { label: 'Démarrer la course', icon: 'flag', go: 'start' },
             { label: 'Changer de Speedliste', icon: 'list', go: 'lists' },
             { label: 'Changer de voiture', icon: 'car', go: 'cars' },
             { label: 'Améliorer performance', icon: 'wrench', go: 'perf' },
-            { label: 'Réglages de course', icon: 'sliders', go: 'settings' }
+            { label: 'Personnaliser la voiture', icon: 'brush', go: 'paint' }
         ];
-        let screen = 'home', menuSel = 0, listSel = 0, carSel = 0, upSel = 0, setRow = 0, buyMsg = '';
+        let screen = 'home', menuSel = 0, listSel = 0, carSel = 0, upSel = 0, paintSel = 0, buyMsg = '';
         const $ = (id) => document.getElementById(id);
 
         function renderSP() { $('lobby-sp').textContent = fmtSP(sp); $('gx-heat').textContent = heat(); if(screen === 'perf') renderPerf(); }
@@ -1198,23 +1204,11 @@
                 + '<span class="gx-pips">' + [0, 1, 2].map(k => '<i class="' + (k < upLv[u.id] ? 'on' : '') + '"></i>').join('') + '</span></button>').join('');
             renderInfo();
         }
-        const SET_ROWS = ['Adversaire', 'Peinture'];
-        function setValue(r) {
-            if(r === 0) return LEVELS.find(c => c[0] === currentDifficulty)[1];
-            const c = CAR_COLORS.find(o => o.c === carColor);
-            return '<i class="gx-swatch" style="background:' + hex6(carColor) + '"></i>' + c.n;
+        function renderPaint() {
+            $('paint-row').innerHTML = CAR_COLORS.map((o, i) => '<button type="button" class="gx-sw' + (i === paintSel ? ' sel' : '') + (o.c === carColor ? ' cur' : '') + '" data-i="' + i + '" role="option" aria-selected="' + (i === paintSel) + '" aria-label="' + o.n + '" style="--c:' + hex6(o.c) + '"></button>').join('');
+            $('paint-name').textContent = CAR_COLORS[paintSel].n;
         }
-        function renderSettings() {
-            $('set-panel').innerHTML = '<h3>Réglages de course</h3>' + SET_ROWS.map((label, r) => '<div class="gx-row' + (r === setRow ? ' sel' : '') + '" data-row="' + r + '"><span>' + label + '</span><span class="gx-chooser"><button type="button" class="l" data-row="' + r + '" data-step="-1" aria-label="Précédent"></button><b>' + setValue(r) + '</b><button type="button" class="r" data-row="' + r + '" data-step="1" aria-label="Suivant"></button></span></div>').join('');
-            $('set-panel').insertAdjacentHTML('beforeend', '<p class="gx-random">Circuit et météo sont tirés au sort à chaque course</p>');
-            renderInfo();
-        }
-        function cycle(list, cur, step) { const i = list.findIndex(c => c[0] === cur); return list[(i + step + list.length) % list.length][0]; }
-        function changeSetting(r, step) {
-            if(r === 0) { currentDifficulty = cycle(LEVELS, currentDifficulty, step); store('nfsDubaiLevel', currentDifficulty); }
-            if(r === 1) { const i = CAR_COLORS.findIndex(o => o.c === carColor); applyColor(CAR_COLORS[(i + step + CAR_COLORS.length) % CAR_COLORS.length].c); }
-            renderSettings();
-        }
+        function pickPaint(i) { paintSel = (i + CAR_COLORS.length) % CAR_COLORS.length; applyColor(CAR_COLORS[paintSel].c); renderPaint(); }
         function renderInfo() {
             const box = $('gx-info');
             let h = '';
@@ -1229,9 +1223,6 @@
                 const l = SPEEDLISTS[listSel], done = doneCount(l) === l.missions.length;
                 h = done ? '<b>Speedliste terminée</b><p>Bonus de ' + fmtSP(LIST_BONUS) + ' SP obtenu</p>' : '<b>Termine la liste pour gagner</b><p style="color:var(--gx-gold)">+' + fmtSP(LIST_BONUS) + ' SP de bonus</p>';
                 if(l.id !== slState.cur) h += '<button type="button" class="gx-act" data-act="choose">Choisir cette Speedliste</button>';
-            } else if(screen === 'settings') {
-                if(setRow === 0) { const pct = { easy: 55, normal: 70, hard: 82, expert: 92 }[currentDifficulty]; h = '<b>Adversaire<span>' + setValue(0) + '</span></b><p class="gx-desc">IA à ' + pct + ' % de ta vitesse de pointe d\'origine</p>'; }
-                if(setRow === 1) h = '<b>Peinture<span>' + CAR_COLORS.find(o => o.c === carColor).n + '</span></b><p class="gx-desc">Choisis la couleur de ta Saqr X1</p>';
             }
             box.innerHTML = h;
             box.hidden = !h;
@@ -1245,12 +1236,13 @@
             if(next === 'start') { window.startGame(); return; }
             screen = next; buyMsg = '';
             if(next === 'lists') listSel = SPEEDLISTS.findIndex(l => l.id === slState.cur);
+            if(next === 'paint') paintSel = Math.max(0, CAR_COLORS.findIndex(o => o.c === carColor));
             document.querySelectorAll('#lobby .gx-screen').forEach(sec => { sec.hidden = sec.dataset.screen !== next; });
             $('gx-title').textContent = TITLES[next];
             $('gx-pager').innerHTML = '<span class="gx-cap">A</span>' + SCREENS.map((sc, i) => '<button type="button" class="' + (sc === next ? 'on' : '') + '" data-i="' + i + '" aria-label="' + TITLES[sc] + '"></button>').join('') + '<span class="gx-cap">E</span>';
             camShiftTarget = SHIFT[next];
-            ({ home: () => { renderMenu(); renderSpeedlist(); }, lists: renderLists, cars: renderCars, perf: renderPerf, settings: renderSettings })[next]();
-            if(next === 'home') renderInfo();
+            ({ home: () => { renderMenu(); renderSpeedlist(); }, lists: renderLists, cars: renderCars, perf: renderPerf, paint: renderPaint })[next]();
+            if(next === 'home' || next === 'paint') renderInfo();
             renderFooter();
         }
         function buy() {
@@ -1273,7 +1265,7 @@
             else if(screen === 'lists') chooseList();
             else if(screen === 'cars') { if(carSel === 0) go('home'); }
             else if(screen === 'perf') buy();
-            else if(screen === 'settings') changeSetting(setRow, 1);
+            else if(screen === 'paint') go('home');
         }
         // Clavier du garage : flèches ou ZQSD, Entrée, Échap, A / E pour changer de page
         function garageKey(kn) {
@@ -1287,8 +1279,7 @@
             if(screen === 'lists' && step) { listSel = (listSel + step + SPEEDLISTS.length) % SPEEDLISTS.length; renderLists(); return true; }
             if(screen === 'cars' && step) { carSel = (carSel + step + 5) % 5; renderCars(); return true; }
             if(screen === 'perf' && step) { upSel = (upSel + step + UPGRADES.length) % UPGRADES.length; buyMsg = ''; renderPerf(); return true; }
-            if(screen === 'settings' && (up || down)) { setRow = (setRow + (down ? 1 : -1) + SET_ROWS.length) % SET_ROWS.length; renderSettings(); return true; }
-            if(screen === 'settings' && step) { changeSetting(setRow, step); return true; }
+            if(screen === 'paint' && step) { pickPaint(paintSel + step); return true; }
             return false;
         }
         // Souris : survol et clic
@@ -1299,11 +1290,8 @@
         document.querySelectorAll('#lobby .gx-arrow').forEach(b => { b.onclick = () => garageKey(+b.dataset.step < 0 ? 'ArrowLeft' : 'ArrowRight'); });
         $('car-tiles').onclick = (e) => { const t = closest(e, '[data-i]'); if(t) { carSel = +t.dataset.i; renderCars(); } };
         $('perf-tiles').onclick = (e) => { const t = closest(e, '[data-i]'); if(!t) return; const i = +t.dataset.i; if(i === upSel) buy(); else { upSel = i; buyMsg = ''; renderPerf(); } };
-        $('set-panel').onclick = (e) => {
-            const b = closest(e, '[data-step]'), row = closest(e, '[data-row]');
-            if(row) setRow = +row.dataset.row;
-            if(b) changeSetting(+b.dataset.row, +b.dataset.step); else renderSettings();
-        };
+        $('paint-row').onclick = (e) => { const b = closest(e, '[data-i]'); if(b) pickPaint(+b.dataset.i); };
+        document.querySelectorAll('#lobby .gx-pa').forEach(b => { b.onclick = () => pickPaint(paintSel + +b.dataset.step); });
         $('gx-info').onclick = (e) => { const b = closest(e, '[data-act]'); if(!b) return; if(b.dataset.act === 'buy') buy(); if(b.dataset.act === 'choose') chooseList(); };
         $('gx-pager').onclick = (e) => { const b = closest(e, '[data-i]'); if(b) go(SCREENS[+b.dataset.i]); };
         document.querySelector('#lobby .gx-bot').onclick = (e) => {
@@ -1877,7 +1865,6 @@
         window.addEventListener('keydown', (e) => {
             const kn = keyName(e);
             if(!keys[kn]) {
-                if((kn === 'p' || kn === 'Escape') && gameActive && !gameOver) paused = !paused;
                 if(kn === 'm') muted = !muted;
                 if(kn === 'c') camMode = 1 - camMode;
             }
@@ -1886,7 +1873,7 @@
             if([' ', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) e.preventDefault();
         });
         window.addEventListener('keyup', (e) => { keys[keyName(e)] = false; });
-        window.addEventListener('blur', () => { for(const k in keys) keys[k] = false; if(gameActive && !gameOver) paused = true; });
+        window.addEventListener('blur', () => { for(const k in keys) keys[k] = false; });
         
         window.startGame = () => {
             document.getElementById('lobby').style.display = 'none';
@@ -1898,6 +1885,8 @@
             startAudio();
             // On laisse le navigateur afficher le message avant de construire le circuit choisi
             setTimeout(() => {
+                currentDifficulty = pick(['hard', 'expert']); // adversaire tiré au sort parmi les 2 niveaux les plus durs
+                document.getElementById('ai-level').textContent = 'Niveau: ' + difficultySettings[currentDifficulty].name;
                 setupWorld(pick(['dubai', 'alpes', 'tokyo', 'arctique']), pick(['clair', 'clair', 'brouillard', 'pluie', 'orage']));
                 clock.getDelta();
                 countdown = 3;
@@ -2010,12 +1999,6 @@
             time += dt;
             
             const cd = document.getElementById('countdown');
-            if(paused && gameActive && !gameOver) {
-                cd.style.display = 'block'; cd.style.fontSize = '6em'; cd.textContent = 'PAUSE';
-                updateAudio();
-                renderer.render(scene, camera);
-                return;
-            }
             
             if(!gameActive) return; // le lobby couvre l'écran : inutile de dessiner la piste
             if(gameOver) {

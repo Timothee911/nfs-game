@@ -15,7 +15,6 @@ Ouvre `index.html` dans un navigateur récent (Chrome, Edge, Firefox). Une conne
 | `Q` / `D` ou `←` / `→` | Gauche / droite |
 | `Espace` | Nitro (la jauge bleue se recharge) |
 | `C` | Changer de caméra (poursuite / capot) |
-| `P` ou `Échap` | Pause |
 | `M` | Couper / remettre le son |
 
 Dans le garage : flèches `↑` `↓` pour naviguer, `Entrée` pour valider, `Échap` pour revenir.
@@ -25,12 +24,12 @@ Dans le garage : flèches `↑` `↓` pour naviguer, `Entrée` pour valider, `É
 - **Virages** : la voiture est poussée vers l'extérieur proportionnellement au carré de la vitesse. Freine avant les virages, un mur te fait perdre beaucoup de vitesse. Le trait blanc de la jauge de vitesse indique le seuil au-delà duquel tu ne tiens plus un virage.
 - **Cartes** : Dubaï (désert et gratte-ciel), Alpes (sapins et montagnes), Tokyo de nuit (néons, lampadaires et pleine lune), Arctique (neige).
 - **Météo** : dégagé, brouillard, pluie, orage (éclairs et tonnerre). La pluie et l'orage réduisent l'adhérence. La carte et la météo sont tirées au sort à chaque course.
-- **IA** : 4 niveaux (Facile, Normal, Difficile, Impossible). L'IA freine avant les virages et peut en rater un selon son niveau.
-- **Garage** : menu style NFS Rivals avec la voiture **SAQR X1** en 3D, 6 couleurs au choix et niveau de l'adversaire dans les réglages.
+- **IA** : à chaque course, l'adversaire est tiré au sort entre Difficile et Impossible. Il freine avant les virages et peut en rater un.
+- **Garage** : menu style NFS Rivals avec la voiture **SAQR X1** en 3D, et l'écran **Personnaliser la voiture** pour changer la peinture (10 couleurs).
 - **Speedlistes** : séries de missions (route, virages, légende) affichées à droite du garage. Chaque mission réussie rapporte des SP, et finir une liste donne un bonus.
 - **Améliorer performance** : dépense tes SP dans le moteur, le turbo, les pneus et le nitro.
 - **Changer de voiture** : d'autres voitures arriveront plus tard.
-- **Sauvegarde** : victoires, meilleur temps, SP, améliorations, Speedliste, couleur et niveau sont mémorisés dans le navigateur (`localStorage`). Le bouton « Réinitialiser mes stats » du lobby remet tout à zéro.
+- **Sauvegarde** : victoires, meilleur temps, SP, améliorations, Speedliste et couleur sont mémorisés dans le navigateur (`localStorage`). Le bouton « Réinitialiser mes stats » du lobby remet tout à zéro.
 
 ## Régler le jeu
 
