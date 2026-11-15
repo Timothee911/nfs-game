@@ -18,14 +18,19 @@ Ouvre `index.html` dans un navigateur récent (Chrome, Edge, Firefox). Une conne
 | `P` ou `Échap` | Pause |
 | `M` | Couper / remettre le son |
 
+Dans le garage : flèches `↑` `↓` pour naviguer, `Entrée` pour valider, `Échap` pour revenir.
+
 ## Le jeu
 
 - **Virages** : la voiture est poussée vers l'extérieur proportionnellement au carré de la vitesse. Freine avant les virages, un mur te fait perdre beaucoup de vitesse. Le trait blanc de la jauge de vitesse indique le seuil au-delà duquel tu ne tiens plus un virage.
 - **Cartes** : Dubaï (désert et gratte-ciel), Alpes (sapins et montagnes), Tokyo de nuit (néons et lampadaires), Arctique (neige).
 - **Météo** : dégagé, brouillard, pluie, orage (éclairs et tonnerre). La pluie et l'orage réduisent l'adhérence. En mode « Aléatoire », la carte et la météo sont tirées au sort à chaque course.
 - **IA** : 4 niveaux (Facile, Normal, Difficile, Impossible). L'IA freine avant les virages et peut en rater un selon son niveau.
-- **Voiture** : 6 couleurs au choix dans le lobby.
-- **Sauvegarde** : victoires, meilleur temps, couleur, carte et météo sont mémorisés dans le navigateur (`localStorage`). Le bouton « Réinitialiser mes stats » du lobby remet tout à zéro.
+- **Garage** : menu style NFS Rivals avec la voiture **SAQR X1** en 3D, 6 couleurs au choix, réglages de carte et de météo.
+- **Speedlistes** : séries de missions (route, virages, légende) affichées à droite du garage. Chaque mission réussie rapporte des SP, et finir une liste donne un bonus.
+- **Améliorer performance** : dépense tes SP dans le moteur, le turbo, les pneus et le nitro.
+- **Changer de voiture** : d'autres voitures arriveront plus tard.
+- **Sauvegarde** : victoires, meilleur temps, SP, améliorations, Speedliste, couleur, carte et météo sont mémorisés dans le navigateur (`localStorage`). Le bouton « Réinitialiser mes stats » du lobby remet tout à zéro.
 
 ## Régler le jeu
 
