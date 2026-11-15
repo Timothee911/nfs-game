@@ -245,7 +245,7 @@
 
         /* Accueil : menu à gauche, objectifs à droite */
         #lobby .gx-menu { position: absolute; left: var(--PX); top: calc(var(--H) + 5vh); width: 31vw; display: flex; flex-direction: column; gap: 0.6vh; }
-        #lobby .gx-item { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 1.2vw; height: clamp(32.8px, 5.2vh, 54.1px); padding: 0 1.1vw; cursor: pointer; color: #cfccc6; border: 1.5px solid transparent; font: 500 clamp(17.2px, 2.8vh, 30.3px)/1 var(--gx-cond) !important; text-transform: uppercase; letter-spacing: 0.01em; white-space: nowrap; }
+        #lobby .gx-item { text-shadow: 0 2px 10px #000, 0 0 3px #000; all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 1.2vw; height: clamp(32.8px, 5.2vh, 54.1px); padding: 0 1.1vw; cursor: pointer; color: #cfccc6; border: 1.5px solid transparent; font: 500 clamp(17.2px, 2.8vh, 30.3px)/1 var(--gx-cond) !important; text-transform: uppercase; letter-spacing: 0.01em; white-space: nowrap; }
         #lobby .gx-item svg { width: clamp(16.4px, 2.5vh, 26.2px); height: clamp(16.4px, 2.5vh, 26.2px); flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
         #lobby .gx-item.sel { color: #fff; border-color: rgba(225,232,255,0.8); background: linear-gradient(90deg, var(--gx-sel), rgba(132,152,205,0.14) 62%, rgba(132,152,205,0)); }
         #lobby .gx-item.go { color: #9fd6e6; }
@@ -578,7 +578,7 @@
         const previewRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         const previewContainer = document.getElementById('car-preview');
         // camShift : décalage de la voiture vers la droite (part de la largeur de l'écran), selon l'écran du garage
-        let pw = 1280, ph = 720, camShift = 0, camShiftTarget = 0;
+        let pw = 1280, ph = 720, camShift = 0, camShiftTarget = 0, camDist = 7.2, camDistTarget = 7.2;
         function applyViewOffset() {
             if(previewCamera.setViewOffset) {
                 if(pw > 900) previewCamera.setViewOffset(pw, ph, -camShift * pw, 0, pw, ph);
@@ -897,8 +897,8 @@
         previewMirror.traverse(o => { if(o.material) { o.material.transparent = true; o.material.opacity = 0.28; o.material.depthWrite = false; o.renderOrder = 5; } });
         previewScene.add(previewCar, previewMirror);
 
-        previewCamera.position.set(0, 1.6, 10.8);
-        previewCamera.lookAt(0, 0.68, 0);
+        previewCamera.position.set(0, 1.35, camDist);
+        previewCamera.lookAt(0, 0.6, 0);
 
         // Légère oscillation autour du trois-quarts avant ; glisser à la souris pour tourner la voiture
         let pPrev = Date.now(), pT = 0, userYaw = 0, dragging = false, lastX = 0;
@@ -916,6 +916,9 @@
             pPrev = now;
             if(!dragging) pT += dt;
             camShift += (camShiftTarget - camShift) * Math.min(1, dt * 5);
+            camDist += (camDistTarget - camDist) * Math.min(1, dt * 5);
+            previewCamera.position.set(0, 1.35, camDist);
+            previewCamera.lookAt(0, 0.6, 0);
             applyViewOffset();
             previewCar.rotation.y = previewMirror.rotation.y = Math.PI - 0.55 + userYaw + Math.sin(pT * 0.3) * 0.3;
             previewRenderer.render(previewScene, previewCamera);
@@ -1152,7 +1155,9 @@
         // ====== Interface du garage ======
         const SCREENS = ['home', 'lists', 'cars', 'perf', 'paint'];
         const TITLES = { home: 'Garage', lists: 'Choisir une Speedliste', cars: 'Garage / Changer de voiture', perf: 'Garage / Améliorer performance', paint: 'Personnaliser la voiture / Peinture' };
-        const SHIFT = { home: -0.02, lists: 0, cars: 0.08, perf: 0.08, paint: 0 };
+        const SHIFT = { home: 0.05, lists: 0, cars: 0.08, perf: 0.08, paint: 0 };
+        // Distance de la caméra : voiture très grosse dans le garage (comme dans NFS Rivals), plus petite quand des cartes occupent le bas
+        const DIST = { home: 7.2, lists: 10.8, cars: 9.4, perf: 9.4, paint: 8.2 };
         const MENU = [
             { label: 'Démarrer la course', icon: 'flag', go: 'start' },
             { label: 'Changer de Speedliste', icon: 'list', go: 'lists' },
@@ -1253,7 +1258,7 @@
             document.querySelectorAll('#lobby .gx-screen').forEach(sec => { sec.hidden = sec.dataset.screen !== next; });
             $('gx-title').textContent = TITLES[next];
             $('gx-pager').innerHTML = '<span class="gx-cap">A</span>' + SCREENS.map((sc, i) => '<button type="button" class="' + (sc === next ? 'on' : '') + '" data-i="' + i + '" aria-label="' + TITLES[sc] + '"></button>').join('') + '<span class="gx-cap">E</span>';
-            camShiftTarget = SHIFT[next];
+            camShiftTarget = SHIFT[next]; camDistTarget = DIST[next];
             ({ home: () => { renderMenu(); renderSpeedlist(); }, lists: renderLists, cars: renderCars, perf: renderPerf, paint: renderPaint })[next]();
             if(next === 'home' || next === 'paint') renderInfo();
             renderFooter();
