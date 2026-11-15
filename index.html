@@ -312,6 +312,7 @@
 
         /* Réglages : sélecteurs + commandes */
         #lobby .gx-set { position: absolute; left: var(--PX); top: calc(var(--H) + 3vh); width: min(25vw, 470px); padding: 2.2vh 0 1.4vh; }
+        #lobby .gx-random { margin: 1.4vh 1.9vw 0; font: 500 clamp(12px, 1.6vh, 16px)/1.3 var(--gx-font, sans-serif); color: #a19d97; }
         #lobby .gx-set h3, #lobby .gx-keys h3 { margin: 0 1.9vw 1.2vh; padding-bottom: 1.2vh; font: 500 clamp(18px, 2.8vh, 29.5px)/1 var(--gx-cond); border-bottom: 1px solid var(--gx-line-soft); }
         #lobby .gx-row { display: flex; justify-content: space-between; align-items: center; gap: 1vw; padding: 0.9vh 1.9vw; border: 1.5px solid transparent; cursor: pointer; font: 500 clamp(13.9px, 2.1vh, 22.1px)/1 var(--gx-cond); }
         #lobby .gx-row.sel { border-color: rgba(225,232,255,0.8); background: linear-gradient(90deg, var(--gx-sel), rgba(132,152,205,0.12)); }
@@ -447,7 +448,6 @@
                     </ul>
                     <div class="controls-info"></div>
                 </div>
-                <div class="gx-tiles" id="set-tiles"></div>
             </section>
             <div class="gx-info" id="gx-info" hidden></div>
 
@@ -940,9 +940,28 @@
                 }`
         });
         const sky = new THREE.Mesh(new THREE.SphereGeometry(3000, 32, 16), skyMat);
+        // Lune (cartes de nuit) : placée devant et au-dessus de la piste, dans l'axe de la lumière lunaire
+        const moonCanvas = document.createElement('canvas'); moonCanvas.width = moonCanvas.height = 256;
+        (function (g) {
+            const c = 128, R = 44;
+            const halo = g.createRadialGradient(c, c, R * 0.9, c, c, 128);
+            halo.addColorStop(0, 'rgba(200,215,255,0.38)'); halo.addColorStop(0.35, 'rgba(170,190,255,0.12)'); halo.addColorStop(1, 'rgba(150,170,255,0)');
+            g.fillStyle = halo; g.fillRect(0, 0, 256, 256);
+            const disc = g.createRadialGradient(c - 12, c - 12, 4, c, c, R);
+            disc.addColorStop(0, '#fbfaf2'); disc.addColorStop(0.8, '#e6e4d8'); disc.addColorStop(1, '#cfcdc2');
+            g.fillStyle = disc; g.beginPath(); g.arc(c, c, R, 0, 7); g.fill();
+            g.fillStyle = 'rgba(150,150,140,0.28)';
+            [[-14, -10, 11], [10, -16, 7], [6, 8, 13], [-16, 16, 6], [20, 12, 5]].forEach(([x, y, r]) => { g.beginPath(); g.arc(c + x, c + y, r, 0, 7); g.fill(); });
+        })(moonCanvas.getContext('2d'));
+        const moonTex = new THREE.CanvasTexture(moonCanvas);
+        const moon = new THREE.Sprite(new THREE.SpriteMaterial({ map: moonTex, transparent: true, depthWrite: false, fog: false }));
+        moon.scale.set(560, 560, 1);
+        moon.visible = false;
+        const MOON_OFFSET = new THREE.Vector3();
         sky.renderOrder = -1;
         sky.frustumCulled = false;
         scene.add(sky);
+        scene.add(moon);
         
         // Reflets réalistes : le ciel sert d'environnement aux carrosseries et aux vitres des tours
         function buildEnv(rend) {
@@ -1039,8 +1058,6 @@
         try {
             const sm = localStorage.getItem('nfsDubaiMap'), sw = localStorage.getItem('nfsDubaiWx'), sl = localStorage.getItem('nfsDubaiLevel');
             const sc = parseInt(localStorage.getItem('nfsDubaiColor'), 10);
-            if(MAP_CHOICES.some(c => c[0] === sm)) selMap = sm;
-            if(WX_CHOICES.some(c => c[0] === sw)) selWx = sw;
             if(LEVELS.some(c => c[0] === sl)) currentDifficulty = sl;
             if(CAR_COLORS.some(o => o.c === sc)) carColor = sc;
         } catch (e) {}
@@ -1181,25 +1198,21 @@
                 + '<span class="gx-pips">' + [0, 1, 2].map(k => '<i class="' + (k < upLv[u.id] ? 'on' : '') + '"></i>').join('') + '</span></button>').join('');
             renderInfo();
         }
-        const SET_ROWS = ['Météo', 'Adversaire', 'Peinture'];
+        const SET_ROWS = ['Adversaire', 'Peinture'];
         function setValue(r) {
-            if(r === 0) return WX_CHOICES.find(c => c[0] === selWx)[1];
-            if(r === 1) return LEVELS.find(c => c[0] === currentDifficulty)[1];
+            if(r === 0) return LEVELS.find(c => c[0] === currentDifficulty)[1];
             const c = CAR_COLORS.find(o => o.c === carColor);
             return '<i class="gx-swatch" style="background:' + hex6(carColor) + '"></i>' + c.n;
         }
         function renderSettings() {
             $('set-panel').innerHTML = '<h3>Réglages de course</h3>' + SET_ROWS.map((label, r) => '<div class="gx-row' + (r === setRow ? ' sel' : '') + '" data-row="' + r + '"><span>' + label + '</span><span class="gx-chooser"><button type="button" class="l" data-row="' + r + '" data-step="-1" aria-label="Précédent"></button><b>' + setValue(r) + '</b><button type="button" class="r" data-row="' + r + '" data-step="1" aria-label="Suivant"></button></span></div>').join('');
-            $('set-tiles').classList.toggle('focus', setRow === 3);
-            $('set-tiles').innerHTML = MAP_CHOICES.map(([k, label], i) => '<button type="button" class="gx-tile gx-map' + (k === selMap ? ' cur' : '') + (setRow === 3 && k === selMap ? ' sel' : '') + '" data-k="' + k + '" data-i="' + i + '"><span class="gx-tag">' + label + '</span></button>').join('');
+            $('set-panel').insertAdjacentHTML('beforeend', '<p class="gx-random">Circuit et météo sont tirés au sort à chaque course</p>');
             renderInfo();
         }
         function cycle(list, cur, step) { const i = list.findIndex(c => c[0] === cur); return list[(i + step + list.length) % list.length][0]; }
         function changeSetting(r, step) {
-            if(r === 0) { selWx = cycle(WX_CHOICES, selWx, step); store('nfsDubaiWx', selWx); }
-            if(r === 1) { currentDifficulty = cycle(LEVELS, currentDifficulty, step); store('nfsDubaiLevel', currentDifficulty); }
-            if(r === 2) { const i = CAR_COLORS.findIndex(o => o.c === carColor); applyColor(CAR_COLORS[(i + step + CAR_COLORS.length) % CAR_COLORS.length].c); }
-            if(r === 3) { selMap = cycle(MAP_CHOICES, selMap, step); store('nfsDubaiMap', selMap); }
+            if(r === 0) { currentDifficulty = cycle(LEVELS, currentDifficulty, step); store('nfsDubaiLevel', currentDifficulty); }
+            if(r === 1) { const i = CAR_COLORS.findIndex(o => o.c === carColor); applyColor(CAR_COLORS[(i + step + CAR_COLORS.length) % CAR_COLORS.length].c); }
             renderSettings();
         }
         function renderInfo() {
@@ -1217,10 +1230,8 @@
                 h = done ? '<b>Speedliste terminée</b><p>Bonus de ' + fmtSP(LIST_BONUS) + ' SP obtenu</p>' : '<b>Termine la liste pour gagner</b><p style="color:var(--gx-gold)">+' + fmtSP(LIST_BONUS) + ' SP de bonus</p>';
                 if(l.id !== slState.cur) h += '<button type="button" class="gx-act" data-act="choose">Choisir cette Speedliste</button>';
             } else if(screen === 'settings') {
-                if(setRow === 0) h = '<b>Météo<span>' + setValue(0) + '</span></b><p class="gx-desc">' + WX_DESC[selWx] + '</p>';
-                if(setRow === 1) { const pct = { easy: 55, normal: 70, hard: 82, expert: 92 }[currentDifficulty]; h = '<b>Adversaire<span>' + setValue(1) + '</span></b><p class="gx-desc">IA à ' + pct + ' % de ta vitesse de pointe d\'origine</p>'; }
-                if(setRow === 2) h = '<b>Peinture<span>' + CAR_COLORS.find(o => o.c === carColor).n + '</span></b><p class="gx-desc">Choisis la couleur de ta Saqr X1</p>';
-                if(setRow === 3) h = '<b>Circuit<span>' + MAP_CHOICES.find(c => c[0] === selMap)[1] + '</span></b><p class="gx-desc">' + MAP_DESC[selMap] + '</p>';
+                if(setRow === 0) { const pct = { easy: 55, normal: 70, hard: 82, expert: 92 }[currentDifficulty]; h = '<b>Adversaire<span>' + setValue(0) + '</span></b><p class="gx-desc">IA à ' + pct + ' % de ta vitesse de pointe d\'origine</p>'; }
+                if(setRow === 1) h = '<b>Peinture<span>' + CAR_COLORS.find(o => o.c === carColor).n + '</span></b><p class="gx-desc">Choisis la couleur de ta Saqr X1</p>';
             }
             box.innerHTML = h;
             box.hidden = !h;
@@ -1276,7 +1287,7 @@
             if(screen === 'lists' && step) { listSel = (listSel + step + SPEEDLISTS.length) % SPEEDLISTS.length; renderLists(); return true; }
             if(screen === 'cars' && step) { carSel = (carSel + step + 5) % 5; renderCars(); return true; }
             if(screen === 'perf' && step) { upSel = (upSel + step + UPGRADES.length) % UPGRADES.length; buyMsg = ''; renderPerf(); return true; }
-            if(screen === 'settings' && (up || down)) { setRow = (setRow + (down ? 1 : -1) + 4) % 4; renderSettings(); return true; }
+            if(screen === 'settings' && (up || down)) { setRow = (setRow + (down ? 1 : -1) + SET_ROWS.length) % SET_ROWS.length; renderSettings(); return true; }
             if(screen === 'settings' && step) { changeSetting(setRow, step); return true; }
             return false;
         }
@@ -1293,7 +1304,6 @@
             if(row) setRow = +row.dataset.row;
             if(b) changeSetting(+b.dataset.row, +b.dataset.step); else renderSettings();
         };
-        $('set-tiles').onclick = (e) => { const t = closest(e, '[data-k]'); if(t) { setRow = 3; selMap = t.dataset.k; store('nfsDubaiMap', selMap); renderSettings(); } };
         $('gx-info').onclick = (e) => { const b = closest(e, '[data-act]'); if(!b) return; if(b.dataset.act === 'buy') buy(); if(b.dataset.act === 'choose') chooseList(); };
         $('gx-pager').onclick = (e) => { const b = closest(e, '[data-i]'); if(b) go(SCREENS[+b.dataset.i]); };
         document.querySelector('#lobby .gx-bot').onclick = (e) => {
@@ -1568,7 +1578,7 @@
         const bulbMat = new THREE.MeshStandardMaterial({ color: 0xfff0c0, emissive: 0xfff0c0, emissiveIntensity: 2 });
         const glowMat = new THREE.MeshBasicMaterial({ map: makeTex(128, 128, (g, w, h) => {
             const r = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2);
-            r.addColorStop(0, 'rgba(255,230,170,0.55)'); r.addColorStop(1, 'rgba(255,230,170,0)');
+            r.addColorStop(0, 'rgba(255,230,170,0.7)'); r.addColorStop(1, 'rgba(255,230,170,0)');
             g.fillStyle = r; g.fillRect(0, 0, w, h);
         }), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -5, polygonOffsetUnits: -5 });
         const glowGeo = new THREE.PlaneGeometry(18, 18);
@@ -1682,15 +1692,15 @@
         const MAPS = {
             dubai: { name: 'Dubaï', icon: '🏜️', deco: 'dubai', sky: { h: [0.90, 0.80, 0.66], m: [0.50, 0.68, 0.90], z: [0.16, 0.38, 0.72] }, sun: { dir: [150, 120, -240], color: 0xffe2b8, int: 2.6 }, hemi: [0xa8ccff, 0x9a8460, 1.0], fog: 0.0008, ground: ['#d3bb8a', 'rgba(150,120,70,0.10)'] },
             alpes: { name: 'Alpes', icon: '🏔️', deco: 'alpes', sky: { h: [0.78, 0.86, 0.95], m: [0.45, 0.70, 0.95], z: [0.14, 0.40, 0.80] }, sun: { dir: [-120, 200, -200], color: 0xfff4e0, int: 2.4 }, hemi: [0xb8d8ff, 0x5a7a40, 1.0], fog: 0.0007, ground: ['#58903f', 'rgba(30,70,20,0.18)'] },
-            tokyo: { name: 'Tokyo (nuit)', icon: '🌃', deco: 'tokyo', night: true, sky: { h: [0.16, 0.12, 0.28], m: [0.06, 0.07, 0.18], z: [0.02, 0.03, 0.09] }, sun: { dir: [-200, 160, -250], color: 0x8fa8ff, int: 0.9 }, hemi: [0x34406e, 0x15151f, 0.55], fog: 0.0011, ground: ['#1b1b20', 'rgba(60,60,70,0.15)'] },
+            tokyo: { name: 'Tokyo (nuit)', icon: '🌃', deco: 'tokyo', night: true, sky: { h: [0.22, 0.19, 0.36], m: [0.10, 0.12, 0.27], z: [0.04, 0.06, 0.15] }, sun: { dir: [-90, 150, -300], color: 0xc4d2ff, int: 1.5 }, hemi: [0x5a6aa0, 0x272733, 1.0], fog: 0.0009, ground: ['#1b1b20', 'rgba(60,60,70,0.15)'] },
             arctique: { name: 'Arctique', icon: '❄️', deco: 'arctique', sky: { h: [0.82, 0.88, 0.94], m: [0.62, 0.76, 0.90], z: [0.34, 0.52, 0.78] }, sun: { dir: [100, 60, -250], color: 0xdfeaff, int: 2.0 }, hemi: [0xcfe3ff, 0xdfe8f0, 1.1], fog: 0.0013, ground: ['#eef3f7', 'rgba(150,180,215,0.22)'] }
         };
         // slip : plus il est grand, plus la voiture est poussée vers l'extérieur des virages (moins d'adhérence)
         const WEATHERS = {
             clair: { name: 'Dégagé', icon: '☀️', fogMul: 1, grey: 0, dark: 1, rain: 0, slip: 1 },
-            brouillard: { name: 'Brouillard', icon: '🌫️', fogMul: 4, grey: 0.75, dark: 0.85, rain: 0, slip: 1.1 },
-            pluie: { name: 'Pluie', icon: '🌧️', fogMul: 2, grey: 0.8, dark: 0.65, rain: 1, slip: 1.3, wet: true },
-            orage: { name: 'Orage', icon: '⛈️', fogMul: 2.4, grey: 0.9, dark: 0.45, rain: 1.6, slip: 1.45, wet: true, lightning: true }
+            brouillard: { name: 'Brouillard', icon: '🌫️', fogMul: 2.8, grey: 0.6, dark: 0.92, rain: 0, slip: 1.1 },
+            pluie: { name: 'Pluie', icon: '🌧️', fogMul: 1.35, grey: 0.55, dark: 0.88, rain: 1, slip: 1.3, wet: true },
+            orage: { name: 'Orage', icon: '⛈️', fogMul: 1.6, grey: 0.65, dark: 0.74, rain: 1.6, slip: 1.45, wet: true, lightning: true }
         };
         let slip = 1, safeSpeed = 1.1, rainLevel = 0, WXlightning = false, hemiBase = 1;
         let lightningTimer = 5, flash = 0, thunder = 0, thunderDelay = 0;
@@ -1702,7 +1712,7 @@
         const rainBase = [];
         for(let i = 0; i < RAIN_N; i++) rainBase.push([(Math.random() - 0.5) * 60, Math.random() * 22 - 8, -Math.random() * 63 + 6]);
         rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
-        const rain = new THREE.LineSegments(rainGeo, new THREE.LineBasicMaterial({ color: 0xaecbe8, transparent: true, opacity: 0.55 }));
+        const rain = new THREE.LineSegments(rainGeo, new THREE.LineBasicMaterial({ color: 0xaecbe8, transparent: true, opacity: 0.32 }));
         rain.frustumCulled = false;
         rain.visible = false;
         scene.add(camera);
@@ -1732,22 +1742,25 @@
         
         const GREYA = [0.58, 0.60, 0.64];
         function applyEnvironment(MAP, WX) {
-            const gr = MAP.night ? 0.12 : 1, g = WX.grey, d = WX.dark;
+            const gr = MAP.night ? 0.2 : 1, g = WX.grey, d = WX.dark;
             const tint = (a) => a.map((c, n) => (c + (GREYA[n] * gr - c) * g) * d);
             skyMat.uniforms.uH.value.set(...tint(MAP.sky.h));
             skyMat.uniforms.uM.value.set(...tint(MAP.sky.m));
             skyMat.uniforms.uZ.value.set(...tint(MAP.sky.z));
-            skyMat.uniforms.uSunI.value = MAP.night ? 0.5 : 1 - g;
+            skyMat.uniforms.uSunI.value = MAP.night ? 0 : 1 - g; // la nuit, c'est la lune qui brille
+            moon.visible = !!MAP.night;
+            moon.material.opacity = 1 - g * 0.7;
             SUN_DIR.set(...MAP.sun.dir).normalize();
             SUN_OFFSET.copy(SUN_DIR).multiplyScalar(300);
+            MOON_OFFSET.copy(SUN_DIR).multiplyScalar(2500);
             const f = tint(MAP.sky.h);
             scene.fog = new THREE.FogExp2(new THREE.Color().setRGB(f[0], f[1], f[2]), MAP.fog * WX.fogMul);
             sunLight.color.setHex(MAP.sun.color);
-            sunLight.intensity = MAP.sun.int * d * (g > 0.5 ? 0.6 : 1);
+            sunLight.intensity = MAP.sun.int * d * (g > 0.5 ? 0.8 : 1);
             hemi.color.setHex(MAP.hemi[0]); hemi.groundColor.setHex(MAP.hemi[1]);
             hemiBase = MAP.hemi[2] * (0.75 + 0.25 * d);
             hemi.intensity = hemiBase;
-            renderer.toneMappingExposure = MAP.night ? 1.0 : 0.85;
+            renderer.toneMappingExposure = MAP.night ? 1.3 : (d < 1 ? 0.95 : 0.85);
             groundTex = makeTex(256, 256, (gx, w, h) => {
                 gx.fillStyle = MAP.ground[0]; gx.fillRect(0, 0, w, h);
                 grain(gx, w, h, 5000, 60);
@@ -1764,7 +1777,7 @@
             rainLevel = WX.rain;
             rain.visible = WX.rain > 0;
             WXlightning = !!WX.lightning;
-            rainGeo.setDrawRange(0, Math.floor(RAIN_N * Math.min(1, WX.rain / 1.6 + 0.3)) * 2);
+            rainGeo.setDrawRange(0, Math.floor(RAIN_N * Math.min(0.75, WX.rain / 2 + 0.2)) * 2);
         }
         function setupWorld(mapKey, wxKey) {
             const MAP = MAPS[mapKey], WX = WEATHERS[wxKey];
@@ -1885,8 +1898,7 @@
             startAudio();
             // On laisse le navigateur afficher le message avant de construire le circuit choisi
             setTimeout(() => {
-                setupWorld(selMap === 'random' ? pick(['dubai', 'alpes', 'tokyo', 'arctique']) : selMap,
-                           selWx === 'random' ? pick(['clair', 'clair', 'brouillard', 'pluie', 'orage']) : selWx);
+                setupWorld(pick(['dubai', 'alpes', 'tokyo', 'arctique']), pick(['clair', 'clair', 'brouillard', 'pluie', 'orage']));
                 clock.getDelta();
                 countdown = 3;
                 raceTime = 0;
@@ -2177,6 +2189,7 @@
             updateRain(dt * 60, k > 0 ? speed * SPEED_SCALE : 0);
             updateLightning(dt, k);
             sky.position.copy(player.position);
+            if(moon.visible) moon.position.copy(player.position).add(MOON_OFFSET);
             ground.position.set(player.position.x, -0.08, player.position.z);
             groundTex.offset.set(player.position.x / GROUND_TILE, -player.position.z / GROUND_TILE);
             sunLight.position.copy(player.position).add(SUN_OFFSET);
