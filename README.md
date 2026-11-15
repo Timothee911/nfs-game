@@ -1,6 +1,6 @@
 # 🏎️ NFS Dubai Ultimate
 
-Jeu de course 3D en un seul fichier HTML (Three.js), en français. Tu affrontes une IA sur un circuit de **12,6 km**, avec des virages à bien négocier. Carte et météo sont tirées au sort à chaque course.
+Jeu de conduite 3D en monde ouvert, en un seul fichier HTML (Three.js), en français. Tu roules librement dans un comté de **9 × 9 km** parcouru par **49 km de routes**, dans une lumière de fin de journée après la pluie. Il n'y a plus de course : tu gagnes des SP en enchaînant les figures.
 
 ## Jouer
 
@@ -11,32 +11,35 @@ Ouvre `index.html` dans un navigateur récent (Chrome, Edge, Firefox). Une conne
 | Touche | Action |
 |---|---|
 | `Z` ou `↑` | Accélérer |
-| `S` ou `↓` | Freiner |
-| `Q` / `D` ou `←` / `→` | Gauche / droite |
-| `Espace` | Nitro (la jauge bleue se recharge) |
+| `S` ou `↓` | Freiner, puis marche arrière |
+| `Q` / `D` ou `←` / `→` | Tourner |
+| `Espace` | Frein à main (drift) |
+| `Maj` ou `N` | Nitro |
+| `M` ou `Tab` | Ouvrir / fermer la carte (met le jeu en pause) |
 | `C` | Changer de caméra (poursuite / capot) |
-| `M` | Couper / remettre le son |
+| `R` | Replacer la voiture sur la route la plus proche |
+| `X` | Couper / remettre le son |
+| `Échap` | Retour au garage |
 
 Dans le garage : flèches `↑` `↓` pour naviguer, `Entrée` pour valider, `Échap` pour revenir.
 
 ## Le jeu
 
-- **Virages** : la voiture est poussée vers l'extérieur proportionnellement au carré de la vitesse. Freine avant les virages, un mur te fait perdre beaucoup de vitesse. Le trait blanc de la jauge de vitesse indique le seuil au-delà duquel tu ne tiens plus un virage.
-- **Cartes** : Dubaï (désert et gratte-ciel), Alpes (sapins et montagnes), Tokyo de nuit (néons, lampadaires et pleine lune), Arctique (neige).
-- **Météo** : dégagé, brouillard, pluie, orage (éclairs et tonnerre). La pluie et l'orage réduisent l'adhérence. La carte et la météo sont tirées au sort à chaque course.
-- **IA** : à chaque course, l'adversaire est tiré au sort entre Difficile et Impossible. Il freine avant les virages et peut en rater un.
-- **Garage** : menu style NFS Rivals avec la voiture **SAQR X1** en 3D, et l'écran **Personnaliser la voiture** pour changer la peinture (10 couleurs).
-- **Speedlistes** : séries de missions (route, virages, légende) affichées à droite du garage. Chaque mission réussie rapporte des SP, et finir une liste donne un bonus.
-- **Améliorer performance** : dépense tes SP dans le moteur, le turbo, les pneus et le nitro.
-- **Changer de voiture** : d'autres voitures arriveront plus tard.
-- **Sauvegarde** : victoires, meilleur temps, SP, améliorations, Speedliste et couleur sont mémorisés dans le navigateur (`localStorage`). Le bouton « Réinitialiser mes stats » du lobby remet tout à zéro.
+- **Carte** : une rocade à quatre voies de 21 km, une boucle intérieure, six radiales et deux traversantes, sur un relief de collines, avec forêts, glissières, lampadaires, lignes électriques et montagnes à l'horizon.
+- **Conduite** : la voiture a une vraie vitesse, une inertie et une adhérence limitée. Le braquage se réduit avec la vitesse, il faut freiner avant les virages serrés, et le frein à main fait décrocher l'arrière. Hors de la route, l'herbe freine et accroche moins. Les glissières, les arbres et le trafic abîment la voiture ; à zéro, elle est replacée sur la route.
+- **Séries de points** : haute vitesse (plus de 250 km/h), drift, frôlement du trafic, contresens et radars alimentent une série. Le multiplicateur monte jusqu'à ×5, puis la série est encaissée en SP après 4 s sans figure. Un accident la fait perdre.
+- **Radars** : 12 radars à flasher, avec ta meilleure vitesse mémorisée.
+- **Planques** : 4 planques (faisceau vert). S'y arrêter sous 60 km/h ramène au garage.
+- **Interface** : mini-carte, compte-tours avec rapport et vitesse, jauge de nitro, état de la voiture, SP, série en cours et objectifs de la Speedliste.
+- **Garage** : menu style NFS Rivals avec la voiture **SAQR X1** en 3D, la peinture (10 couleurs), les Speedlistes (objectifs à remplir en roulant) et les améliorations (moteur, turbo, pneus, nitro) à payer en SP.
+- **Sauvegarde** : SP, améliorations, Speedliste, radars et couleur sont mémorisés dans le navigateur (`localStorage`). Le bouton « Réinitialiser ma progression » du garage remet tout à zéro.
 
 ## Régler le jeu
 
 Dans le script de `index.html` :
 
-- `SPEED_SCALE` : vitesse générale.
-- `TOTAL_SEGMENTS` : longueur du parcours (un segment fait 45 m).
-- `aiSpeed` dans `difficultySettings` : vitesse de l'IA à chaque niveau.
-- `MAPS` et `WEATHERS` : ajouter ou modifier des cartes et des météos.
-- Le facteur `0.6` de `curve * speed * speed * 0.6 * slip` : force de poussée dans les virages.
+- `hAt` : relief du terrain.
+- `ringPts` et `makeRoad` : tracé des routes.
+- `stepPlayer` : physique de la voiture (accélération, adhérence `mu`, braquage, frein à main).
+- `SPEEDLISTS` : objectifs et récompenses.
+- `spawnTraffic` : trafic.
