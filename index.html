@@ -91,9 +91,20 @@
         #h-hint kbd { display: inline-block; min-width: 1.5em; margin: 0 0.15em; padding: 0 0.4em; border-radius: 0.3em; background: #ececec; color: #111; font: 700 0.75em/1.5 'Barlow', sans-serif; text-align: center; text-shadow: none; vertical-align: 0.1em; }
         #h-wreck { position: absolute; left: 0; right: 0; top: 40%; text-align: center; font-size: 6em; font-weight: 700; letter-spacing: 0.06em; color: #ff5a3c; opacity: 0; transition: opacity 0.3s; }
         #h-wreck.on { opacity: 1; }
-        #h-start { position: absolute; left: 0; right: 0; top: 24%; text-align: center; font-size: 1.5em; font-weight: 600; letter-spacing: 0.08em; color: #f4f4f0; text-shadow: 0 2px 8px rgba(0,0,0,0.8); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
-        #h-start.on { opacity: 1; animation: hstart 1.4s ease-in-out infinite; }
-        @keyframes hstart { 50% { opacity: 0.45; } }
+        #ui-layer > * { transition: opacity 0.6s ease; }
+        #ui-layer.intro > :not(#intro) { opacity: 0 !important; }
+        #intro { position: absolute; inset: 0; opacity: 0; pointer-events: none; }
+        #ui-layer.intro #intro { opacity: 1; }
+        #intro .in-shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0.42), transparent 30%), linear-gradient(0deg, rgba(0,0,0,0.3), transparent 22%); }
+        #intro .in-title { position: absolute; left: 10.5%; top: 4.6%; font-size: 3.3em; font-weight: 600; letter-spacing: 0.02em; }
+        #intro .in-line { position: absolute; left: 1.5%; right: 1.5%; height: 1px; background: rgba(240,240,236,0.55); }
+        #intro .in-players { position: absolute; left: 11.5%; top: 14.5%; font-size: 1.85em; font-weight: 600; }
+        #intro .in-me { display: flex; align-items: center; gap: 0.9em; margin-top: 0.7em; font-size: 0.85em; }
+        #intro .in-av { width: 2.6em; height: 2.6em; border: 2px solid #e8e8e4; background: #2c2f33; display: grid; place-items: end center; overflow: hidden; }
+        #intro .in-av svg { width: 82%; height: 82%; }
+        #intro .in-me small { display: block; color: #f08a1c; font-size: 0.85em; margin-top: 0.15em; }
+        #intro .in-go { position: absolute; right: 7.5%; bottom: 5.2%; display: flex; align-items: center; gap: 0.8em; font-size: 2em; font-weight: 600; letter-spacing: 0.03em; }
+        #intro .in-key { width: 1.35em; height: 1.35em; border-radius: 50%; background: #e9e9e5; color: #111; display: grid; place-items: center; font-size: 0.72em; font-weight: 700; text-shadow: none; }
         #bigmap { position: absolute; inset: 0; z-index: 50; width: 100%; height: 100%; display: none; background: rgba(8,10,12,0.9); }
         #bigmap.on { display: block; }
         @media (max-width: 900px) { .h-row, .h-zone, .h-easy, .h-obj { display: none; } .h-gps { top: 12em; left: 2em; } #minimap { left: 2em; } .h-dash { right: 1em; width: 26em; } .h-pos { right: 2em; } }
@@ -421,7 +432,16 @@
     <div id="fade"></div>
 
     <div id="ui-layer">
-        <div id="h-start">Appuie sur <b>Z</b> pour démarrer le moteur</div>
+        <div id="intro">
+            <div class="in-shade"></div>
+            <div class="in-title">ALL DRIVE</div>
+            <div class="in-line" style="top: 12.2%"></div>
+            <div class="in-players">JOUEURS ACTIFS :
+                <div class="in-me"><div class="in-av"><svg viewBox="0 0 40 40"><circle cx="20" cy="15" r="8" fill="#e8e8e4"/><path d="M4 40c1-10 8-15 16-15s15 5 16 15z" fill="#e8e8e4"/></svg></div><div>Vous<small>PILOTE</small></div></div>
+            </div>
+            <div class="in-line" style="bottom: 12.5%"></div>
+            <div class="in-go"><span class="in-key">Z</span>CONDUIRE</div>
+        </div>
         <div class="h-easy"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#f4f4f0"/><path d="M12 4v16M4 12h16" stroke="#1d1f23" stroke-width="3.6"/><circle cx="12" cy="12" r="2.4" fill="#f4f4f0"/></svg><b>EASYDRIVE</b></div>
         <div class="h-zone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M3 18a9 9 0 0 1 18 0"/><path d="M12 18l5.5-7" stroke-width="2.8"/></svg><div><span>Radars</span><em id="h-radars">0/12</em></div></div>
         <div class="h-row"><i>1</i><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4.2"/><path d="M3.5 22c0-5 3.8-8 8.5-8s8.5 3 8.5 8z"/></svg><span>Record radar</span><em id="h-best">—</em></div>
@@ -2388,7 +2408,7 @@
 
         // ====== CONDUITE ======
         // État de la voiture, en mètres et en secondes. yaw = cap (0 : vers -z, positif : vers la gauche)
-        const ENG = { on: false, crank: 0 };   // moteur éteint au départ : Z lance le démarreur, il tourne 1 s plus tard
+        const ENG = { on: false, crank: 0, flare: 1, intro: 1 };   // moteur éteint au départ : Z lance le démarreur, il tourne 1 s plus tard
         let startHide = null;                  // planque de départ : ignorée tant qu'on ne s'en est pas éloigné
         const PL = { x: 0, y: 0, z: 0, yaw: 0, vx: 0, vz: 0, vf: 0, vl: 0, w: 0, steer: 0, kmh: 0, gear: 1, rpm: 900, nitro: 100, hp: 100,
             onRoad: true, inside: true, drift: false, boost: false, latA: 0, accA: 0, wreck: 0, spin: 0 };
@@ -2650,15 +2670,16 @@
             const lo = gear ? G_TOP[gear - 1] : 0, hi = G_TOP[gear] > 1 ? 1.04 : G_TOP[gear];
             const rpmT = PL.vf < -0.5 ? 1500 + Math.min(1, -PL.vf / 16) * 4500 : (gear ? 4300 : 1000) + clamp((fr - lo) / (hi - lo), 0, 1.05) * (gear ? 4400 : 7700);
             PL.rpm += (rpmT - PL.rpm) * Math.min(1, dt * 9);
+            if(ENG.on && ENG.flare < 0.3) { ENG.flare += dt; PL.rpm = Math.max(PL.rpm, 450 + 3600 * Math.pow(Math.min(1, ENG.flare / 0.3), 0.6)); }
             if(!ENG.on) {
                 if(ENG.crank > 0) {
                     ENG.crank = Math.max(0.001, (ENG.crankEnd - performance.now()) / 1000);   // 1 s réelle, calée sur le bruit du démarreur
                     if(performance.now() >= ENG.crankEnd) ENG.crank = 0;
                     PL.rpm = 230 + 70 * Math.sin(time * 60);
-                    if(ENG.crank <= 0) { ENG.on = true; PL.rpm = 4200; engineCatch(); }   // le moteur prend : coup de gaz puis ralenti
+                    if(ENG.crank <= 0) { ENG.on = true; ENG.flare = 0; PL.rpm = 450; engineCatch(); }   // le moteur prend : coup de gaz puis ralenti
                 } else PL.rpm = 0;
             }
-            $('h-start').classList.toggle('on', !ENG.on && ENG.crank <= 0);
+            $('ui-layer').classList.toggle('intro', !ENG.on && ENG.crank <= 0);
             if(startHide && Math.hypot(startHide.x - PL.x, startHide.z - PL.z) > 70) startHide = null;
             trackMissions(dt);
         }
@@ -2713,6 +2734,7 @@
             if(waterTex) waterTex.offset.set(time * 0.004, time * 0.0027);
         }
 
+        const camLook = new THREE.Vector3(), camTmp = new THREE.Vector3();
         function updateCamera(dt) {
             const spd = Math.hypot(PL.vx, PL.vz), ratio = Math.min(1, spd / 94);
             const sinY = Math.sin(PL.yaw), cosY = Math.cos(PL.yaw);
@@ -2731,7 +2753,17 @@
                 const dist = 6.9 + ratio * 0.9 + fovBoost * 0.06, cx = PL.x + Math.sin(camYaw) * dist, cz = PL.z + Math.cos(camYaw) * dist;
                 camY += (PL.y + 2.25 - camY) * Math.min(1, dt * 7);
                 camera.position.set(cx, Math.max(camY, hAt(cx, cz) + 0.7), cz);
-                camera.lookAt(PL.x - Math.sin(camYaw) * 3.5, PL.y + 1.05, PL.z - Math.cos(camYaw) * 3.5);
+                camLook.set(PL.x - Math.sin(camYaw) * 3.5, PL.y + 1.05, PL.z - Math.cos(camYaw) * 3.5);
+                // Écran « All Drive » : caméra basse, trois-quarts arrière gauche, tout près de la voiture ; glisse vers la poursuite au démarrage
+                if(ENG.crank > 0 || ENG.on) ENG.intro = Math.max(0, ENG.intro - dt / 1.5);
+                if(ENG.intro > 0) {
+                    const w = ENG.intro * ENG.intro * (3 - 2 * ENG.intro), sw = Math.sin(time * 0.18) * 0.35;
+                    const bx = Math.sin(PL.yaw), bz = Math.cos(PL.yaw), lx = -Math.cos(PL.yaw), lz = Math.sin(PL.yaw);   // arrière, gauche
+                    const ix = PL.x + bx * (3.9 + sw * 0.4) + lx * (2.5 + sw), iz = PL.z + bz * (3.3 + sw * 0.4) + lz * (2.3 + sw);
+                    camera.position.lerp(camTmp.set(ix, Math.max(PL.y + 0.72, hAt(ix, iz) + 0.35), iz), w);
+                    camLook.lerp(camTmp.set(PL.x - bx * 0.2 - lx * 0.35, PL.y + 0.62, PL.z - bz * 0.2 - lz * 0.35), w);
+                }
+                camera.lookAt(camLook);
             }
             shake = Math.max(shake, Math.max(0, PL.kmh - 240) * 0.00025 + (PL.onRoad ? 0 : Math.min(0.05, spd * 0.002)));
             if(shake > 0.002) {
@@ -2739,6 +2771,7 @@
                 shake *= Math.pow(0.02, dt);
             }
             camera.fov = (camMode ? 70 : 60) + ratio * 15 + fovBoost;
+            if(!camMode && ENG.intro > 0) camera.fov += (50 - camera.fov) * ENG.intro * ENG.intro * (3 - 2 * ENG.intro);
             camera.updateProjectionMatrix();
         }
 
@@ -3038,20 +3071,48 @@
                 for(let i = 0; i < pd.length; i++) { const t = i / audio.sampleRate; pd[i] = ((Math.random() * 2 - 1) * 0.8 + Math.sin(2 * Math.PI * 140 * t)) * Math.exp(-t / 0.008); }
             } catch (e) { audio = null; }
         }
-        // Démarreur : le lanceur peine sur les compressions pendant 1 s
+        // Démarreur, enregistré une fois en mémoire : claquement du solénoïde, sifflement du lanceur,
+        // compressions des cylindres qui freinent le vilebrequin (« rr-rr-rr »), puis deux ratés juste avant que le moteur prenne
+        let starterBuf = null;
+        function buildStarterBuffer() {
+            const sr = audio.sampleRate, n = Math.round(sr * 1.05), buf = audio.createBuffer(2, n, sr), L = buf.getChannelData(0), Rc = buf.getChannelData(1);
+            let seed = 3; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+            const thump = (i0, amp, f, tau, nz, pan) => {   // coup sourd amorti + petit claquement
+                const m = Math.round(sr * tau * 6);
+                for(let k = 0; k < m && i0 + k < n; k++) {
+                    const t = k / sr, v = amp * (Math.exp(-t / tau) * Math.sin(2 * Math.PI * f * t) + nz * (rnd() * 2 - 1) * Math.exp(-t / 0.004));
+                    L[i0 + k] += v * (1 - pan * 0.3); Rc[i0 + k] += v * (1 + pan * 0.3);
+                }
+            };
+            thump(0, 0.9, 140, 0.012, 0.9, 0);   // solénoïde : « clac »
+            let ph = 0, wph = 0, lastC = -1;
+            const t0 = 0.05;
+            for(let i = Math.round(sr * t0); i < n; i++) {
+                const t = i / sr - t0, rpm = 90 + 170 * Math.min(1, t / 0.22) + 50 * t;   // le vilebrequin prend de la vitesse
+                ph += rpm / 60 / sr;
+                const c = Math.floor(ph * 6);   // 6 compressions par tour (V12, 4 temps)
+                const load = Math.pow(0.5 + 0.5 * Math.cos(2 * Math.PI * ph * 6), 3);   // la compression freine : le sifflement plonge
+                if(c !== lastC) { lastC = c; thump(i, 0.32 + rnd() * 0.12, 62 + rnd() * 18, 0.03, 0.25, c % 2 ? 1 : -1); }
+                wph += rpm / 60 * 48 * (1 - 0.12 * load) / sr;   // pignon du lanceur ≈ 48 × le vilebrequin
+                const fr = wph % 1, env = Math.min(1, t / 0.03) * (i > n - sr * 0.04 ? (n - i) / (sr * 0.04) : 1);
+                const v = env * (0.16 * (fr * 2 - 1) + 0.1 * Math.sin(2 * Math.PI * wph * 2) + 0.05 * Math.sin(2 * Math.PI * wph * 3.02)) * (1 - 0.45 * load)
+                        + env * 0.03 * (rnd() * 2 - 1);   // frottement des balais
+                L[i] += v; Rc[i] += v;
+            }
+            [0.78, 0.9].forEach(tm => thump(Math.round(sr * tm), 0.75, 95, 0.02, 0.8, 0));   // ratés : le moteur tousse
+            let pk = 0; for(let i = 0; i < n; i++) pk = Math.max(pk, Math.abs(L[i]), Math.abs(Rc[i]));
+            for(let i = 0; i < n; i++) { L[i] *= 0.95 / pk; Rc[i] *= 0.95 / pk; }
+            return buf;
+        }
         function playStarter() {
             if(!audio || muted) return;
             try {
-                const t = audio.currentTime;
-                const o = audio.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(70, t); o.frequency.linearRampToValueAtTime(95, t + 1);
-                const lfo = audio.createOscillator(); lfo.frequency.value = 7.5;
-                const lg = audio.createGain(); lg.gain.value = 0.5;
-                const am = audio.createGain(); am.gain.value = 0.5;
-                lfo.connect(lg); lg.connect(am.gain);
-                const f = audio.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 900;
-                const g = audio.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.16, t + 0.05); g.gain.setValueAtTime(0.16, t + 0.95); g.gain.linearRampToValueAtTime(0, t + 1.05);
-                o.connect(am); am.connect(f); f.connect(g); g.connect(audio.destination);
-                o.start(t); lfo.start(t); o.stop(t + 1.1); lfo.stop(t + 1.1);
+                if(!starterBuf) starterBuf = buildStarterBuffer();
+                const src = audio.createBufferSource(); src.buffer = starterBuf;
+                const f = audio.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 3800;
+                const body = audio.createBiquadFilter(); body.type = 'lowshelf'; body.frequency.value = 160; body.gain.value = 5;
+                const g = audio.createGain(); g.gain.value = 0.42;
+                src.connect(f); f.connect(body); body.connect(g); g.connect(audio.destination); src.start();
             } catch (e) {}
         }
         function playPop(when, vol) {
