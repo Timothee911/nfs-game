@@ -46,7 +46,7 @@
         .h-gps hr { border: 0; height: 1px; margin: 0.35em 1.2em 0.5em; background: rgba(255,255,255,0.7); }
         .h-gps em { display: inline-flex; align-items: center; gap: 0.5em; font-size: 1.55em; font-style: normal; font-weight: 600; color: #58d86a; font-variant-numeric: tabular-nums; }
         .h-gps em svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2.4; }
-        #minimap { position: absolute; left: 7.6em; bottom: 3.6em; width: 18em; height: 18em; }
+        #minimap { position: absolute; left: 6.6em; bottom: 2.8em; width: 20em; height: 20em; }
         .h-top { position: absolute; left: 50%; top: 3.6em; transform: translateX(-50%); min-width: 26em; height: 6.6em; padding: 0 3.4em; display: flex; align-items: center; justify-content: center; gap: 4.4em;
             background: rgba(172,186,200,0.55); clip-path: polygon(7% 0, 93% 0, 100% 50%, 93% 100%, 7% 100%, 0 50%); }
         .h-heat { display: inline-flex; align-items: center; gap: 0.3em; color: #ff8a2a; font-size: 2em; font-weight: 600; }
@@ -422,7 +422,7 @@
         <div class="h-zone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M3 18a9 9 0 0 1 18 0"/><path d="M12 18l5.5-7" stroke-width="2.8"/></svg><div><span>Radars</span><em id="h-radars">0/12</em></div></div>
         <div class="h-row"><i>1</i><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4.2"/><path d="M3.5 22c0-5 3.8-8 8.5-8s8.5 3 8.5 8z"/></svg><span>Record radar</span><em id="h-best">—</em></div>
         <div class="h-gps"><b>PLANQUE</b><span id="h-gps-name">—</span><hr><em><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-7.2 7-12.500a7 7 0 0 0-14 0C5 14.8 12 22 12 22z"/><circle cx="12" cy="9.5" r="2.3"/></svg><span id="h-gps-d">—</span></em></div>
-        <canvas id="minimap" width="252" height="252" aria-label="Mini-carte"></canvas>
+        <canvas id="minimap" width="300" height="300" aria-label="Mini-carte"></canvas>
         <div class="h-top"><span class="h-heat" title="Niveau de la voiture"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-3 2-4 2-7 2 1 3 3 3 5 1-1 1-3 0-8z"/></svg><b id="h-heat">1</b></span><span class="h-sp"><b id="h-sp">0</b><i>SP</i></span></div>
         <div class="h-chain" id="h-chain"><span class="l"><b id="hc-label"></b><i id="hc-pts"></i></span><span class="x"><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="17" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="3"/><circle id="hc-ring" cx="20" cy="20" r="17" fill="none" stroke="#fff" stroke-width="3" stroke-dasharray="106.8" stroke-dashoffset="0" transform="rotate(-90 20 20)"/></svg><b id="hc-mult">×1</b></span><em id="hc-total"></em></div>
         <div id="mission-toast"><b id="mt-title"></b><span id="mt-text"></span><em id="mt-sp"></em></div>
@@ -801,90 +801,233 @@
         }
         animatePreview();
         
-        // ====== MONDE OUVERT : rendu, ciel, lumière de fin de journée après la pluie ======
+        // ====== MONDE OUVERT : rendu, atmosphère, nuages volumétriques ======
         const scene = new THREE.Scene();
-        const FOG_COLOR = new THREE.Color(0.60, 0.62, 0.64);
-        scene.fog = new THREE.FogExp2(FOG_COLOR, 0.00042);
+        // Soleil bas, devant à gauche : lumière dorée rasante, longues ombres, reflets sur la route mouillée
+        const SUN_DIR = new THREE.Vector3(-0.50, 0.30, -0.80).normalize();
+        // Brume : couleurs d'écran (elle est mélangée après le tone mapping), plus chaude en regardant vers le soleil
+        const FOG_COLOR = new THREE.Color(0.73, 0.79, 0.86), FOG_WARM = [1.0, 0.87, 0.70];
+        const FOG_DENSITY = 0.00026, FOG_HEIGHT = 400;   // la brume s'éclaircit avec l'altitude : les sommets restent nets
+        scene.fog = new THREE.FogExp2(FOG_COLOR, FOG_DENSITY);
+        const glv = (a) => 'vec3(' + a.map(v => v.toFixed(4)).join(', ') + ')';
+        THREE.ShaderChunk.fog_pars_vertex = '#ifdef USE_FOG\n\tvarying float fogDepth;\n\tvarying float vFogSun;\n\tvarying float vFogY;\n#endif';
+        THREE.ShaderChunk.fog_vertex = '#ifdef USE_FOG\n\tvec3 fogRel = ( vec4( mvPosition.xyz, 0.0 ) * viewMatrix ).xyz;\n\tfogDepth = length( fogRel );\n\tvFogSun = dot( fogRel / max( fogDepth, 0.001 ), ' + glv(SUN_DIR.toArray()) + ' );\n\tvFogY = cameraPosition.y + fogRel.y;\n#endif';
+        THREE.ShaderChunk.fog_pars_fragment = '#ifdef USE_FOG\n\tuniform vec3 fogColor;\n\tvarying float fogDepth;\n\tvarying float vFogSun;\n\tvarying float vFogY;\n\t#ifdef FOG_EXP2\n\t\tuniform float fogDensity;\n\t#else\n\t\tuniform float fogNear;\n\t\tuniform float fogFar;\n\t#endif\n#endif';
+        THREE.ShaderChunk.fog_fragment = '#ifdef USE_FOG\n\t#ifdef FOG_EXP2\n\t\tfloat fogK = 1.0 / ' + FOG_HEIGHT.toFixed(1) + ';\n\t\tfloat fogDy = ( vFogY - cameraPosition.y ) * fogK;\n'
+            + '\t\tfloat fogAvg = abs( fogDy ) > 0.002 ? ( exp( - cameraPosition.y * fogK ) - exp( - vFogY * fogK ) ) / fogDy : exp( - cameraPosition.y * fogK );\n'
+            + '\t\tfloat fogFactor = 1.0 - exp( - fogDensity * fogDepth * fogAvg );\n\t#else\n\t\tfloat fogFactor = smoothstep( fogNear, fogFar, fogDepth );\n\t#endif\n'
+            + '\tgl_FragColor.rgb = mix( gl_FragColor.rgb, mix( fogColor, ' + glv(FOG_WARM) + ', pow( max( vFogSun, 0.0 ), 3.0 ) * 0.6 ), fogFactor );\n#endif';
 
-        const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.4, 16000);
+        const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.4, 34000);
         camera.position.set(0, 6, 14);
         const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.outputEncoding = THREE.sRGBEncoding;   // rendu en lumière linéaire : couleurs et dégradés naturels
         renderer.domElement.id = 'game-canvas';
         document.body.appendChild(renderer.domElement);
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 0.95;
+        renderer.toneMappingExposure = 0.78;
         previewRenderer.toneMapping = THREE.ACESFilmicToneMapping;
         previewRenderer.toneMappingExposure = 1.05;
+        const lin = (hex) => new THREE.Color(hex).convertSRGBToLinear();
 
-        // Soleil bas, devant à gauche : lumière dorée rasante, longues ombres, reflets sur la route mouillée
-        const SUN_DIR = new THREE.Vector3(-0.50, 0.30, -0.80).normalize();
+        // --- Ciel : dégradé atmosphérique + nuages précalculés dans une texture cubique + voile de brume à l'horizon ---
+        const emptyCube = new THREE.WebGLCubeRenderTarget(1);
+        renderer.setRenderTarget(emptyCube, 0); renderer.clear(); renderer.setRenderTarget(null);
+        const SKY_VERT = 'varying vec3 vDir; void main() { vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }';
         const skyMat = new THREE.ShaderMaterial({
             side: THREE.BackSide, depthWrite: false, fog: false,
-            uniforms: { uSun: { value: SUN_DIR } },
-            vertexShader: 'varying vec3 vDir; void main() { vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-            fragmentShader: `varying vec3 vDir; uniform vec3 uSun;
-                float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-                float noise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
-                    return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y); }
-                float fbm(vec2 p) { float a = 0.5, s = 0.0; for(int i = 0; i < 5; i++) { s += a * noise(p); p = p * 2.03 + 17.0; a *= 0.5; } return s; }
+            uniforms: { uSun: { value: SUN_DIR }, uClouds: { value: emptyCube.texture }, uCloudOn: { value: 0 } },
+            vertexShader: SKY_VERT,
+            fragmentShader: `varying vec3 vDir; uniform vec3 uSun; uniform samplerCube uClouds; uniform float uCloudOn;
                 void main() {
                     vec3 d = normalize(vDir);
-                    float h = max(d.y, 0.0);
-                    float s = max(dot(d, normalize(uSun)), 0.0);
-                    vec3 col = mix(vec3(0.86, 0.80, 0.70), vec3(0.50, 0.66, 0.84), smoothstep(0.0, 0.22, h));
-                    col = mix(col, vec3(0.20, 0.38, 0.66), smoothstep(0.15, 0.85, h));
-                    col += vec3(1.0, 0.70, 0.40) * pow(s, 5.0) * 0.40;
-                    // Nuages d'après la pluie : dessous gris-bleu, bords éclairés par le soleil
-                    vec2 uv = d.xz / (h + 0.14) * 1.25;
-                    float cov = smoothstep(0.44, 0.74, fbm(uv * 1.05 + vec2(3.1, 1.7)));
-                    float dens = fbm(uv * 2.4 + 9.0);
-                    vec3 cc = mix(vec3(0.27, 0.30, 0.37), vec3(1.0, 0.90, 0.76), clamp(dens * 0.85 + pow(s, 3.0) * 1.1 - 0.30, 0.0, 1.0));
-                    col = mix(col, cc, cov * smoothstep(0.0, 0.10, d.y) * 0.94);
-                    col += vec3(1.0, 0.82, 0.58) * pow(s, 48.0) * 0.55;
-                    col += vec3(1.0, 0.95, 0.84) * pow(s, 1100.0) * 4.0 * (1.0 - cov * 0.85);
-                    if(d.y < 0.0) col = mix(col, vec3(0.20, 0.22, 0.19), smoothstep(0.0, 0.25, -d.y));
+                    float h = max(d.y, 0.0), s = max(dot(d, uSun), 0.0);
+                    vec3 col = mix(vec3(0.24, 0.43, 0.80), vec3(0.055, 0.15, 0.42), smoothstep(0.0, 0.75, h));
+                    vec3 sunC = vec3(1.0, 0.72, 0.42);
+                    col += sunC * (0.30 * pow(s, 5.0) + 1.0 * pow(s, 36.0) + 5.0 * pow(s, 420.0));
+                    vec4 c = textureCube(uClouds, d) * uCloudOn;
+                    col = col * (1.0 - c.a) + c.rgb * c.rgb * 9.0;
+                    col += vec3(1.0, 0.9, 0.75) * 60.0 * smoothstep(0.99990, 0.99997, s) * pow(1.0 - c.a, 6.0);
+                    if(d.y < 0.0) col = mix(col, vec3(0.05, 0.06, 0.04), smoothstep(0.0, 0.2, -d.y));
                     gl_FragColor = vec4(col, 1.0);
+                    #include <tonemapping_fragment>
+                    #include <encodings_fragment>
+                    float haze = d.y > 0.0 ? 1.0 - exp(-${(FOG_DENSITY * FOG_HEIGHT).toFixed(4)} / max(d.y, 0.004)) : 1.0;
+                    #if defined( TONE_MAPPING )
+                    gl_FragColor.rgb = mix(gl_FragColor.rgb, mix(${glv(FOG_COLOR.toArray())}, ${glv(FOG_WARM)}, pow(s, 3.0) * 0.6), haze);
+                    #endif
                 }`
         });
-        const sky = new THREE.Mesh(new THREE.SphereGeometry(12000, 32, 16), skyMat);
+        const sky = new THREE.Mesh(new THREE.SphereGeometry(12000, 48, 24), skyMat);
         sky.renderOrder = -1;
         sky.frustumCulled = false;
         scene.add(sky);
+        // Ciel simple pour les reflets du garage (autre contexte WebGL : il ne peut pas partager la texture des nuages)
+        const garageSkyMat = new THREE.ShaderMaterial({
+            side: THREE.BackSide, depthWrite: false, fog: false, uniforms: { uSun: { value: SUN_DIR } }, vertexShader: SKY_VERT,
+            fragmentShader: `varying vec3 vDir; uniform vec3 uSun;
+                void main() { vec3 d = normalize(vDir); float h = clamp(d.y, 0.0, 1.0), s = max(dot(d, uSun), 0.0);
+                    vec3 col = mix(vec3(0.86, 0.80, 0.70), vec3(0.50, 0.66, 0.84), smoothstep(0.0, 0.22, h));
+                    col = mix(col, vec3(0.20, 0.38, 0.66), smoothstep(0.15, 0.85, h));
+                    col += vec3(1.0, 0.85, 0.6) * pow(s, 12.0) * 0.35 + vec3(1.0, 0.95, 0.8) * pow(s, 600.0) * 2.0;
+                    if(d.y < 0.0) col = mix(col, vec3(0.20, 0.22, 0.19), smoothstep(0.0, 0.25, -d.y));
+                    gl_FragColor = vec4(col, 1.0); }`
+        });
 
-        // Reflets réalistes : le ciel sert d'environnement aux carrosseries et à la chaussée mouillée
-        function buildEnv(rend) {
+        // Reflets : le ciel (nuages compris) sert d'environnement aux carrosseries, à la chaussée mouillée et aux lacs
+        function buildEnv(rend, mat) {
             try {
                 const envScene = new THREE.Scene();
-                envScene.add(new THREE.Mesh(new THREE.SphereGeometry(100, 32, 16), skyMat));
+                envScene.add(new THREE.Mesh(new THREE.SphereGeometry(100, 32, 16), mat));
                 const pm = new THREE.PMREMGenerator(rend);
                 const tex = pm.fromScene(envScene).texture;
                 pm.dispose();
                 return tex;
             } catch (e) { return null; }
         }
-        scene.environment = buildEnv(renderer);
-        previewScene.environment = buildEnv(previewRenderer);
+        scene.environment = buildEnv(renderer, skyMat);
+        previewScene.environment = buildEnv(previewRenderer, garageSkyMat);
+
+        // Bruit 3D par texture (astuce d'Inigo Quilez : le canal vert est le rouge décalé de (37, 17))
+        const noise3Tex = (() => {
+            const N = 256, d = new Uint8Array(N * N * 4), r = new Uint8Array(N * N);
+            let s = 987654321;
+            const rr = () => { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; return (s >>> 0) / 4294967296; };
+            for(let i = 0; i < N * N; i++) r[i] = rr() * 256;
+            for(let y = 0; y < N; y++) for(let x = 0; x < N; x++) {
+                const o = (y * N + x) * 4;
+                d[o] = r[y * N + x]; d[o + 1] = r[((y + 17) & 255) * N + ((x + 37) & 255)]; d[o + 2] = rr() * 256; d[o + 3] = 255;
+            }
+            const t = new THREE.DataTexture(d, N, N, THREE.RGBAFormat);
+            t.wrapS = t.wrapT = THREE.RepeatWrapping; t.magFilter = t.minFilter = THREE.LinearFilter; t.needsUpdate = true;
+            return t;
+        })();
+        // Nuages : cumulus volumétriques calculés par lancer de rayons (forme, ombre propre, liseré lumineux), une seule fois,
+        // tuile par tuile pour ne pas bloquer l'affichage, puis simplement relus chaque image.
+        const CLOUD_Q = Math.round(+new URLSearchParams(location.search).get('ciel')) || ((renderer.capabilities.maxCubemapSize || 0) >= 4096 && (navigator.deviceMemory || 8) >= 4 ? 1536 : 1024);
+        const cloudMat = new THREE.ShaderMaterial({
+            depthTest: false, depthWrite: false, fog: false, toneMapped: false,
+            uniforms: { uNoise: { value: noise3Tex }, uSun: { value: SUN_DIR }, uFace: { value: 0 } },
+            vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+            fragmentShader: `precision highp float;
+                varying vec2 vUv; uniform sampler2D uNoise; uniform vec3 uSun; uniform int uFace;
+                const float BASE = 1500.0, TOP = 4400.0, RE = 800000.0, SIG = 0.011;
+                float n3(vec3 x) { vec3 p = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+                    vec2 rg = texture2D(uNoise, (p.xy + vec2(37.0, 17.0) * p.z + f.xy + 0.5) / 256.0).rg;
+                    return mix(rg.x, rg.y, f.z); }
+                float fbm4(vec3 p) { float s = 0.5 * n3(p); p = p * 2.02 + 7.1; s += 0.25 * n3(p); p = p * 2.03 + 3.3; s += 0.125 * n3(p); p = p * 2.01 + 5.7; s += 0.0625 * n3(p); return s / 0.9375; }
+                float fbm3(vec3 p) { float s = 0.5 * n3(p); p = p * 2.02 + 7.1; s += 0.25 * n3(p); p = p * 2.03 + 3.3; s += 0.125 * n3(p); return s / 0.875; }
+                float hgt(vec3 p) { return p.y - dot(p.xz, p.xz) / (2.0 * RE); }   // la courbure de la Terre fait plonger les nuages vers l'horizon
+                float baseDens(vec3 p) {
+                    float hn = (hgt(p) - BASE) / (TOP - BASE);
+                    if(hn < 0.0 || hn > 1.0) return 0.0;
+                    float topH = 0.30 + 0.70 * n3(vec3(p.x, 0.0, p.z) / 7600.0 + 9.1);
+                    float grad = smoothstep(0.0, 0.09, hn) * (1.0 - smoothstep(topH * 0.5, topH, hn));
+                    if(grad <= 0.0) return 0.0;
+                    float c = fbm4(p * vec3(1.0, 0.55, 1.0) / 5200.0 + vec3(11.3, 0.0, 4.7)) + (n3(p / 21000.0 + 3.7) - 0.5) * 0.6;
+                    return clamp((c - 0.51) * 3.4, 0.0, 1.0) * grad;
+                }
+                float dens(vec3 p) { float d = baseDens(p); if(d <= 0.0) return 0.0;
+                    return clamp((d - fbm3(p / 620.0 + 2.3) * 0.40) / 0.60, 0.0, 1.0); }
+                float hg(float c, float g) { return (1.0 - g * g) / pow(1.0 + g * g - 2.0 * g * c, 1.5); }
+                void main() {
+                    vec2 q = vUv * 2.0 - 1.0; vec3 d;
+                    if(uFace == 0) d = vec3(1.0, -q.y, -q.x); else if(uFace == 1) d = vec3(-1.0, -q.y, q.x);
+                    else if(uFace == 2) d = vec3(q.x, 1.0, q.y); else if(uFace == 3) d = vec3(q.x, -1.0, -q.y);
+                    else if(uFace == 4) d = vec3(q.x, -q.y, 1.0); else d = vec3(-q.x, -q.y, -1.0);
+                    d = normalize(d);
+                    gl_FragColor = vec4(0.0);
+                    if(d.y < 0.012) return;
+                    float a = (1.0 - d.y * d.y) / (2.0 * RE), dc0 = d.y * d.y - 4.0 * a * BASE;
+                    if(dc0 < 0.0) return;
+                    float t0 = 2.0 * BASE / (d.y + sqrt(dc0)), dc1 = d.y * d.y - 4.0 * a * TOP;
+                    float t1 = dc1 > 0.0 ? 2.0 * TOP / (d.y + sqrt(dc1)) : d.y / (2.0 * a);
+                    t1 = min(t1, t0 + 30000.0);
+                    float cosT = dot(d, uSun), ph = 0.55 + 0.45 * mix(hg(cosT, 0.72), hg(cosT, -0.2), 0.4);
+                    vec3 sunC = vec3(1.0, 0.80, 0.58) * 2.7, col = vec3(0.0);
+                    float T = 1.0, dt = (t1 - t0) / 48.0, t = t0 + dt * texture2D(uNoise, gl_FragCoord.xy / 256.0).b;
+                    for(int i = 0; i < 48; i++) {
+                        vec3 p = d * t; float dn = dens(p);
+                        if(dn > 0.004) {
+                            float od = 0.0, ls = 90.0; vec3 lp = p;
+                            for(int j = 0; j < 5; j++) { lp += uSun * ls; od += baseDens(lp) * ls; ls *= 1.7; }
+                            float sunT = max(exp(-od * SIG * 0.9), 0.5 * exp(-od * SIG * 0.2));   // diffusion multiple approchée
+                            float hn = clamp((hgt(p) - BASE) / (TOP - BASE), 0.0, 1.0);
+                            vec3 lum = sunC * sunT * ph + mix(vec3(0.16, 0.19, 0.26), vec3(0.50, 0.62, 0.86), hn) * 0.9;
+                            float st = exp(-dn * SIG * dt);
+                            col += T * (1.0 - st) * lum; T *= st;
+                            if(T < 0.015) break;
+                        }
+                        t += dt;
+                    }
+                    // Voile de cirrus à 9 km, derrière les cumulus
+                    float h9 = 9000.0, dc9 = d.y * d.y - 4.0 * a * h9;
+                    if(dc9 > 0.0) {
+                        vec3 p = d * (2.0 * h9 / (d.y + sqrt(dc9)));
+                        float ci = smoothstep(0.50, 0.80, fbm4(vec3(p.x / 14000.0, p.z / 3600.0, 1.7) + n3(p / 9000.0) * 0.6)) * 0.42 * smoothstep(0.02, 0.2, d.y);
+                        col += T * ci * (sunC * (0.30 + 0.16 * ph) + vec3(0.30, 0.38, 0.52)); T *= 1.0 - ci;
+                    }
+                    gl_FragColor = vec4(sqrt(min(col, 9.0) / 9.0), 1.0 - T);
+                }`
+        });
+        function bakeClouds(progress, done, size) {
+            const N = size || CLOUD_Q, rt = new THREE.WebGLCubeRenderTarget(N, { format: THREE.RGBAFormat, generateMipmaps: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, depthBuffer: false });
+            const qScene = new THREE.Scene(), qCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+            const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), cloudMat);
+            quad.frustumCulled = false;
+            qScene.add(quad);
+            // Seule la moitié « ciel » des faces latérales est calculée (lignes du bas du tampon : direction vers le haut)
+            const tiles = [], TS = 512;
+            [0, 1, 4, 5, 2].forEach(f => { const hMax = f === 2 ? N : N / 2 + 2; for(let y = 0; y < hMax; y += TS) for(let x = 0; x < N; x += TS) tiles.push([f, x, y, Math.min(TS, N - x), Math.min(TS, hMax - y)]); });
+            let k = 0;
+            const step = () => {
+                const [f, x, y, w, h] = tiles[k];
+                cloudMat.uniforms.uFace.value = f;
+                rt.scissorTest = true; rt.scissor.set(x, y, w, h);
+                renderer.setRenderTarget(rt, f);
+                const t0 = performance.now();
+                renderer.render(qScene, qCam);
+                if(k === 0 && N > 512) {
+                    // Première tuile chronométrée : sur une carte graphique lente, on recommence avec des nuages moins fins
+                    try { renderer.readRenderTargetPixels(rt, x, y, 1, 1, new Uint8Array(4), f); } catch (e) {}
+                    const ms = performance.now() - t0;
+                    if(ms > 260) { renderer.setRenderTarget(null); rt.dispose(); bakeClouds(progress, done, ms > 900 || N <= 1024 ? 512 : 1024); return; }
+                }
+                renderer.setRenderTarget(null);
+                k++;
+                progress(Math.round(k / tiles.length * 100));
+                if(k < tiles.length) requestAnimationFrame(step);
+                else {
+                    skyMat.uniforms.uClouds.value = rt.texture; skyMat.uniforms.uCloudOn.value = 1;
+                    if(scene.environment && scene.environment.dispose) scene.environment.dispose();
+                    scene.environment = buildEnv(renderer, skyMat);
+                    done();
+                }
+            };
+            requestAnimationFrame(step);
+        }
 
         // Textures générées par code
         const maxAniso = renderer.capabilities.getMaxAnisotropy();
-        function makeTex(w, h, draw, repX, repY) {
+        function makeTex(w, h, draw, repX, repY, srgb) {
             const c = document.createElement('canvas');
             c.width = w; c.height = h;
             draw(c.getContext('2d'), w, h);
             const t = new THREE.CanvasTexture(c);
             t.wrapS = t.wrapT = THREE.RepeatWrapping;
             if(repX) t.repeat.set(repX, repY);
+            if(srgb) t.encoding = THREE.sRGBEncoding;
             t.anisotropy = maxAniso;
             return t;
         }
 
-        const hemi = new THREE.HemisphereLight(0x9fb9e2, 0x4b4a3c, 0.85);
+        const hemi = new THREE.HemisphereLight(new THREE.Color(0.55, 0.68, 0.95), new THREE.Color(0.24, 0.21, 0.15), 0.8);
         scene.add(hemi);
-        const sunLight = new THREE.DirectionalLight(0xffd3a1, 2.9);
+        const sunLight = new THREE.DirectionalLight(new THREE.Color(1.0, 0.80, 0.58), 3.4);
         sunLight.castShadow = true;
         sunLight.shadow.bias = -0.0005;
         sunLight.shadow.normalBias = 0.03;
@@ -896,9 +1039,11 @@
         scene.add(sunLight.target);
         const SUN_OFFSET = SUN_DIR.clone().multiplyScalar(240);
 
-        // La voiture du joueur, ramenée à l'échelle réelle (4,8 m de long) : le monde est en mètres
+        // La voiture du joueur, ramenée à l'échelle réelle (4,8 m de long) : le monde est en mètres.
+        // Ses couleurs sont converties pour le rendu en lumière linéaire.
         const player = createUltimateCar(0xe3262e);
         player.scale.setScalar(0.78);
+        (() => { const seen = new Set(); player.traverse(o => { const m = o.material; if(m && !seen.has(m)) { seen.add(m); if(m.color) m.color.convertSRGBToLinear(); if(m.emissive) m.emissive.convertSRGBToLinear(); } }); })();
         scene.add(player);
         
         // ====== GARAGE : réglages mémorisés (peinture, circuit, météo, adversaire) ======
@@ -926,6 +1071,7 @@
         function applyColor(hex) {
             carColor = hex;
             setCarColor(previewCar, hex); setCarColor(previewMirror, hex); setCarColor(player, hex);
+            player.bodyMat.color.convertSRGBToLinear(); player.bodyMat.emissive.convertSRGBToLinear();   // le monde est rendu en lumière linéaire
             store('nfsDubaiColor', String(hex));
         }
         applyColor(carColor);
@@ -1241,7 +1387,7 @@
 
         // ====== MONDE OUVERT : relief, réseau routier, décor ======
         const LIFT = 0.24;        // la chaussée est posée 24 cm au-dessus du terrain
-        const WORLD_R = 4400;     // rayon de la zone où l'on peut rouler (m)
+        const WORLD_R = 6900;     // rayon de la zone où l'on peut rouler (m) ; au-delà, les montagnes
         const GRAV = 9.81;
         let seed = 20240611;
         const rnd = () => { seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
@@ -1255,19 +1401,41 @@
         const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
         const sstep = (a, b, v) => { const t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
         const angDiff = (a, b) => { let d = (a - b) % (Math.PI * 2); if(d > Math.PI) d -= Math.PI * 2; if(d < -Math.PI) d += Math.PI * 2; return d; };
-        // Relief doux : collines larges, pentes de quelques pour cent
-        function hAt(x, z) { return 10 * Math.sin(x / 300 + 0.7) * Math.cos(z / 340 - 0.4) + 6 * Math.sin((x + z) / 210 + 2) + 4 * Math.cos((x - z) / 170 + 1); }
+        // Relief : collines et vallons dans le comté, lacs dans les cuvettes, chaîne de montagnes tout autour
+        const lakes = [];
+        function hills(x, z) { return 34 * Math.sin(x / 640 + 0.7) * Math.cos(z / 700 - 0.4) + 10 * Math.sin(x / 300 + 0.7) * Math.cos(z / 340 - 0.4) + 6 * Math.sin((x + z) / 210 + 2) + 4 * Math.cos((x - z) / 170 + 1); }
+        function ridged(x, z) {   // bruit « à crêtes » : arêtes vives et vallées, comme un vrai massif
+            let a = 1, f = 1 / 4300, s = 0, w = 1;
+            for(let o = 0; o < 6; o++) { let n = 1 - Math.abs(vnoise(x * f + o * 17.3, z * f + o * 5.1) * 2 - 1); n *= n; s += n * a * w; w = clamp(n * 1.7, 0, 1); a *= 0.5; f *= 2.07; }
+            return s / 1.6;
+        }
+        function hAt(x, z) {
+            let h = hills(x, z);
+            for(let k = 0; k < lakes.length; k++) {
+                const L = lakes[k], dx = x - L.x, dz = z - L.z, d2 = dx * dx + dz * dz;
+                if(d2 < L.r * L.r) { const d = Math.sqrt(d2) / L.r, w = 1 - sstep(0.6, 1, d); h += (L.level - 9 + 9.8 * sstep(0.3, 0.72, d) - h) * w; }
+            }
+            const r2 = x * x + z * z;
+            if(r2 > (WORLD_R + 250) * (WORLD_R + 250)) {
+                const r = Math.sqrt(r2), m = sstep(WORLD_R + 250, WORLD_R + 3900, r) * (1 - sstep(15500, 20500, r));
+                if(m > 0) h += m * (140 + ridged(x, z) * (1100 + 1800 * vnoise(x / 9000 + 3, z / 9000)));
+            }
+            return h;
+        }
+        const forestAt = (x, z) => sstep(0.44, 0.60, vnoise(x / 380, z / 380 + 3)) * (vnoise(x / 150, z / 150 + 9) < 0.22 ? 0.25 : 1);
 
-        // --- Réseau routier : une rocade de 21 km, une boucle intérieure, 6 radiales, 2 traversantes ---
+        // --- Réseau routier : rocade, deux boucles, radiales sinueuses et traversantes (environ 100 km) ---
         const roads = [];
         const STEP = 4; // un échantillon tous les 4 m
+        let gCount = 0;
         function makeRoad(pts, closed, cls) {
             const curve = new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(p[0], 0, p[1])), closed, 'centripetal');
-            curve.arcLengthDivisions = 3000;
+            curve.arcLengthDivisions = 4000;
             const len = curve.getLength(), n = Math.round(len / STEP), pt = curve.getSpacedPoints(n);
-            const R = { cls, closed, hw: cls === 0 ? 9 : 6, n: closed ? n : n + 1, len, step: len / n, idx: roads.length,
+            const R = { cls, closed, hw: cls === 0 ? 9 : 6, n: closed ? n : n + 1, len, step: len / n, idx: roads.length, g0: gCount,
                 px: new Float32Array(n + 1), pz: new Float32Array(n + 1), tx: new Float32Array(n + 1), tz: new Float32Array(n + 1),
                 rail: new Uint8Array(n + 1), jn: new Uint8Array(n + 1) };
+            gCount += R.n;
             for(let i = 0; i <= n; i++) { R.px[i] = pt[i].x; R.pz[i] = pt[i].z; }
             for(let i = 0; i <= n; i++) {
                 const a = pt[closed ? (i - 1 + n) % n : Math.max(0, i - 1)], b = pt[closed ? (i + 1) % n : Math.min(n, i + 1)];
@@ -1282,16 +1450,21 @@
             for(let i = 0; i < cnt; i++) { const th = i / cnt * Math.PI * 2, r = r0 + amp * Math.sin(k * th + ph) + (rnd() - 0.5) * jit; a.push([Math.cos(th) * r, Math.sin(th) * r]); }
             return a;
         };
-        const outerRoad = makeRoad(ringPts(22, 3300, 380, 3, 1, 260), true, 0);
-        const innerRoad = makeRoad(ringPts(14, 1450, 260, 2, 0.5, 220), true, 1);
         const ptAt = (R, u) => { const i = Math.floor((u % 1 + 1) % 1 * R.n); return [R.px[i], R.pz[i]]; };
-        for(let k = 0; k < 6; k++) {
-            const u = (k + 0.3) / 6, a = ptAt(innerRoad, u), b = ptAt(outerRoad, u + (rnd() - 0.5) * 0.03);
-            const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz), ox = -dz / L, oz = dx / L, w1 = (rnd() - 0.5) * 560, w2 = (rnd() - 0.5) * 560;
-            makeRoad([a, [a[0] + dx * 0.33 + ox * w1, a[1] + dz * 0.33 + oz * w1], [a[0] + dx * 0.66 + ox * w2, a[1] + dz * 0.66 + oz * w2], b], false, 1);
-        }
+        // Route de liaison sinueuse entre deux points : un point de passage tous les 420 m, décalé de côté
+        const linkRoad = (a, b, amp) => {
+            const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz), ox = -dz / L, oz = dx / L, n = Math.max(2, Math.round(L / 420)), pts = [a];
+            for(let k = 1; k < n; k++) { const t = k / n, w = (rnd() - 0.5) * 2 * amp * Math.sqrt(Math.sin(Math.PI * t)); pts.push([a[0] + dx * t + ox * w, a[1] + dz * t + oz * w]); }
+            pts.push(b);
+            return makeRoad(pts, false, 1);
+        };
+        const outerRoad = makeRoad(ringPts(30, 5750, 420, 3, 1, 300), true, 0);
+        const midRoad = makeRoad(ringPts(20, 3400, 300, 4, 2.2, 260), true, 1);
+        const innerRoad = makeRoad(ringPts(12, 1350, 200, 2, 0.5, 180), true, 1);
+        for(let k = 0; k < 5; k++) { const u = (k + 0.3) / 5; linkRoad(ptAt(innerRoad, u), ptAt(midRoad, u + (rnd() - 0.5) * 0.03), 200); }
+        for(let k = 0; k < 8; k++) { const u = (k + 0.62) / 8; linkRoad(ptAt(midRoad, u), ptAt(outerRoad, u + (rnd() - 0.5) * 0.02), 230); }
         [0.08, 0.36].forEach(u => {
-            const a = ptAt(innerRoad, u), b = ptAt(innerRoad, u + 0.5), j = () => (rnd() - 0.5) * 420;
+            const a = ptAt(innerRoad, u), b = ptAt(innerRoad, u + 0.5), j = () => (rnd() - 0.5) * 380;
             makeRoad([a, [a[0] * 0.45 + j(), a[1] * 0.45 + j()], [j() * 0.6, j() * 0.6], [b[0] * 0.45 + j(), b[1] * 0.45 + j()], b], false, 1);
         });
 
@@ -1325,9 +1498,33 @@
             Q.d = (x - R.px[i]) * -R.tz[i] + (z - R.pz[i]) * R.tx[i];
             return Q;
         }
-        // Carrefours : pas de glissière, pas d'arbre, pas de poteau à proximité d'une autre route
-        roads.forEach(R => { for(let i = 0; i < R.n; i++) { roadAt(R.px[i], R.pz[i], R); if(Q.R && Q.dist < R.hw + Q.R.hw + 34) R.jn[i] = 1; } });
+        // Carrefours : pas de glissière, pas d'arbre, pas de poteau à proximité d'une autre route.
+        // Les routes y sont reliées entre elles pour le calcul d'itinéraire du GPS.
+        const gLink = new Int32Array(gCount).fill(-1), gLink2 = new Int32Array(gCount).fill(-1);
+        const addLink = (a, b) => { if(gLink[a] === b || gLink2[a] === b) return; if(gLink[a] < 0) gLink[a] = b; else if(gLink2[a] < 0) gLink2[a] = b; };
+        roads.forEach(R => { for(let i = 0; i < R.n; i++) {
+            roadAt(R.px[i], R.pz[i], R);
+            if(Q.R && Q.dist < R.hw + Q.R.hw + 34) R.jn[i] = 1;
+            if(Q.R && Q.dist < 4.6) { addLink(R.g0 + i, Q.R.g0 + Q.i); addLink(Q.R.g0 + Q.i, R.g0 + i); }
+        } });
         roads.forEach(R => { for(let i = 0; i < R.n; i++) R.rail[i] = !R.jn[i] && hash2(R.idx * 7.3 + 1, Math.floor(i / 55)) < (R.cls === 0 ? 0.62 : 0.4) ? 1 : 0; R.rail[R.n] = R.rail[0]; R.jn[R.n] = R.jn[0]; });
+        const nbr = [0, 0, 0, 0];
+        function neighbours(g) {
+            const R = gR[g], i = gI[g];
+            let n = 0;
+            if(i > 0) nbr[n++] = g - 1; else if(R.closed) nbr[n++] = R.g0 + R.n - 1;
+            if(i < R.n - 1) nbr[n++] = g + 1; else if(R.closed) nbr[n++] = R.g0;
+            if(gLink[g] >= 0) nbr[n++] = gLink[g];
+            if(gLink2[g] >= 0) nbr[n++] = gLink2[g];
+            return n;
+        }
+        function routeField(g0) {   // distance par la route (en pas de 4 m) de chaque point du réseau jusqu'à g0
+            const dist = new Int32Array(gCount).fill(-1), queue = new Int32Array(gCount);
+            let head = 0, tail = 0;
+            dist[g0] = 0; queue[tail++] = g0;
+            while(head < tail) { const g = queue[head++], n = neighbours(g); for(let k = 0; k < n; k++) { const b = nbr[k]; if(dist[b] < 0) { dist[b] = dist[g] + 1; queue[tail++] = b; } } }
+            return dist;
+        }
         // Hauteur du sol sous un point (terrain + surélévation de la chaussée)
         function groundY(x, z) {
             roadAt(x, z);
@@ -1335,16 +1532,26 @@
             if(Q.R) { const ad = Math.abs(Q.d), hw = Q.R.hw; lift = ad <= hw ? LIFT : ad < hw + 3.5 ? LIFT * (1 - (ad - hw) / 3.5) : 0; }
             return hAt(x, z) + lift;
         }
+        // Lacs : dans des cuvettes naturelles, loin de toute route
+        for(let tries = 0; tries < 4000 && lakes.length < 3; tries++) {
+            const a = rnd() * 6.283, rr = 500 + rnd() * 5600, x = Math.cos(a) * rr, z = Math.sin(a) * rr, R = 300 + rnd() * 220;
+            if(lakes.some(L => Math.hypot(L.x - x, L.z - z) < 2600)) continue;
+            const h0 = hills(x, z);
+            let rim = 1e9, ok = true;
+            for(let k = 0; k < 20 && ok; k++) { const t = k / 20 * 6.283, hr = hills(x + Math.cos(t) * R * 0.8, z + Math.sin(t) * R * 0.8); rim = Math.min(rim, hr); if(hr < h0 + 2.5) ok = false; }
+            for(let q = 0; q <= R + 140 && ok; q += 70) { const n = Math.max(1, Math.ceil(q * 6.283 / 70)); for(let k = 0; k < n; k++) { const t = k / n * 6.283; roadAt(x + Math.cos(t) * q, z + Math.sin(t) * q); if(Q.R && Q.dist < 100) { ok = false; break; } } }
+            if(ok) lakes.push({ x, z, r: R, level: Math.min(rim - 1.2, h0 + 4) });
+        }
 
         // Planques (retour au garage) et radars, posés le long des routes
         const hides = [], radars = [];
-        const HIDE_NAMES = ['Planque du Nord', 'Planque des Pins', 'Planque du Lac', 'Planque du Col'];
-        [[2, 0.5, 1], [4, 0.45, -1], [6, 0.55, 1], [8, 0.3, -1]].forEach(([ri, u, sd], k) => {
+        const HIDE_NAMES = ['Planque du Nord', 'Planque des Pins', 'Planque du Lac', 'Planque du Col', 'Planque de la Scierie', 'Planque du Belvédère'];
+        [[4, 0.5, 1], [6, 0.45, -1], [9, 0.5, 1], [11, 0.5, -1], [13, 0.5, 1], [15, 0.45, -1]].forEach(([ri, u, sd], k) => {
             const R = roads[ri], i = Math.floor(u * R.n), l = sd * (R.hw + 1.9);
             for(let j = Math.max(0, i - 14); j <= Math.min(R.n, i + 14); j++) R.rail[j] = 0;
-            hides.push({ R, i, sd, name: HIDE_NAMES[k], x: R.px[i] - R.tz[i] * l, z: R.pz[i] + R.tx[i] * l });
+            hides.push({ R, i, sd, name: HIDE_NAMES[k], x: R.px[i] - R.tz[i] * l, z: R.pz[i] + R.tx[i] * l, dist: routeField(R.g0 + i) });
         });
-        [[0, 0.05], [0, 0.22], [0, 0.4], [0, 0.56], [0, 0.73], [0, 0.9], [1, 0.1], [1, 0.45], [1, 0.8], [3, 0.5], [5, 0.5], [7, 0.5]].forEach(([ri, u]) => {
+        [[0, 0.04], [0, 0.18], [0, 0.33], [0, 0.47], [0, 0.62], [0, 0.76], [0, 0.9], [1, 0.08], [1, 0.28], [1, 0.48], [1, 0.68], [1, 0.88], [2, 0.2], [2, 0.7], [3, 0.5], [5, 0.5], [8, 0.5], [10, 0.5], [12, 0.5], [14, 0.5]].forEach(([ri, u]) => {
             const R = roads[ri];
             let i = Math.floor(u * R.n);
             while(R.jn[i] && i < R.n - 1) i++;
@@ -1358,7 +1565,7 @@
                 const g = g0.index ? g0.toNonIndexed() : g0.clone();
                 if(m) g.applyMatrix4(m);
                 const p = g.attributes.position.array, n = g.attributes.normal.array;
-                c.setHex(hex);
+                c.setHex(hex).convertSRGBToLinear();
                 for(let i = 0; i < p.length; i += 3) { pos.push(p[i], p[i + 1], p[i + 2]); nor.push(n[i], n[i + 1], n[i + 2]); col.push(c.r, c.g, c.b); }
             });
             const out = new THREE.BufferGeometry();
@@ -1369,8 +1576,32 @@
         }
         const MX = (x, y, z, rx, ry, rz, sx, sy, sz) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx || 0, ry || 0, rz || 0)), new THREE.Vector3(sx || 1, sy || 1, sz || 1));
         const dummy = new THREE.Object3D(), tmpCol = new THREE.Color();
-        const treeHash = new Map(), treeChunks = [];
-        const mapLines = [];   // tracés simplifiés des routes pour la mini-carte et la carte
+        const treeHash = new Map(), treeChunks = [], terrChunks = [], roadChunks = [], treeUni = { uTime: { value: 0 } };
+        const roadPaths = [null, null];   // tracés des routes (rocade / autres) pour la mini-carte et la carte
+        let mapImg = null, waterTex = null;
+        const MAP_HALF = 7400;            // demi-côté couvert par l'image de la carte (m)
+
+        // Bruit fractal périodique (se répète sans raccord) : sert de base aux textures du terrain
+        function tileNoise(size) {
+            const out = new Float32Array(size * size);
+            let amp = 0.5, tot = 0;
+            for(let o = 0; o < 6; o++) {
+                const f = 4 << o, lat = new Float32Array(f * f);
+                for(let i = 0; i < f * f; i++) lat[i] = rnd();
+                for(let y = 0; y < size; y++) {
+                    const v = y / size * f, yi = Math.floor(v), fy = v - yi, sy = fy * fy * (3 - 2 * fy), y0 = (yi % f) * f, y1 = ((yi + 1) % f) * f;
+                    for(let x = 0; x < size; x++) {
+                        const u = x / size * f, xi = Math.floor(u), fx = u - xi, sx = fx * fx * (3 - 2 * fx), x0 = xi % f, x1 = (xi + 1) % f;
+                        const a = lat[y0 + x0], b = lat[y0 + x1], c = lat[y1 + x0], d = lat[y1 + x1];
+                        out[y * size + x] += amp * (a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy);
+                    }
+                }
+                tot += amp; amp *= 0.5;
+            }
+            for(let i = 0; i < out.length; i++) out[i] /= tot;
+            return out;
+        }
+        const dataTex = (d, n, srgb) => { const t = new THREE.DataTexture(d, n, n, THREE.RGBAFormat); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.generateMipmaps = true; t.anisotropy = maxAniso; if(srgb) t.encoding = THREE.sRGBEncoding; t.needsUpdate = true; return t; };
 
         function roadTextures(hw, cls) {
             const W = 2 * hw + 7, SZ = 1024, ppm = SZ / W, LEN = 48, ppv = SZ / LEN;
@@ -1385,163 +1616,398 @@
                 line(-0.22, 0.17, yellow); line(0.22, 0.17, yellow);
                 if(cls === 0) { line(-4.5, 0.17, white, true); line(4.5, 0.17, white, true); }
             };
+            const ax = () => X(-hw) + Math.random() * 2 * hw * ppm;
+            // Fissure : ligne brisée irrégulière, dessinée aussi décalée d'une période pour que la texture se répète sans raccord
+            const crack = (g, col, w) => {
+                let x = ax(), y = Math.random() * SZ;
+                const n = 6 + Math.random() * 14 | 0, dir = Math.random() < 0.6 ? 0 : 1, pts = [[x, y]];
+                for(let k = 0; k < n; k++) { x += dir ? 14 + Math.random() * 30 : (Math.random() - 0.5) * 26; y += dir ? (Math.random() - 0.5) * 22 : 14 + Math.random() * 34; pts.push([x, y]); }
+                g.strokeStyle = col; g.lineWidth = w; g.lineJoin = 'round';
+                [-SZ, 0].forEach(o => { g.beginPath(); pts.forEach((p, k) => k ? g.lineTo(p[0], p[1] + o) : g.moveTo(p[0], p[1] + o)); g.stroke(); });
+            };
             const map = makeTex(SZ, SZ, (g) => {
                 g.fillStyle = '#4b453b'; g.fillRect(0, 0, SZ, SZ);
                 for(let i = 0; i < 9000; i++) { const v = 50 + Math.random() * 60 | 0; g.fillStyle = 'rgba(' + (v + 12) + ',' + (v + 4) + ',' + (v - 10) + ',0.5)'; g.fillRect(Math.random() * SZ, Math.random() * SZ, 2, 2); }
-                g.fillStyle = '#28292c'; g.fillRect(X(-hw), 0, 2 * hw * ppm, SZ);
-                for(let i = 0; i < 30000; i++) { const v = 24 + Math.random() * 36 | 0; g.fillStyle = 'rgba(' + v + ',' + v + ',' + (v + 2) + ',0.55)'; g.fillRect(X(-hw) + Math.random() * 2 * hw * ppm, Math.random() * SZ, 1.6, 1.6); }
-                lanes.forEach(c => [-0.85, 0.85].forEach(o => { g.fillStyle = 'rgba(0,0,0,0.08)'; g.fillRect(X(c + o) - 0.36 * ppm, 0, 0.72 * ppm, SZ); }));
-                lines(g, '#d2d2cb', '#d6a21c');
-            });
+                g.fillStyle = '#2f3033'; g.fillRect(X(-hw), 0, 2 * hw * ppm, SZ);
+                // Reprises d'enrobé plus sombres ou plus claires
+                for(let i = 0; i < 7; i++) { const w = (1.2 + Math.random() * 2.6) * ppm, h = 60 + Math.random() * 260, x = ax(), y = Math.random() * SZ; g.fillStyle = Math.random() < 0.6 ? 'rgba(20,20,22,0.35)' : 'rgba(70,70,72,0.22)'; [-SZ, 0].forEach(o => g.fillRect(x, y + o, w, h)); }
+                for(let i = 0; i < 34000; i++) { const v = 26 + Math.random() * 44 | 0; g.fillStyle = 'rgba(' + v + ',' + v + ',' + (v + 2) + ',0.55)'; g.fillRect(ax(), Math.random() * SZ, 1.6, 1.6); }
+                lanes.forEach(c => [-0.85, 0.85].forEach(o => { g.fillStyle = 'rgba(0,0,0,0.10)'; g.fillRect(X(c + o) - 0.36 * ppm, 0, 0.72 * ppm, SZ); }));
+                for(let i = 0; i < 12; i++) crack(g, 'rgba(10,10,11,0.42)', 0.8 + Math.random() * 0.9);
+                lines(g, '#d4d4cc', '#d8a41c');
+                // Usure du marquage et salissures
+                for(let i = 0; i < 5200; i++) { const v = 30 + Math.random() * 30 | 0; g.fillStyle = 'rgba(' + v + ',' + v + ',' + v + ',0.5)'; g.fillRect(ax(), Math.random() * SZ, 1 + Math.random() * 3, 1 + Math.random() * 5); }
+                for(let i = 0; i < 4; i++) crack(g, 'rgba(10,10,11,0.35)', 0.9);
+                // Bords : l'herbe et la terre mordent sur l'asphalte
+                [-hw, hw].forEach(e => { for(let i = 0; i < 900; i++) { g.fillStyle = 'rgba(70,64,50,' + (0.2 + Math.random() * 0.4) + ')'; g.fillRect(X(e) + (Math.random() - 0.5) * 0.5 * ppm, Math.random() * SZ, 3 + Math.random() * 5, 3 + Math.random() * 8); } });
+            }, 0, 0, true);
             // Rugosité : chaussée mouillée, flaques presque miroir, accotement mat
             const rough = makeTex(SZ, SZ, (g) => {
                 g.fillStyle = '#ececec'; g.fillRect(0, 0, SZ, SZ);
-                g.fillStyle = '#6c6c6c'; g.fillRect(X(-hw), 0, 2 * hw * ppm, SZ);
-                for(let i = 0; i < 46; i++) {
-                    const x = X(-hw) + Math.random() * 2 * hw * ppm, y = Math.random() * SZ, rx = 14 + Math.random() * 46, ry = 40 + Math.random() * 150;
+                g.fillStyle = '#929292'; g.fillRect(X(-hw), 0, 2 * hw * ppm, SZ);
+                for(let i = 0; i < 30; i++) {
+                    const x = ax(), y = Math.random() * SZ, rx = 14 + Math.random() * 46, ry = 40 + Math.random() * 150;
                     [-SZ, 0, SZ].forEach(o => {
-                        const gr = g.createRadialGradient(x, y + o, 0, x, y + o, 1);
                         g.save(); g.translate(x, y + o); g.scale(rx, ry);
                         const rg = g.createRadialGradient(0, 0, 0, 0, 0, 1);
-                        rg.addColorStop(0, 'rgba(22,22,22,0.9)'); rg.addColorStop(0.6, 'rgba(30,30,30,0.6)'); rg.addColorStop(1, 'rgba(60,60,60,0)');
+                        rg.addColorStop(0, 'rgba(44,44,44,0.9)'); rg.addColorStop(0.6, 'rgba(52,52,52,0.6)'); rg.addColorStop(1, 'rgba(80,80,80,0)');
                         g.fillStyle = rg; g.beginPath(); g.arc(0, 0, 1, 0, 7); g.fill(); g.restore();
                     });
                 }
                 lanes.forEach(c => [-0.85, 0.85].forEach(o => { g.fillStyle = 'rgba(40,40,40,0.35)'; g.fillRect(X(c + o) - 0.32 * ppm, 0, 0.64 * ppm, SZ); }));
-                for(let i = 0; i < 16000; i++) { const v = 70 + Math.random() * 90 | 0; g.fillStyle = 'rgba(' + v + ',' + v + ',' + v + ',0.3)'; g.fillRect(X(-hw) + Math.random() * 2 * hw * ppm, Math.random() * SZ, 2, 2); }
+                for(let i = 0; i < 16000; i++) { const v = 70 + Math.random() * 90 | 0; g.fillStyle = 'rgba(' + v + ',' + v + ',' + v + ',0.3)'; g.fillRect(ax(), Math.random() * SZ, 2, 2); }
                 lines(g, '#8a8a8a', '#8a8a8a');
                 g.fillStyle = '#ececec'; g.fillRect(0, 0, X(-hw), SZ); g.fillRect(X(hw), 0, SZ - X(hw), SZ);
             });
             return { map, rough };
         }
 
-        function buildWorld() {
-            const nrm = (x, z, out, o) => { const e = 2, gx = (hAt(x + e, z) - hAt(x - e, z)) / (2 * e), gz = (hAt(x, z + e) - hAt(x, z - e)) / (2 * e), l = Math.hypot(gx, 1, gz); out[o] = -gx / l; out[o + 1] = 1 / l; out[o + 2] = -gz / l; };
-
-            // --- Terrain : 81 dalles de 1 km, herbe teintée (prairies vertes, zones sèches dorées) ---
-            const grassTex = makeTex(256, 256, (g, w, h) => {
-                g.fillStyle = '#b8b8ac'; g.fillRect(0, 0, w, h);
-                for(let i = 0; i < 9000; i++) { const v = 120 + Math.random() * 120 | 0; g.fillStyle = 'rgba(' + v + ',' + v + ',' + (v - 20) + ',0.35)'; g.fillRect(Math.random() * w, Math.random() * h, 1.5, 3 + Math.random() * 4); }
-                for(let i = 0; i < 16; i++) { g.fillStyle = 'rgba(70,70,50,0.12)'; g.beginPath(); g.arc(Math.random() * w, Math.random() * h, 10 + Math.random() * 28, 0, 7); g.fill(); }
+        // Planche d'arbres peints : 8 vignettes (épicéa, pin, feuillus vert / jaune / orangé, bouleau, buisson, herbes hautes)
+        function paintTreeAtlas() {
+            const CW = 512, CH = 1024, NV = 8, cv = document.createElement('canvas');
+            cv.width = CW * NV; cv.height = CH;
+            const g = cv.getContext('2d'), R = rnd;
+            const hsl = (h, s, l, a) => 'hsla(' + h.toFixed(0) + ',' + clamp(s, 0, 100).toFixed(0) + '%,' + clamp(l, 2, 92).toFixed(0) + '%,' + (a === undefined ? 1 : a) + ')';
+            g.lineCap = 'round';
+            const shade = (k) => {   // le bas du houppier est plus sombre (ombre propre)
+                g.globalCompositeOperation = 'source-atop';
+                const gr = g.createLinearGradient(0, CH * 0.05, 0, CH);
+                gr.addColorStop(0, 'rgba(255,240,200,0.10)'); gr.addColorStop(0.35, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,0.42)');
+                g.fillStyle = gr; g.fillRect(k * CW, 0, CW, CH);
+                g.globalCompositeOperation = 'source-over';
+            };
+            const conifer = (k, wf, hue, li) => {
+                const cx = k * CW + CW / 2, top = CH * 0.02, bot = CH * 0.9;
+                g.fillStyle = '#2c2118'; g.beginPath(); g.moveTo(cx - 10, CH); g.lineTo(cx + 10, CH); g.lineTo(cx + 2.5, top + 70); g.lineTo(cx - 2.5, top + 70); g.fill();
+                const ts = [];
+                for(let i = 0; i < 2900; i++) ts.push(Math.pow(R(), 0.72));
+                ts.sort((a, b) => b - a);   // du bas vers le haut : les branches hautes recouvrent les basses
+                for(const t of ts) {
+                    const y = top + (bot - top) * t, hw = (0.03 + 0.45 * Math.pow(t, 0.9)) * CW * wf * (0.84 + 0.16 * Math.sin(t * 44));
+                    const u = R() * 2 - 1, edge = Math.abs(u), x = cx + u * hw, len = (14 + R() * 22) * (0.6 + t * 0.7);
+                    const ang = Math.PI / 2 - Math.sign(u) * (0.35 + 0.8 * edge) + (R() - 0.5) * 0.4, lit = li * (0.5 + 0.8 * edge * R() + (1 - t) * 0.25);
+                    const x2 = x + Math.cos(ang) * len, y2 = y + Math.sin(ang) * len, mx = x + Math.cos(ang) * len * 0.5, my = y + Math.sin(ang) * len * 0.2;
+                    g.strokeStyle = hsl(hue + (R() - 0.5) * 24, 26 + R() * 22, 6 + lit * 15 + R() * 5, 0.96);
+                    g.lineWidth = 5 + R() * 6;
+                    g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(mx, my, x2, y2); g.stroke();
+                    if(R() < 0.55) { g.strokeStyle = hsl(hue - 10 + R() * 16, 30 + R() * 22, 15 + lit * 21, 0.8); g.lineWidth = 1.4 + R() * 1.8; g.beginPath(); g.moveTo(x, y - 3); g.quadraticCurveTo(mx, my - 3, x2, y2 - 2); g.stroke(); }
+                }
+                shade(k);
+            };
+            const crown = (k, cy, rx, ry, nl, lr0, nd, hue, sat, li, ds) => {
+                const cx = k * CW + CW / 2, lobes = [];
+                for(let i = 0; i < nl; i++) { const a = R() * 6.283, q = Math.sqrt(R()) * 0.82; lobes.push([cx + Math.cos(a) * q * rx, cy + Math.sin(a) * q * ry, CW * lr0 * (0.75 + R() * 0.6)]); }
+                for(let pass = 0; pass < 3; pass++) for(const [lx, ly, lr] of lobes) for(let i = 0; i < nd; i++) {
+                    const a = R() * 6.283, q = Math.sqrt(R()), x = lx + Math.cos(a) * q * lr, y = ly + Math.sin(a) * q * lr * 0.9, up = (ly - y) / lr;
+                    if(pass === 1 && up < -0.3 || pass === 2 && up < 0.3) continue;
+                    const l = li * [0.40, 0.74, 1.12][pass] * (0.85 + R() * 0.3) * (1.08 - 0.5 * (y - (cy - ry)) / (2 * ry));
+                    g.fillStyle = hsl(hue + (R() - 0.5) * 16, sat + (R() - 0.5) * 14, l, 0.93);
+                    const s = ds * (0.6 + R());
+                    g.beginPath(); g.ellipse(x, y, s, s * 0.62, R() * 3.14, 0, 6.283); g.fill();
+                }
+            };
+            const inCell = (k, fn) => { g.save(); g.beginPath(); g.rect(k * CW, 0, CW, CH); g.clip(); fn(); g.restore(); };
+            const leafy = (k, hue, sat, li, bark, birch) => inCell(k, () => {
+                const cx = k * CW + CW / 2, ccy = CH * (birch ? 0.43 : 0.45), rx = CW * (birch ? 0.28 : 0.41), ry = CH * (birch ? 0.35 : 0.34);
+                const fx = cx + (R() - 0.5) * 30, fy = ccy + ry * 0.55, w0 = birch ? 14 : 27;
+                // Tronc effilé, puis charpentières qui se perdent dans le houppier
+                g.fillStyle = bark; g.beginPath(); g.moveTo(cx - w0 / 2, CH); g.lineTo(cx + w0 / 2, CH); g.lineTo(fx + w0 * 0.3, fy); g.lineTo(fx - w0 * 0.3, fy); g.fill();
+                const branch = (x, y, ang, len, w, depth) => {
+                    const x2 = x + Math.cos(ang) * len, y2 = y + Math.sin(ang) * len;
+                    g.strokeStyle = bark; g.lineWidth = w; g.beginPath(); g.moveTo(x, y); g.lineTo(x2, y2); g.stroke();
+                    if(depth > 0) for(let i = 0; i < 2; i++) branch(x2, y2, ang + (R() - 0.5) * 1.1, len * 0.7, w * 0.6, depth - 1);
+                };
+                for(let i = 0; i < 5; i++) branch(fx, fy, -Math.PI / 2 + (i / 4 - 0.5) * (birch ? 1.2 : 2.0) + (R() - 0.5) * 0.3, CH * (0.10 + R() * 0.07), w0 * 0.5, 2);
+                if(birch) for(let i = 0; i < 30; i++) { g.fillStyle = 'rgba(20,20,18,0.85)'; g.fillRect(cx - 6 + R() * 9, CH * (0.6 + R() * 0.4), 3 + R() * 7, 2 + R() * 3); }
+                crown(k, ccy, rx, ry, birch ? 34 : 44, birch ? 0.085 : 0.115, birch ? 80 : 105, hue, sat, li, birch ? 5.5 : 7);
+                shade(k);
             });
-            const terrainMat = new THREE.MeshStandardMaterial({ map: grassTex, vertexColors: true, roughness: 0.95, metalness: 0 });
-            const NCH = 9, CS = 1024, CC = 48, cs = CS / CC, half = NCH * CS / 2, V = CC + 1;
-            const tIdx = [];
-            for(let i = 0; i < CC; i++) for(let j = 0; j < CC; j++) { const a = i * V + j, b = a + 1, c = a + V, d = c + 1; tIdx.push(a, c, b, b, c, d); }
-            for(let cz = 0; cz < NCH; cz++) for(let cx = 0; cx < NCH; cx++) {
-                const pos = new Float32Array(V * V * 3), nor = new Float32Array(V * V * 3), col = new Float32Array(V * V * 3), uv = new Float32Array(V * V * 2);
-                const x0 = -half + cx * CS, z0 = -half + cz * CS;
+            conifer(0, 0.92, 138, 1.0);
+            conifer(1, 0.70, 112, 1.25);
+            leafy(2, 96, 44, 27, '#3a2d22');
+            leafy(3, 47, 78, 44, '#40301f');
+            leafy(4, 24, 76, 38, '#3b2a1e');
+            leafy(5, 62, 60, 40, '#d9d6cc', true);
+            inCell(6, () => { crown(6, CH * 0.875, CW * 0.40, CH * 0.10, 24, 0.10, 95, 88, 38, 24, 6); shade(6); });
+            // Herbes hautes : touffe en dôme (plus haute et plus dense au centre), quelques épis
+            inCell(7, () => { for(let i = 0; i < 460; i++) {
+                const u = (R() + R() + R()) / 1.5 - 1, x = 7 * CW + CW * (0.5 + u * 0.42), h = CH * (0.10 + R() * 0.25) * (1 - 0.55 * u * u), lean = (R() - 0.5) * 80 + u * 60, dry = R();
+                g.strokeStyle = hsl(86 - dry * 34, 30 + R() * 18, 13 + dry * 12 + R() * 16, 0.95); g.lineWidth = 2 + R() * 2.4;
+                g.beginPath(); g.moveTo(x, CH); g.quadraticCurveTo(x + lean * 0.2, CH - h * 0.6, x + lean, CH - h); g.stroke();
+                if(R() < 0.14) { g.fillStyle = hsl(46, 40, 42, 0.95); g.beginPath(); g.ellipse(x + lean, CH - h, 3.5, 10, lean * 0.006, 0, 6.283); g.fill(); }
+            } });
+            // Les pixels transparents prennent la couleur moyenne du feuillage : pas de liseré noir à distance
+            const img = g.getImageData(0, 0, CW * NV, CH), d = img.data;
+            for(let k = 0; k < NV; k++) {
+                let sr = 0, sg = 0, sb = 0, n = 0;
+                for(let y = 0; y < CH; y += 4) for(let x = k * CW; x < (k + 1) * CW; x += 4) { const o = (y * CW * NV + x) * 4; if(d[o + 3] > 200) { sr += d[o]; sg += d[o + 1]; sb += d[o + 2]; n++; } }
+                sr /= n || 1; sg /= n || 1; sb /= n || 1;
+                for(let y = 0; y < CH; y++) for(let x = k * CW; x < (k + 1) * CW; x++) {
+                    const o = (y * CW * NV + x) * 4, a = d[o + 3];
+                    if(a < 10) { d[o] = sr; d[o + 1] = sg; d[o + 2] = sb; d[o + 3] = 0; } else d[o + 3] = Math.min(255, a * (k === 7 ? 1 : 1.5));
+                }
+            }
+            const t = new THREE.DataTexture(new Uint8Array(d.buffer), CW * NV, CH, THREE.RGBAFormat);
+            t.encoding = THREE.sRGBEncoding; t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter; t.anisotropy = Math.min(4, maxAniso); t.needsUpdate = true;
+            return t;
+        }
+        // Arbre = plans verticaux croisés, visibles des deux côtés, avec des normales bombées pour un éclairage en volume
+        function crossGeo(planes, segU) {
+            const pos = [], nor = [], uv = [], col = [], idx = [];
+            for(let p = 0; p < planes; p++) {
+                const a = p / planes * Math.PI, ca = Math.cos(a), sa = Math.sin(a), base = pos.length / 3;
+                for(let j = 0; j <= 1; j++) for(let i = 0; i <= segU; i++) {
+                    const u = i / segU, x = (u - 0.5) * 0.5, nx = (u - 0.5) * 2 * ca, nz = (u - 0.5) * 2 * sa, l = Math.hypot(nx, 0.45, nz);
+                    pos.push(x * ca, j, x * sa); nor.push(nx / l, 0.45 / l, nz / l); uv.push(u, j); col.push(1, 1, 1);
+                }
+                for(let i = 0; i < segU; i++) { const a0 = base + i, b0 = a0 + 1, c0 = a0 + segU + 1, d0 = c0 + 1; idx.push(a0, b0, c0, b0, d0, c0, a0, c0, b0, b0, c0, d0); }
+            }
+            const g = new THREE.BufferGeometry();
+            g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+            g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+            g.setIndex(idx);
+            return g;
+        }
+
+        function buildWorld() {
+            const nrm = (x, z, out, o, e) => { const gx = (hAt(x + e, z) - hAt(x - e, z)) / (2 * e), gz = (hAt(x, z + e) - hAt(x, z - e)) / (2 * e), l = Math.hypot(gx, 1, gz); out[o] = -gx / l; out[o + 1] = 1 / l; out[o + 2] = -gz / l; };
+
+            // --- Textures du terrain : bruits périodiques, relief de détail, herbe, carte d'occupation du sol ---
+            const NS = 512, na = tileNoise(NS), nb = tileNoise(NS), nzD = new Uint8Array(NS * NS * 4), nmD = new Uint8Array(NS * NS * 4);
+            const hgtN = (x, y) => { const o = ((y + NS) % NS) * NS + (x + NS) % NS, r = 1 - Math.abs(na[o] * 2 - 1); return r * r * 0.7 + nb[o] * 0.3; };
+            for(let y = 0; y < NS; y++) for(let x = 0; x < NS; x++) {
+                const o = (y * NS + x) * 4, i = y * NS + x;
+                nzD[o] = clamp((na[i] - 0.5) * 1.7 + 0.5, 0, 1) * 255; nzD[o + 1] = clamp((nb[i] - 0.5) * 1.7 + 0.5, 0, 1) * 255; nzD[o + 2] = (1 - Math.abs(na[i] * 2 - 1)) * 255; nzD[o + 3] = 255;
+                const dx = (hgtN(x + 1, y) - hgtN(x - 1, y)) * 9, dy = (hgtN(x, y + 1) - hgtN(x, y - 1)) * 9, l = Math.hypot(dx, dy, 1);
+                nmD[o] = (-dx / l * 0.5 + 0.5) * 255; nmD[o + 1] = (-dy / l * 0.5 + 0.5) * 255; nmD[o + 2] = (1 / l * 0.5 + 0.5) * 255; nmD[o + 3] = 255;
+            }
+            const nzTex = dataTex(nzD, NS), terrN = dataTex(nmD, NS);
+            waterTex = dataTex(nmD, NS); waterTex.repeat.set(46, 46);
+            const grassTex = makeTex(512, 512, (g, w, h) => {
+                g.fillStyle = '#c8c8c4'; g.fillRect(0, 0, w, h);
+                for(let i = 0; i < 40; i++) { g.fillStyle = Math.random() < 0.5 ? 'rgba(255,255,235,0.10)' : 'rgba(40,50,30,0.10)'; g.beginPath(); g.arc(Math.random() * w, Math.random() * h, 14 + Math.random() * 50, 0, 7); g.fill(); }
+                for(let i = 0; i < 30000; i++) {
+                    const x = Math.random() * w, y = Math.random() * h, l = 3 + Math.random() * 7, a = -Math.PI / 2 + (Math.random() - 0.5) * 1.2, v = Math.random();
+                    g.strokeStyle = v < 0.5 ? 'rgba(' + (30 + v * 120 | 0) + ',' + (40 + v * 120 | 0) + ',' + (20 + v * 80 | 0) + ',0.5)' : 'rgba(255,255,' + (190 + v * 60 | 0) + ',' + (0.15 + v * 0.3).toFixed(2) + ')';
+                    g.lineWidth = 1 + Math.random(); g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke();
+                }
+            });
+            const LAND_N = 512, LAND_SPAN = 42000, landD = new Uint8Array(LAND_N * LAND_N * 4);
+            for(let j = 0; j < LAND_N; j++) for(let i = 0; i < LAND_N; i++) {
+                const x = ((i + 0.5) / LAND_N - 0.5) * LAND_SPAN, z = ((j + 0.5) / LAND_N - 0.5) * LAND_SPAN, r = Math.hypot(x, z);
+                let f = forestAt(x, z);
+                if(r > WORLD_R + 250) { const alt = hAt(x, z); f = Math.max(f, sstep(60, 200, alt) * 0.9) * (1 - sstep(380, 600, alt)); }
+                landD[(j * LAND_N + i) * 4] = f * 255; landD[(j * LAND_N + i) * 4 + 3] = 255;
+            }
+            const landTex = new THREE.DataTexture(landD, LAND_N, LAND_N, THREE.RGBAFormat);
+            landTex.magFilter = landTex.minFilter = THREE.LinearFilter; landTex.needsUpdate = true;
+
+            // --- Matière du terrain : prairies, sous-bois, roche, neige selon l'altitude et la pente, calculés au pixel ---
+            const lakeU = [0, 1, 2].map(k => lakes[k] ? new THREE.Vector4(lakes[k].x, lakes[k].z, lakes[k].r, lakes[k].level) : new THREE.Vector4(0, 0, 0, 0));
+            const terrainMat = new THREE.MeshStandardMaterial({ roughness: 0.95, metalness: 0, normalMap: terrN, normalScale: new THREE.Vector2(1.7, 1.7), envMapIntensity: 0.35 });
+            terrainMat.onBeforeCompile = (sh) => {
+                Object.assign(sh.uniforms, { uNz: { value: nzTex }, uLand: { value: landTex }, uGrass: { value: grassTex }, uLakes: { value: lakeU } });
+                sh.vertexShader = 'varying vec3 vWPos;\nvarying vec3 vWNrm;\n' + sh.vertexShader
+                    .replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>\n\tvWNrm = objectNormal;')
+                    .replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvWPos = ( modelMatrix * vec4( transformed, 1.0 ) ).xyz;');
+                sh.fragmentShader = `varying vec3 vWPos; varying vec3 vWNrm;
+                    uniform sampler2D uNz; uniform sampler2D uLand; uniform sampler2D uGrass; uniform vec4 uLakes[3];
+                    vec3 terrainAlbedo(vec3 wp, vec3 wn, out float rough) {
+                        vec2 p = wp.xz;
+                        float n1 = texture2D(uNz, p / 2600.0).r, n2 = texture2D(uNz, p / 640.0).g, n3 = texture2D(uNz, p / 150.0).r, n4 = texture2D(uNz, p / 31.0).g;
+                        float slope = 1.0 - wn.y, alt = wp.y;
+                        float forest = texture2D(uLand, p / ${LAND_SPAN.toFixed(1)} + 0.5).r;
+                        vec3 g1 = texture2D(uGrass, p / 6.5).rgb, g2 = texture2D(uGrass, p / 47.0).rgb;
+                        vec3 det = (g1 * g1 + g2 * g2) * 0.8;
+                        vec3 col = mix(vec3(0.075, 0.135, 0.028), vec3(0.185, 0.165, 0.055), smoothstep(0.34, 0.62, n1)) * (0.7 + 0.6 * n3) * det;
+                        col = mix(col, vec3(0.030, 0.055, 0.021) * (0.55 + 0.9 * n4) * (0.6 + 0.4 * det), forest * 0.85);
+                        float tl = 430.0 + n2 * 220.0;
+                        vec3 rock = mix(vec3(0.10, 0.095, 0.09), vec3(0.25, 0.23, 0.21), n3) * (0.7 + 0.6 * n4);
+                        float rockAmt = max(smoothstep(0.26, 0.48, slope + (n4 - 0.5) * 0.16), smoothstep(tl, tl + 260.0, alt)) * smoothstep(70.0, 150.0, alt);
+                        col = mix(col, rock, rockAmt);
+                        float sl = 880.0 + n2 * 260.0 - n1 * 120.0;
+                        float snow = smoothstep(sl - 40.0, sl + 140.0, alt + (n3 - 0.5) * 170.0) * (1.0 - smoothstep(0.50, 0.82, slope + (n4 - 0.5) * 0.22));
+                        col = mix(col, vec3(0.80, 0.84, 0.90), snow);
+                        float wet = 0.0;
+                        for(int i = 0; i < 3; i++) { vec4 L = uLakes[i]; if(L.z > 0.0 && distance(p, L.xy) < L.z) wet = max(wet, 1.0 - smoothstep(L.w + 0.1, L.w + 1.6, alt)); }
+                        col = mix(col, vec3(0.07, 0.06, 0.045), wet * 0.85);
+                        rough = mix(0.95, 0.55, max(snow, wet));
+                        return col;
+                    }\n` + sh.fragmentShader
+                    .replace('#include <map_fragment>', 'float tRough;\n\tdiffuseColor.rgb = terrainAlbedo( vWPos, normalize( vWNrm ), tRough );')
+                    .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n\troughnessFactor = tRough;')
+                    .replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n\treflectedLight.directSpecular *= 0.2;')
+                    .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n\tnormal = normalize( mix( geometryNormal, normal, 0.10 + 0.90 * smoothstep( 70.0, 320.0, vWPos.y ) ) );');
+            };
+            // Terrain proche : 196 dalles de 1 km en trois niveaux de détail (mailles de 25, 50 et 100 m).
+            // Les niveaux lointains sont posés un peu plus bas (ils ne recouvrent jamais la route) et chaque dalle a une jupe qui cache les raccords.
+            const NCH = 14, CS = 1024, half = NCH * CS / 2, idxCache = {};
+            const grid2 = (n) => { if(idxCache[n]) return idxCache[n]; const a = []; for(let i = 0; i < n; i++) for(let j = 0; j < n; j++) { const p = i * (n + 1) + j, q = p + n + 1; a.push(p, q, p + 1, p + 1, q, q + 1); } return idxCache[n] = a; };
+            const terrGeo = (x0, z0, n, drop) => {
+                const V = n + 3, cs = CS / n, pos = new Float32Array(V * V * 3), nor = new Float32Array(V * V * 3), uv = new Float32Array(V * V * 2);
                 for(let i = 0; i < V; i++) for(let j = 0; j < V; j++) {
-                    const x = x0 + j * cs, z = z0 + i * cs, o = (i * V + j) * 3;
-                    pos[o] = x; pos[o + 1] = hAt(x, z); pos[o + 2] = z;
-                    nrm(x, z, nor, o);
-                    const dry = sstep(0.42, 0.72, vnoise(x / 260, z / 260)), dk = vnoise(x / 70 + 40, z / 70) * 0.55;
-                    col[o] = (0.27 + 0.30 * dry) * (1 - dk * 0.5); col[o + 1] = (0.40 + 0.10 * dry) * (1 - dk * 0.42); col[o + 2] = (0.13 + 0.07 * dry) * (1 - dk * 0.5);
-                    uv[(i * V + j) * 2] = x / 14; uv[(i * V + j) * 2 + 1] = z / 14;
+                    const skirt = i === 0 || j === 0 || i === V - 1 || j === V - 1, x = x0 + clamp(j - 1, 0, n) * cs, z = z0 + clamp(i - 1, 0, n) * cs, o = (i * V + j) * 3;
+                    pos[o] = x; pos[o + 1] = hAt(x, z) - drop - (skirt ? 7 : 0); pos[o + 2] = z;
+                    nrm(x, z, nor, o, 2);
+                    uv[(i * V + j) * 2] = x / 900; uv[(i * V + j) * 2 + 1] = z / 900;
                 }
                 const g = new THREE.BufferGeometry();
-                g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
-                g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
-                g.setIndex(tIdx);
-                const m = new THREE.Mesh(g, terrainMat);
-                m.receiveShadow = true;
-                scene.add(m);
+                g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+                g.setIndex(grid2(n + 2));
+                return g;
+            };
+            for(let cz = 0; cz < NCH; cz++) for(let cx = 0; cx < NCH; cx++) {
+                const x0 = -half + cx * CS, z0 = -half + cz * CS;
+                const ms = [[40, 0], [20, 0.6], [10, 2.6]].map(([n, drop], k) => { const m = new THREE.Mesh(terrGeo(x0, z0, n, drop), terrainMat); m.receiveShadow = k === 0; m.visible = k === 2; scene.add(m); return m; });
+                terrChunks.push({ ms, cx: x0 + CS / 2, cz: z0 + CS / 2 });
             }
-            const far = new THREE.Mesh(new THREE.PlaneGeometry(60000, 60000), new THREE.MeshBasicMaterial({ color: 0x4d5a3a }));
-            far.rotation.x = -Math.PI / 2; far.position.y = -32;
-            scene.add(far);
+            // Terrain lointain : la même matière jusqu'à 21 km, maillée tous les 150 m (plaine, contreforts, sommets enneigés)
+            const FC = 150, FT = 40, FN = 7, fHalf = FN * FT * FC / 2, FV = FT + 1;
+            for(let tz = 0; tz < FN; tz++) for(let tx = 0; tx < FN; tx++) {
+                const pos = new Float32Array(FV * FV * 3), nor = new Float32Array(FV * FV * 3), uv = new Float32Array(FV * FV * 2), idx = [];
+                const x0 = -fHalf + tx * FT * FC, z0 = -fHalf + tz * FT * FC;
+                for(let i = 0; i < FV; i++) for(let j = 0; j < FV; j++) {
+                    const x = x0 + j * FC, z = z0 + i * FC, o = (i * FV + j) * 3, inside = Math.max(Math.abs(x), Math.abs(z)) < half + 1;
+                    pos[o] = x; pos[o + 1] = hAt(x, z) - (inside ? 14 : 0); pos[o + 2] = z;
+                    nrm(x, z, nor, o, 55);
+                    uv[(i * FV + j) * 2] = x / 900; uv[(i * FV + j) * 2 + 1] = z / 900;
+                }
+                for(let i = 0; i < FT; i++) for(let j = 0; j < FT; j++) {
+                    const xa = x0 + j * FC, za = z0 + i * FC, lim = half - FC;
+                    if(Math.max(Math.abs(xa), Math.abs(xa + FC)) <= lim && Math.max(Math.abs(za), Math.abs(za + FC)) <= lim) continue;   // sous le terrain proche
+                    const p = i * FV + j, q = p + FV;
+                    idx.push(p, q, p + 1, p + 1, q, q + 1);
+                }
+                if(!idx.length) continue;
+                const g = new THREE.BufferGeometry();
+                g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+                g.setIndex(idx);
+                scene.add(new THREE.Mesh(g, terrainMat));
+            }
+            // Lacs : eau sombre et lisse qui reflète le ciel, légères rides
+            const waterMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(0.012, 0.034, 0.042), roughness: 0.07, metalness: 0, normalMap: waterTex, normalScale: new THREE.Vector2(0.3, 0.3), envMapIntensity: 1.6 });
+            lakes.forEach(L => { const m = new THREE.Mesh(new THREE.CircleGeometry(L.r * 0.86, 56), waterMat); m.rotation.x = -Math.PI / 2; m.position.set(L.x, L.level, L.z); m.receiveShadow = true; scene.add(m); });
 
-            // --- Routes : ruban d'asphalte mouillé + accotements, découpé en tronçons de 190 m ---
+            // --- Routes : ruban d'asphalte mouillé + accotements, en tronçons de 380 m (version allégée au loin) ---
             const texByCls = [roadTextures(9, 0), roadTextures(6, 1)];
-            const railMat = new THREE.MeshStandardMaterial({ color: 0xaab0b6, metalness: 0.85, roughness: 0.42, side: THREE.DoubleSide });
-            const posts = [], lamps = [], poles = [], wire = [];
+            const railMat = new THREE.MeshStandardMaterial({ color: lin(0xaab0b6), metalness: 0.85, roughness: 0.42, side: THREE.DoubleSide });
+            const lamps = [], poles = [], wire = [], delin = [], chev = [];
+            const wall = (rp, rn, ax, ay, az, bx, by, bz, h, nx, nz) => { rp.push(ax, ay, az, ax, ay + h, az, bx, by, bz, bx, by, bz, ax, ay + h, az, bx, by + h, bz); for(let q = 0; q < 6; q++) rn.push(nx, 0.15, nz); };
             roads.forEach(R => {
                 const hw = R.hw, W = 2 * hw + 7, lat = [-hw - 3.5, -hw, -hw * 0.5, 0, hw * 0.5, hw, hw + 3.5];
                 const tex = texByCls[R.cls];
-                const mat = new THREE.MeshStandardMaterial({ map: tex.map, roughnessMap: tex.rough, roughness: 1, metalness: 0, envMapIntensity: 1.3,
+                const mat = new THREE.MeshStandardMaterial({ map: tex.map, roughnessMap: tex.rough, roughness: 1, metalness: 0, envMapIntensity: 1.0,
                     polygonOffset: true, polygonOffsetFactor: -2 - R.idx, polygonOffsetUnits: -2 - R.idx * 2 });
-                const rows = R.closed ? R.n + 1 : R.n, vS = Math.round(R.len / 48) / R.len, RC = 48;
-                for(let r0 = 0; r0 < rows - 1; r0 += RC) {
-                    const r1 = Math.min(rows - 1, r0 + RC), nr = r1 - r0 + 1;
-                    const pos = new Float32Array(nr * 7 * 3), nor = new Float32Array(nr * 7 * 3), uv = new Float32Array(nr * 7 * 2), idx = [];
-                    const rp = [], rn = [];
+                const rows = R.closed ? R.n + 1 : R.n, vS = Math.round(R.len / 48) / R.len, RC = 96;
+                const ribbon = (r0, r1, st) => {
+                    const list = [];
+                    for(let i = r0; i < r1; i += st) list.push(i);
+                    list.push(r1);
+                    const nr = list.length, pos = new Float32Array(nr * 7 * 3), nor = new Float32Array(nr * 7 * 3), uv = new Float32Array(nr * 7 * 2), idx = [];
                     for(let j = 0; j < nr; j++) {
-                        const i = r0 + j, nx = -R.tz[i], nz = R.tx[i];
+                        const i = list[j], nx = -R.tz[i], nz = R.tx[i];
                         for(let c = 0; c < 7; c++) {
                             const x = R.px[i] + nx * lat[c], z = R.pz[i] + nz * lat[c], o = (j * 7 + c) * 3;
                             pos[o] = x; pos[o + 1] = hAt(x, z) + (c === 0 || c === 6 ? -0.14 : LIFT + R.idx * 0.004); pos[o + 2] = z;
-                            nrm(x, z, nor, o);
+                            nrm(x, z, nor, o, 2);
                             uv[(j * 7 + c) * 2] = (lat[c] + hw + 3.5) / W; uv[(j * 7 + c) * 2 + 1] = i * R.step * vS;
                         }
                         if(j < nr - 1) for(let c = 0; c < 6; c++) { const a = j * 7 + c, b = a + 7; idx.push(a, a + 1, b, b, a + 1, b + 1); }
-                        // Glissières de sécurité des deux côtés
-                        if(j < nr - 1 && R.rail[i] && R.rail[i + 1]) [-1, 1].forEach(sd => {
-                            const l = sd * (hw + 1.6), i2 = i + 1;
-                            const ax = R.px[i] + nx * l, az = R.pz[i] + nz * l, bx = R.px[i2] - R.tz[i2] * l, bz = R.pz[i2] + R.tx[i2] * l;
-                            const ay = hAt(ax, az) + 0.1, by = hAt(bx, bz) + 0.1;
-                            rp.push(ax, ay + 0.42, az, ax, ay + 0.78, az, bx, by + 0.42, bz, bx, by + 0.42, bz, ax, ay + 0.78, az, bx, by + 0.78, bz);
-                            for(let q = 0; q < 6; q++) rn.push(-nx * sd, 0.15, -nz * sd);
-                            if(i % 2 === 0) posts.push(ax, ay, az, Math.atan2(R.tx[i], R.tz[i]));
-                        });
                     }
                     const g = new THREE.BufferGeometry();
                     g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
                     g.setIndex(idx);
                     const m = new THREE.Mesh(g, mat);
-                    m.receiveShadow = true;
                     scene.add(m);
+                    return m;
+                };
+                for(let r0 = 0; r0 < rows - 1; r0 += RC) {
+                    const r1 = Math.min(rows - 1, r0 + RC), mid = (r0 + r1) >> 1;
+                    const hi = ribbon(r0, r1, 1), lo = ribbon(r0, r1, 4);
+                    hi.receiveShadow = true; hi.visible = false;
+                    roadChunks.push({ hi, lo, cx: R.px[mid], cz: R.pz[mid] });
+                    // Glissières de sécurité des deux côtés, avec leurs poteaux
+                    const rp = [], rn = [];
+                    for(let i = r0; i < r1; i++) if(R.rail[i] && R.rail[i + 1]) [-1, 1].forEach(sd => {
+                        const nx = -R.tz[i], nz = R.tx[i], l = sd * (hw + 1.6), i2 = i + 1;
+                        const ax = R.px[i] + nx * l, az = R.pz[i] + nz * l, bx = R.px[i2] - R.tz[i2] * l, bz = R.pz[i2] + R.tx[i2] * l;
+                        const ay = hAt(ax, az) + 0.1, by = hAt(bx, bz) + 0.1;
+                        wall(rp, rn, ax, ay + 0.42, az, bx, by + 0.42, bz, 0.36, -nx * sd, -nz * sd);
+                        if(i % 2 === 0) wall(rp, rn, ax - R.tx[i] * 0.07 + nx * sd * 0.04, ay, az - R.tz[i] * 0.07 + nz * sd * 0.04, ax + R.tx[i] * 0.07 + nx * sd * 0.04, ay, az + R.tz[i] * 0.07 + nz * sd * 0.04, 0.72, -nx * sd, -nz * sd);
+                    });
                     if(rp.length) {
                         const rg = new THREE.BufferGeometry();
                         rg.setAttribute('position', new THREE.Float32BufferAttribute(rp, 3)); rg.setAttribute('normal', new THREE.Float32BufferAttribute(rn, 3));
                         scene.add(new THREE.Mesh(rg, railMat));
                     }
                 }
-                // Mobilier : lampadaires sur la rocade, poteaux et fils électriques le long des routes
+                // Mobilier : lampadaires sur la rocade, poteaux et fils électriques, balises, chevrons dans les virages serrés
                 let prevPole = null;
                 for(let i = 0; i < R.n; i++) {
                     const nx = -R.tz[i], nz = R.tx[i];
                     if(R.cls === 0 && i % 14 === 0 && !R.jn[i]) { const sd = (i / 14) % 2 ? 1 : -1, l = sd * (hw + 2.7); lamps.push(R.px[i] + nx * l, R.pz[i] + nz * l, nx * sd, nz * sd); }
                     if(R.cls === 1 && i % 11 === 0) {
-                        if(R.jn[i]) { prevPole = null; continue; }
-                        const l = -(hw + 5.2), x = R.px[i] + nx * l, z = R.pz[i] + nz * l, y = hAt(x, z);
-                        poles.push(x, y, z, Math.atan2(nx, nz));
-                        const cur = [-1, 1].map(s => [x + nx * s * 1.05, y + 9.05, z + nz * s * 1.05]);
-                        if(prevPole) cur.forEach((c, s) => { const p = prevPole[s], mid = [(p[0] + c[0]) / 2, (p[1] + c[1]) / 2 - 0.8, (p[2] + c[2]) / 2]; wire.push(p[0], p[1], p[2], mid[0], mid[1], mid[2], mid[0], mid[1], mid[2], c[0], c[1], c[2]); });
-                        prevPole = cur;
+                        if(R.jn[i]) prevPole = null;
+                        else {
+                            const l = -(hw + 5.2), x = R.px[i] + nx * l, z = R.pz[i] + nz * l, y = hAt(x, z);
+                            poles.push(x, y, z, Math.atan2(nx, nz));
+                            const cur = [-1, 1].map(s => [x + nx * s * 1.05, y + 9.05, z + nz * s * 1.05]);
+                            if(prevPole) cur.forEach((c, s) => { const p = prevPole[s], mid = [(p[0] + c[0]) / 2, (p[1] + c[1]) / 2 - 0.8, (p[2] + c[2]) / 2]; wire.push(p[0], p[1], p[2], mid[0], mid[1], mid[2], mid[0], mid[1], mid[2], c[0], c[1], c[2]); });
+                            prevPole = cur;
+                        }
+                    }
+                    if(R.jn[i]) continue;
+                    if(i % 12 === 6 && !R.rail[i]) [-1, 1].forEach(sd => { const l = sd * (hw + 1.3); delin.push(R.px[i] + nx * l, R.pz[i] + nz * l, Math.atan2(R.tx[i], R.tz[i])); });
+                    if(i % 6 === 0 && i >= 6 && i < R.n - 6) {
+                        const turn = angDiff(Math.atan2(R.tx[i + 5], R.tz[i + 5]), Math.atan2(R.tx[i - 5], R.tz[i - 5])) / (10 * R.step);   // courbure (1/m), positive = virage à gauche
+                        if(Math.abs(turn) > 1 / 300) { const sd = turn > 0 ? 1 : -1, l = sd * (hw + 2.6); chev.push(R.px[i] + nx * l, R.pz[i] + nz * l, Math.atan2(R.tx[i], R.tz[i]) + (sd > 0 ? Math.PI : 0)); }
                     }
                 }
-                const ml = [];
-                for(let i = 0; i < R.n; i += 4) ml.push(R.px[i], R.pz[i]);
-                ml.push(R.px[R.closed ? 0 : R.n - 1], R.pz[R.closed ? 0 : R.n - 1]);
-                mapLines.push({ pts: ml, hw });
             });
+            [0, 1].forEach(c => { const p = new Path2D(); roads.forEach(R => { if((R.cls === 0) !== (c === 0)) return; p.moveTo(R.px[0], R.pz[0]); for(let i = 2; i < R.n; i += 2) p.lineTo(R.px[i], R.pz[i]); if(R.closed) p.closePath(); else p.lineTo(R.px[R.n - 1], R.pz[R.n - 1]); }); roadPaths[c] = p; });
             const inst = (geo, mat, n, fill, shadow) => { const im = new THREE.InstancedMesh(geo, mat, n); for(let k = 0; k < n; k++) { fill(k); dummy.updateMatrix(); im.setMatrixAt(k, dummy.matrix); } im.frustumCulled = false; im.castShadow = !!shadow; scene.add(im); return im; };
-            const steelMat = new THREE.MeshStandardMaterial({ color: 0x8d949b, metalness: 0.8, roughness: 0.45 });
+            const steelMat = new THREE.MeshStandardMaterial({ color: lin(0x8d949b), metalness: 0.8, roughness: 0.45 });
             dummy.scale.set(1, 1, 1);
-            inst(new THREE.BoxGeometry(0.1, 0.8, 0.14), steelMat, posts.length / 4, k => { dummy.position.set(posts[k * 4], posts[k * 4 + 1] + 0.4, posts[k * 4 + 2]); dummy.rotation.set(0, posts[k * 4 + 3], 0); });
             // Lampadaires (le bras pointe vers la route), ampoules allumées
             const lampGeo = mergeGeos([[new THREE.CylinderGeometry(0.08, 0.13, 9, 6), MX(0, 4.5, 0), 0x6f767d], [new THREE.BoxGeometry(2.4, 0.1, 0.1), MX(-1.15, 8.95, 0), 0x6f767d], [new THREE.BoxGeometry(0.8, 0.14, 0.34), MX(-2.2, 8.92, 0), 0x50555b]]);
             const lampFill = k => { const x = lamps[k * 4], z = lamps[k * 4 + 1]; dummy.position.set(x, hAt(x, z), z); dummy.rotation.set(0, Math.atan2(-lamps[k * 4 + 3], lamps[k * 4 + 2]), 0); };
             inst(lampGeo, new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 0.6, roughness: 0.5 }), lamps.length / 4, lampFill);
-            inst(new THREE.BoxGeometry(0.62, 0.06, 0.26).applyMatrix4(MX(-2.2, 8.83, 0)), new THREE.MeshBasicMaterial({ color: 0xffe6b0 }), lamps.length / 4, lampFill);
-            const poleGeo = mergeGeos([[new THREE.CylinderGeometry(0.11, 0.16, 9.6, 6), MX(0, 4.8, 0), 0x4a3a2b], [new THREE.BoxGeometry(0.14, 0.14, 2.5), MX(0, 9, 0), 0x3c3026]]);
+            inst(new THREE.BoxGeometry(0.62, 0.06, 0.26).applyMatrix4(MX(-2.2, 8.83, 0)), new THREE.MeshBasicMaterial({ color: new THREE.Color(3.0, 2.3, 1.3) }), lamps.length / 4, lampFill);
+            const poleGeo = mergeGeos([[new THREE.CylinderGeometry(0.11, 0.16, 9.6, 5, 1, true), MX(0, 4.8, 0), 0x5a4735], [new THREE.BoxGeometry(0.14, 0.14, 2.5), MX(0, 9, 0), 0x4a3b2e]]);
             inst(poleGeo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 }), poles.length / 4, k => { dummy.position.set(poles[k * 4], poles[k * 4 + 1], poles[k * 4 + 2]); dummy.rotation.set(0, poles[k * 4 + 3], 0); }, true);
             const wg = new THREE.BufferGeometry();
             wg.setAttribute('position', new THREE.Float32BufferAttribute(wire, 3));
-            const wires = new THREE.LineSegments(wg, new THREE.LineBasicMaterial({ color: 0x14161a }));
+            const wires = new THREE.LineSegments(wg, new THREE.LineBasicMaterial({ color: 0x050607 }));
             wires.frustumCulled = false;
             scene.add(wires);
+            // Balises blanches à bande réfléchissante, chevrons jaunes côté extérieur des virages
+            const delinTex = makeTex(16, 128, (g, w, h) => { g.fillStyle = '#ecece6'; g.fillRect(0, 0, w, h); g.fillStyle = '#17181b'; g.fillRect(0, 18, w, 26); g.fillStyle = '#ff7a1a'; g.fillRect(3, 24, w - 6, 13); }, 0, 0, true);
+            const delinGeo = mergeGeos([[new THREE.PlaneGeometry(0.12, 1.05), MX(0, 0.52, 0), 0xffffff], [new THREE.PlaneGeometry(0.12, 1.05), MX(0, 0.52, 0, 0, Math.PI / 2, 0), 0xffffff]]);
+            { const u0 = new THREE.PlaneGeometry(1, 1).toNonIndexed().attributes.uv.array, u = []; for(let k = 0; k < 2; k++) for(let i = 0; i < u0.length; i++) u.push(u0[i]); delinGeo.setAttribute('uv', new THREE.Float32BufferAttribute(u, 2)); }
+            inst(delinGeo, new THREE.MeshLambertMaterial({ map: delinTex, side: THREE.DoubleSide }), delin.length / 3, k => { const x = delin[k * 3], z = delin[k * 3 + 1]; dummy.position.set(x, hAt(x, z), z); dummy.rotation.set(0, delin[k * 3 + 2], 0); });
+            const chevTex = makeTex(128, 160, (g, w, h) => {
+                g.fillStyle = '#111'; g.fillRect(0, 0, w, h); g.fillStyle = '#f2c417'; g.fillRect(6, 6, w - 12, h - 12);
+                g.fillStyle = '#111'; g.beginPath(); g.moveTo(28, 22); g.lineTo(64, 22); g.lineTo(104, 80); g.lineTo(64, 138); g.lineTo(28, 138); g.lineTo(68, 80); g.closePath(); g.fill();
+            }, 0, 0, true);
+            const chevFill = k => { const x = chev[k * 3], z = chev[k * 3 + 1]; dummy.position.set(x, hAt(x, z), z); dummy.rotation.set(0, chev[k * 3 + 2], 0); };
+            inst(new THREE.PlaneGeometry(0.75, 0.94).applyMatrix4(MX(0, 1.55, 0)), new THREE.MeshLambertMaterial({ map: chevTex, side: THREE.DoubleSide }), chev.length / 3, chevFill);
+            inst(new THREE.BoxGeometry(0.07, 1.2, 0.07).applyMatrix4(MX(0, 0.6, -0.04)), steelMat, chev.length / 3, chevFill);
 
-            // --- Planques : hangar au bord de la route, faisceau vert et anneau au sol ---
-            const wallMat = new THREE.MeshStandardMaterial({ color: 0x3b3f45, metalness: 0.5, roughness: 0.6 });
-            const doorMat = new THREE.MeshBasicMaterial({ color: 0xffc680 });
-            const beamMat = new THREE.MeshBasicMaterial({ color: 0x4dff7a, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, fog: false });
+            // --- Planques : hangar en tôle au bord de la route, faisceau vert et anneau au sol ---
+            const toleTex = makeTex(256, 256, (g, w, h) => {
+                g.fillStyle = '#5b6168'; g.fillRect(0, 0, w, h);
+                for(let x = 0; x < w; x += 16) { const gr = g.createLinearGradient(x, 0, x + 16, 0); gr.addColorStop(0, 'rgba(0,0,0,0.28)'); gr.addColorStop(0.5, 'rgba(255,255,255,0.12)'); gr.addColorStop(1, 'rgba(0,0,0,0.28)'); g.fillStyle = gr; g.fillRect(x, 0, 16, h); }
+                for(let i = 0; i < 60; i++) { const x = Math.random() * w, l = 20 + Math.random() * 120; const gr = g.createLinearGradient(0, h - l, 0, h); gr.addColorStop(0, 'rgba(110,60,30,0)'); gr.addColorStop(1, 'rgba(110,60,30,0.45)'); g.fillStyle = gr; g.fillRect(x, h - l, 3 + Math.random() * 8, l); }
+            }, 3, 1, true);
+            const wallMat = new THREE.MeshStandardMaterial({ map: toleTex, metalness: 0.5, roughness: 0.55 });
+            const doorMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.4, 1.5, 0.7) });
+            const beamMat = new THREE.MeshBasicMaterial({ color: 0x4dff7a, transparent: true, opacity: 0.2, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, fog: false });
             hides.forEach(h => {
                 const R = h.R, i = h.i, nx = -R.tz[i] * h.sd, nz = R.tx[i] * h.sd;
                 const bx = R.px[i] + nx * (R.hw + 14), bz = R.pz[i] + nz * (R.hw + 14);
                 const shed = new THREE.Group();
-                const body = new THREE.Mesh(new THREE.BoxGeometry(14, 8, 10), wallMat); body.position.y = 2; body.castShadow = true;
-                const roof = new THREE.Mesh(new THREE.BoxGeometry(15, 0.4, 11), wallMat); roof.position.y = 6.1;
+                const body = new THREE.Mesh(new THREE.BoxGeometry(14, 8, 10), wallMat); body.position.y = 2; body.castShadow = true; body.receiveShadow = true;
+                const roof = new THREE.Mesh(new THREE.BoxGeometry(15, 0.4, 11), wallMat); roof.position.y = 6.1; roof.castShadow = true;
                 const door = new THREE.Mesh(new THREE.PlaneGeometry(7, 3.6), doorMat); door.position.set(0, 2.6, 5.02);
                 shed.add(body, roof, door);
                 shed.position.set(bx, hAt(bx, bz), bz);
@@ -1556,98 +2022,121 @@
             const radarGeo = mergeGeos([[new THREE.CylinderGeometry(0.08, 0.1, 3.2, 6), MX(0, 1.6, 0), 0x5d6369], [new THREE.BoxGeometry(0.55, 0.8, 0.5), MX(0, 3.4, 0), 0xd9a520], [new THREE.BoxGeometry(0.4, 0.3, 0.52), MX(0, 3.5, 0), 0x121315]]);
             inst(radarGeo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6 }), radars.length, k => { const r = radars[k], l = r.R.hw + 2.3, x = r.x - r.R.tz[r.i] * l, z = r.z + r.R.tx[r.i] * l; dummy.position.set(x, hAt(x, z), z); dummy.rotation.set(0, Math.atan2(r.R.tx[r.i], r.R.tz[r.i]), 0); }, true);
 
-            // --- Forêt : sapins et feuillus d'automne, en instances regroupées par dalles de 512 m ---
-            const cone = (r, h) => new THREE.ConeGeometry(r, h, 7, 1, true);
-            const pineGeo = mergeGeos([[new THREE.CylinderGeometry(0.022, 0.036, 0.26, 5, 1, true), MX(0, 0.13, 0), 0x70503a],
-                [cone(0.235, 0.40), MX(0, 0.40, 0), 0xb4b4b4], [cone(0.19, 0.36), MX(0, 0.60, 0), 0xd0d0d0], [cone(0.14, 0.32), MX(0, 0.78, 0), 0xe8e8e8], [cone(0.085, 0.26), MX(0, 0.93, 0), 0xffffff]]);
-            const pineLo = mergeGeos([[new THREE.ConeGeometry(0.2, 0.86, 5, 1, true), MX(0, 0.6, 0), 0xdadada]]);
-            const leafGeo = mergeGeos([[new THREE.CylinderGeometry(0.028, 0.045, 0.5, 5, 1, true), MX(0, 0.25, 0), 0x6a5038],
-                [new THREE.IcosahedronGeometry(0.3, 1), MX(0, 0.68, 0, 0, 0, 0, 1, 1.08, 1), 0xffffff], [new THREE.IcosahedronGeometry(0.2, 0), MX(0.17, 0.54, 0.05), 0xdcdcdc], [new THREE.IcosahedronGeometry(0.19, 0), MX(-0.15, 0.58, -0.1), 0xeaeaea]]);
-            const leafLo = mergeGeos([[new THREE.IcosahedronGeometry(0.32, 0), MX(0, 0.66, 0, 0, 0, 0, 1, 1.1, 1), 0xf0f0f0]]);
-            pineGeo.boundingSphere = leafGeo.boundingSphere = pineLo.boundingSphere = leafLo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 8, 0), 420);
-            const treeMat = new THREE.MeshLambertMaterial({ vertexColors: true });
+            // --- Végétation : arbres peints sur des plans croisés, buissons et herbes hautes au bord des routes ---
+            const atlas = paintTreeAtlas();
+            const patchTree = (sh) => {
+                sh.uniforms.uTime = treeUni.uTime;
+                sh.vertexShader = 'attribute float aVar;\nuniform float uTime;\n' + sh.vertexShader
+                    .replace('#include <uv_vertex>', '#ifdef USE_UV\n\tvUv = vec2( ( uv.x + aVar ) / 8.0, 1.0 - uv.y * ( aVar > 5.5 ? 0.4 : 1.0 ) );\n#endif')
+                    .replace('#include <begin_vertex>', '#include <begin_vertex>\n#ifdef USE_INSTANCING\n\tfloat swP = instanceMatrix[ 3 ].x * 0.31 + instanceMatrix[ 3 ].z * 0.17, swA = position.y * position.y * ( aVar > 5.5 ? 0.05 : 0.014 );\n\ttransformed.x += sin( uTime * 1.6 + swP ) * swA;\n\ttransformed.z += cos( uTime * 1.25 + swP * 1.3 ) * swA * 0.7;\n#endif');
+            };
+            const treeMat = new THREE.MeshLambertMaterial({ map: atlas, alphaTest: 0.42, vertexColors: true });
+            treeMat.onBeforeCompile = patchTree;
+            const treeDepth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: atlas, alphaTest: 0.42 });
+            treeDepth.onBeforeCompile = patchTree;
+            const hiGeo = crossGeo(3, 2), loGeo = crossGeo(2, 1), bSphere = new THREE.Sphere(new THREE.Vector3(0, 8, 0), 430);
             const TC = 512, groups = new Map();
-            const tryTree = (x, z) => {
-                if(x * x + z * z > 4560 * 4560) return;
-                if(vnoise(x / 150, z / 150 + 9) < 0.22) return;                      // clairières
+            // plante : x, z, hauteur, largeur, variante, teinte ; les arbres (variante < 6) arrêtent la voiture
+            const plant = (x, z, hgt, wid, vr, tint) => {
+                const key = Math.floor(x / TC) + ':' + Math.floor(z / TC);
+                let a = groups.get(key);
+                if(!a) groups.set(key, a = []);
+                a.push(x, z, hgt, wid, vr, tint);
+            };
+            const tryTree = (x, z, sparse) => {
+                if(x * x + z * z > 7050 * 7050) return;
+                if(!sparse && vnoise(x / 150, z / 150 + 9) < 0.22) return;                      // clairières
                 roadAt(x, z);
                 if(Q.R && Q.dist < Q.R.hw + 6.5) return;
                 for(let k = 0; k < hides.length; k++) if(Math.abs(hides[k].x - x) < 28 && Math.abs(hides[k].z - z) < 28) return;
-                const ty = rnd() < 0.2 + 0.65 * sstep(0.35, 0.65, vnoise(x / 420 + 7, z / 420)) ? 0 : 1;
-                const key = ty + ':' + Math.floor(x / TC) + ':' + Math.floor(z / TC);
-                let a = groups.get(key);
-                if(!a) groups.set(key, a = []);
-                a.push(x, z);
+                for(let k = 0; k < lakes.length; k++) { const L = lakes[k]; if(Math.hypot(L.x - x, L.z - z) < L.r && hAt(x, z) < L.level + 0.8) return; }
+                const conif = rnd() < 0.15 + 0.7 * sstep(0.35, 0.65, vnoise(x / 420 + 7, z / 420)), q = rnd();
+                const vr = conif ? (q < 0.7 ? 0 : 1) : (q < 0.42 ? 2 : q < 0.66 ? 3 : q < 0.82 ? 4 : 5);
+                const hgt = vr < 2 ? 12 + rnd() * 11 : vr === 5 ? 9 + rnd() * 5 : 8.5 + rnd() * 7;
+                plant(x, z, hgt, hgt * (vr < 2 ? 0.8 + rnd() * 0.25 : vr === 5 ? 0.85 + rnd() * 0.2 : 1.05 + rnd() * 0.35), vr, 0.82 + rnd() * 0.36);
                 const hk = (Math.floor(x / 16) + 512) * 1024 + Math.floor(z / 16) + 512;
                 let t = treeHash.get(hk);
                 if(!t) treeHash.set(hk, t = []);
                 t.push(x, z);
             };
-            roads.forEach(R => { for(let i = 0; i < R.n; i += 2) [-1, 1].forEach(sd => { for(let k = 0; k < 3; k++) {
-                if(rnd() < 0.3) continue;
-                const l = sd * (R.hw + 7.5 + Math.pow(rnd(), 1.6) * 70), a = (rnd() - 0.5) * 8;
-                tryTree(R.px[i] - R.tz[i] * l + R.tx[i] * a, R.pz[i] + R.tx[i] * l + R.tz[i] * a);
-            } }); });
-            for(let k = 0; k < 30000; k++) { const x = (rnd() - 0.5) * 9100, z = (rnd() - 0.5) * 9100; if(vnoise(x / 380, z / 380 + 3) > 0.48) tryTree(x, z); }
-            const LEAF = [[0.78, 0.60, 0.10], [0.52, 0.60, 0.13], [0.26, 0.46, 0.12], [0.80, 0.42, 0.09], [0.62, 0.66, 0.16]];
+            roads.forEach(R => { for(let i = 0; i < R.n; i++) [-1, 1].forEach(sd => {
+                const nx = -R.tz[i] * sd, nz = R.tx[i] * sd;
+                if(i % 2 === 0) for(let k = 0; k < 3; k++) {
+                    if(rnd() < 0.3) continue;
+                    const l = R.hw + 7.5 + Math.pow(rnd(), 1.6) * 70, a = (rnd() - 0.5) * 8;
+                    tryTree(R.px[i] + nx * l + R.tx[i] * a, R.pz[i] + nz * l + R.tz[i] * a);
+                }
+                // Bas-côtés : herbes hautes près de l'accotement, buissons un peu plus loin
+                const q = rnd(), l = q < 0.5 ? R.hw + 4 + rnd() * rnd() * 10 : R.hw + 5 + rnd() * 15, x = R.px[i] + nx * l + R.tx[i] * (rnd() - 0.5) * 4, z = R.pz[i] + nz * l + R.tz[i] * (rnd() - 0.5) * 4;
+                if(q > 0.5 && q < 0.8) return;
+                roadAt(x, z);
+                if(Q.R && Q.dist < Q.R.hw + 3.6) return;
+                if(q < 0.5) { const hg = 0.65 + rnd() * 0.6; plant(x, z, hg, hg * (2.6 + rnd()), 7, 0.85 + rnd() * 0.3); }
+                else { const hg = 1.1 + rnd() * 1.5; plant(x, z, hg, hg * (2.4 + rnd() * 0.8), 6, 0.8 + rnd() * 0.4); }
+            }); });
+            for(let k = 0; k < 200000; k++) { const x = (rnd() - 0.5) * 14200, z = (rnd() - 0.5) * 14200, f = forestAt(x, z); if(f > 0.5) tryTree(x, z); else if(rnd() < 0.012) tryTree(x, z, true); }
             groups.forEach((list, key) => {
-                const [ty, cx, cz] = key.split(':').map(Number), ox = (cx + 0.5) * TC, oz = (cz + 0.5) * TC, n = list.length / 2;
-                const im = new THREE.InstancedMesh(ty ? leafGeo : pineGeo, treeMat, n), lo = new THREE.InstancedMesh(ty ? leafLo : pineLo, treeMat, n);
+                const [cx, cz] = key.split(':').map(Number), ox = (cx + 0.5) * TC, oz = (cz + 0.5) * TC, n = list.length / 6;
+                let nLo = 0;
+                for(let k = 0; k < n; k++) if(list[k * 6 + 4] < 6) nLo++;
+                const mk = (base, count) => {
+                    const g = new THREE.BufferGeometry();
+                    ['position', 'normal', 'uv', 'color'].forEach(a => g.setAttribute(a, base.attributes[a]));
+                    g.setIndex(base.index); g.boundingSphere = bSphere;
+                    const vr = new Float32Array(count), im = new THREE.InstancedMesh(g, treeMat, count);
+                    g.setAttribute('aVar', new THREE.InstancedBufferAttribute(vr, 1));
+                    im.position.set(ox, 0, oz);
+                    return { im, vr, k: 0 };
+                };
+                const hi = mk(hiGeo, n), lo = nLo ? mk(loGeo, nLo) : null;
                 for(let k = 0; k < n; k++) {
-                    const x = list[k * 2], z = list[k * 2 + 1], hgt = ty ? 6.5 + rnd() * 5.5 : 8 + rnd() * 9, w = hgt * (ty ? 0.9 + rnd() * 0.4 : 0.72 + rnd() * 0.3);
-                    dummy.position.set(x - ox, hAt(x, z) - 0.2, z - oz); dummy.rotation.set(0, rnd() * 6.28, 0); dummy.scale.set(w, hgt, w); dummy.updateMatrix();
-                    im.setMatrixAt(k, dummy.matrix); lo.setMatrixAt(k, dummy.matrix);
-                    if(ty) { const c = LEAF[Math.floor(rnd() * LEAF.length)], v = 0.8 + rnd() * 0.4; tmpCol.setRGB(c[0] * v, c[1] * v, c[2] * v); }
-                    else { const v = 0.75 + rnd() * 0.5; tmpCol.setRGB(0.085 * v, 0.19 * v, 0.105 * v); }
-                    im.setColorAt(k, tmpCol); lo.setColorAt(k, tmpCol);
+                    const x = list[k * 6], z = list[k * 6 + 1], vr = list[k * 6 + 4], t = list[k * 6 + 5], w = list[k * 6 + 3];
+                    dummy.position.set(x - ox, hAt(x, z) - (vr < 6 ? 0.25 : 0.05), z - oz); dummy.rotation.set(0, rnd() * 6.28, 0); dummy.scale.set(w, list[k * 6 + 2], w); dummy.updateMatrix();
+                    tmpCol.setRGB(t, t * (0.96 + rnd() * 0.08), t * (0.9 + rnd() * 0.14));
+                    [hi, vr < 6 ? lo : null].forEach(m => { if(!m) return; m.im.setMatrixAt(m.k, dummy.matrix); m.im.setColorAt(m.k, tmpCol); m.vr[m.k++] = vr; });
                 }
-                im.position.set(ox, 0, oz); lo.position.set(ox, 0, oz);
-                im.castShadow = true;
-                treeChunks.push({ hi: im, lo, cx: ox, cz: oz });
-                scene.add(im, lo);
+                hi.im.castShadow = true; hi.im.customDepthMaterial = treeDepth;
+                scene.add(hi.im);
+                if(lo) scene.add(lo.im);
+                treeChunks.push({ hi: hi.im, lo: lo ? lo.im : null, cx: ox, cz: oz });
             });
-
-            // --- Montagnes enneigées à l'horizon (déjà voilées par la brume) ---
-            const mPos = [], mCol = [];
-            for(let k = 0; k < 34; k++) {
-                const th = k / 34 * Math.PI * 2 + rnd() * 0.16, r = 6300 + rnd() * 2600, rad = 1100 + rnd() * 1300, hgt = 520 + rnd() * 950;
-                const g = new THREE.ConeGeometry(rad, hgt, 11, 5), p = g.attributes.position;
-                for(let i = 0; i < p.count; i++) {
-                    const y = p.getY(i), t = (y + hgt / 2) / hgt, a = Math.atan2(p.getZ(i), p.getX(i)), j = 1 + (hash2(Math.round(a * 20) + k * 31, Math.round(t * 10)) - 0.5) * 0.5 * (t < 0.98 ? 1 : 0);
-                    p.setXYZ(i, p.getX(i) * j, y + (hash2(Math.round(a * 20) + k, Math.round(t * 10) + 5) - 0.5) * hgt * 0.07 * (t < 0.98 && t > 0.02 ? 1 : 0), p.getZ(i) * j);
-                }
-                const ng = g.toNonIndexed(), q = ng.attributes.position, cx = Math.cos(th) * r, cz = Math.sin(th) * r;
-                for(let i = 0; i < q.count; i += 3) {
-                    const ty = ((q.getY(i) + q.getY(i + 1) + q.getY(i + 2)) / 3 + hgt / 2) / hgt, snow = ty * hgt > 560 + hash2(i, k) * 160;
-                    const c = snow ? [0.90, 0.92, 0.95] : [0.27 + ty * 0.08, 0.31 + ty * 0.05, 0.33 + ty * 0.06];
-                    for(let v = 0; v < 3; v++) {
-                        mPos.push(q.getX(i + v) + cx, q.getY(i + v) + hgt / 2 - 70, q.getZ(i + v) + cz);
-                        mCol.push(c[0] * 0.5 + FOG_COLOR.r * 0.5, c[1] * 0.5 + FOG_COLOR.g * 0.5, c[2] * 0.5 + FOG_COLOR.b * 0.5);
-                    }
-                }
-            }
-            const mg = new THREE.BufferGeometry();
-            mg.setAttribute('position', new THREE.Float32BufferAttribute(mPos, 3)); mg.setAttribute('color', new THREE.Float32BufferAttribute(mCol, 3));
-            mg.computeVertexNormals();
-            const mountains = new THREE.Mesh(mg, new THREE.MeshLambertMaterial({ vertexColors: true, fog: false }));
-            mountains.frustumCulled = false;
-            scene.add(mountains);
 
             // --- Trafic ---
             const tBody = new THREE.BoxGeometry(1.86, 0.62, 4.5).applyMatrix4(MX(0, 0.62, 0));
             const tDark = mergeGeos([[new THREE.BoxGeometry(1.62, 0.52, 2.3), MX(0, 1.16, 0.25), 0x0d0f13]].concat([[-0.9, -1.4], [0.9, -1.4], [-0.9, 1.45], [0.9, 1.45]].map(([x, z]) => [new THREE.CylinderGeometry(0.34, 0.34, 0.26, 12), MX(x, 0.34, z, 0, 0, Math.PI / 2), 0x0b0b0c])));
             const tLights = mergeGeos([[new THREE.BoxGeometry(0.42, 0.14, 0.06), MX(-0.62, 0.7, -2.26), 0xfff4d6], [new THREE.BoxGeometry(0.42, 0.14, 0.06), MX(0.62, 0.7, -2.26), 0xfff4d6],
                 [new THREE.BoxGeometry(0.42, 0.14, 0.06), MX(-0.62, 0.74, 2.26), 0xff2a1a], [new THREE.BoxGeometry(0.42, 0.14, 0.06), MX(0.62, 0.74, 2.26), 0xff2a1a]]);
-            const tDarkMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, metalness: 0.3 }), tLightMat = new THREE.MeshBasicMaterial({ vertexColors: true });
-            [0xb9bec4, 0x1c1f24, 0x7d1b1b, 0x1f3a66, 0xe8e6df, 0x3d4a3a, 0x5b6470, 0x8a6a3a, 0x16171a, 0xa3a7ab].forEach(c => {
+            const tDarkMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, metalness: 0.3 }), tLightMat = new THREE.MeshBasicMaterial({ vertexColors: true, color: new THREE.Color(2.2, 2.2, 2.2) });
+            [0xb9bec4, 0x1c1f24, 0x7d1b1b, 0x1f3a66, 0xe8e6df, 0x3d4a3a, 0x5b6470, 0x8a6a3a, 0x16171a, 0xa3a7ab, 0x2a4d6e, 0x9a9da1, 0x6b1f24, 0xd8d5cc].forEach(c => {
                 const m = new THREE.Group();
-                const b = new THREE.Mesh(tBody, new THREE.MeshStandardMaterial({ color: c, metalness: 0.6, roughness: 0.35 }));
+                const b = new THREE.Mesh(tBody, new THREE.MeshStandardMaterial({ color: lin(c), metalness: 0.6, roughness: 0.35 }));
                 b.castShadow = true;
                 m.add(b, new THREE.Mesh(tDark, tDarkMat), new THREE.Mesh(tLights, tLightMat));
                 m.rotation.order = 'YXZ';
                 scene.add(m);
                 traffic.push({ m, R: null, p: 0, dir: 1, lat: 3, v: 25, v0: 25, stun: 0, nm: 0, x: 0, z: 0, fx: 0, fz: -1 });
             });
+
+            // --- Fond de carte : relief ombré, forêts, prairies, lacs, sommets (mini-carte et grande carte) ---
+            const MN = 1024, mc = document.createElement('canvas');
+            mc.width = mc.height = MN;
+            const mg = mc.getContext('2d'), im = mg.createImageData(MN, MN), md = im.data, hs = new Float32Array(MN * MN), mcell = 2 * MAP_HALF / MN;
+            for(let j = 0; j < MN; j++) for(let i = 0; i < MN; i++) hs[j * MN + i] = hAt((i + 0.5) * mcell - MAP_HALF, (j + 0.5) * mcell - MAP_HALF);
+            for(let j = 0; j < MN; j++) for(let i = 0; i < MN; i++) {
+                const x = (i + 0.5) * mcell - MAP_HALF, z = (j + 0.5) * mcell - MAP_HALF, o = j * MN + i, h = hs[o];
+                const gx = (hs[j * MN + Math.min(MN - 1, i + 1)] - hs[j * MN + Math.max(0, i - 1)]) / (2 * mcell), gz = (hs[Math.min(MN - 1, j + 1) * MN + i] - hs[Math.max(0, j - 1) * MN + i]) / (2 * mcell);
+                const shadeK = clamp(1 - (gx * SUN_DIR.x + gz * SUN_DIR.z) * 4.5, 0.55, 1.45), f = forestAt(x, z), dry = sstep(0.42, 0.7, vnoise(x / 700 + 5, z / 700));
+                let r = 118 + 34 * dry, g = 146 + 4 * dry, b = 84 + 8 * dry;
+                r += (74 - r) * f * 0.7; g += (108 - g) * f * 0.7; b += (66 - b) * f * 0.7;
+                if(h > 90) { const k = sstep(90, 420, h); r += (150 - r) * k; g += (146 - g) * k; b += (140 - b) * k; const s = sstep(860, 1050, h); r += (245 - r) * s; g += (247 - g) * s; b += (250 - b) * s; }
+                let water = 0;
+                for(const L of lakes) if(Math.hypot(L.x - x, L.z - z) < L.r && h < L.level) water = clamp((L.level - h) / 3, 0.6, 1);
+                if(water) { r = 62 - 20 * water; g = 112 - 26 * water; b = 150 - 20 * water; }
+                const k2 = water ? 1 : shadeK;
+                md[o * 4] = clamp(r * k2, 0, 255); md[o * 4 + 1] = clamp(g * k2, 0, 255); md[o * 4 + 2] = clamp(b * k2, 0, 255); md[o * 4 + 3] = 255;
+            }
+            mg.putImageData(im, 0, 0);
+            mapImg = mc;
         }
 
         // ====== CONDUITE ======
@@ -1879,6 +2368,10 @@
             let near = 1e9;
             for(const h of hides) { const d = Math.hypot(h.x - PL.x, h.z - PL.z); if(d < near) near = d; if(d < 5.5 && kmh < 60 && !leaving) leaveToGarage('Planque'); }
             hideHint = near < 70 && kmh >= 60;
+            // Lac : la voiture coule, elle est replacée sur la route
+            if(PL.wreck <= 0) for(const L of lakes) if(Math.hypot(PL.x - L.x, PL.z - L.z) < L.r && hAt(PL.x, PL.z) < L.level - 0.7) { PL.hp = 0; toast("À l'eau !", 'La voiture est replacée sur la route', ''); }
+            gpsT -= dt;
+            if(gpsT <= 0) { gpsT = 0.4; updateGps(); }
             // Série
             if(chain.pts > 0) { chain.t -= dt; if(chain.t <= 0) bankChain(); }
             // Épave
@@ -1938,7 +2431,11 @@
             sky.position.set(PL.x, 0, PL.z);
             sunLight.position.set(PL.x + SUN_OFFSET.x, PL.y + SUN_OFFSET.y, PL.z + SUN_OFFSET.z);
             sunLight.target.position.set(PL.x, PL.y, PL.z);
-            for(const c of treeChunks) { const dx = c.cx - PL.x, dz = c.cz - PL.z, d2 = dx * dx + dz * dz; c.hi.visible = d2 < 640000; c.lo.visible = d2 >= 640000 && d2 < 2600 * 2600; }
+            for(const c of treeChunks) { const dx = c.cx - PL.x, dz = c.cz - PL.z, d2 = dx * dx + dz * dz; c.hi.visible = d2 < 810000; if(c.lo) c.lo.visible = d2 >= 810000 && d2 < 3300 * 3300; }
+            for(const c of terrChunks) { const dx = c.cx - PL.x, dz = c.cz - PL.z, d2 = dx * dx + dz * dz, lv = d2 < 2250000 ? 0 : d2 < 11560000 ? 1 : 2; for(let k = 0; k < 3; k++) c.ms[k].visible = k === lv; }
+            for(const c of roadChunks) { const dx = c.cx - PL.x, dz = c.cz - PL.z, near = dx * dx + dz * dz < 640000; c.hi.visible = near; c.lo.visible = !near; }
+            treeUni.uTime.value = time;   // le vent dans les arbres
+            if(waterTex) waterTex.offset.set(time * 0.004, time * 0.0027);
         }
 
         function updateCamera(dt) {
@@ -2003,78 +2500,160 @@
                 + '<text x="46" y="191" font-size="11" font-weight="600">N₂O</text>';
             $('dash').innerHTML = h;
         })();
+        // --- GPS : itinéraire par la route jusqu'à la planque la plus proche ---
+        let gpsHide = null, gpsDist = 0, gpsT = 0;
+        const gpsPts = [];
+        function updateGps() {
+            roadAt(PL.x, PL.z);
+            if(!Q.R) { if(gpsHide) gpsDist = Math.hypot(gpsHide.x - PL.x, gpsHide.z - PL.z); return; }
+            const g0 = Q.R.g0 + Q.i;
+            let best = null, bd = 1e9;
+            for(const h of hides) { const d = h.dist[g0]; if(d >= 0 && d < bd) { bd = d; best = h; } }
+            if(!best) return;
+            gpsHide = best; gpsDist = bd * STEP + Q.dist;
+            gpsPts.length = 0; gpsPts.push(PL.x, PL.z);
+            let g = g0;
+            for(let k = 0; k < 9000 && best.dist[g] > 0; k++) {
+                const n = neighbours(g);
+                let nb = g, nd = best.dist[g];
+                for(let q = 0; q < n; q++) { const d = best.dist[nbr[q]]; if(d >= 0 && d < nd) { nd = d; nb = nbr[q]; } }
+                if(nb === g) break;
+                g = nb;
+                if(k > 2 && k % 2 === 0) gpsPts.push(gR[g].px[gI[g]], gR[g].pz[gI[g]]);
+            }
+            gpsPts.push(best.x, best.z);
+        }
+        // Routes et itinéraire, dessinés en mètres dans un contexte déjà placé sur le monde (px = pixels par mètre)
+        function drawRoadsOn(g, px, wide) {
+            const w = (m, minPx) => Math.max(m, minPx / px);
+            g.lineJoin = 'round'; g.lineCap = 'round';
+            g.strokeStyle = 'rgba(22,25,29,0.92)';
+            g.lineWidth = w(24, 5.4 * wide); g.stroke(roadPaths[1]);
+            g.lineWidth = w(32, 7.4 * wide); g.stroke(roadPaths[0]);
+            g.strokeStyle = '#f4f3ee'; g.lineWidth = w(14, 3 * wide); g.stroke(roadPaths[1]);
+            g.strokeStyle = '#f5d273'; g.lineWidth = w(21, 4.6 * wide); g.stroke(roadPaths[0]);
+            if(gpsPts.length > 3) {
+                g.beginPath(); g.moveTo(gpsPts[0], gpsPts[1]);
+                for(let k = 2; k < gpsPts.length; k += 2) g.lineTo(gpsPts[k], gpsPts[k + 1]);
+                g.strokeStyle = 'rgba(8,60,26,0.9)'; g.lineWidth = w(17, 5.6 * wide); g.stroke();
+                g.strokeStyle = '#3fe672'; g.lineWidth = w(10, 3.2 * wide); g.stroke();
+            }
+        }
+        const pinIcon = (g, x, y, s, col) => {   // repère de planque
+            g.fillStyle = col; g.strokeStyle = '#0b1a10'; g.lineWidth = s * 0.16;
+            g.beginPath(); g.moveTo(x, y); g.bezierCurveTo(x - s * 0.9, y - s * 1.1, x - s * 0.7, y - s * 2.1, x, y - s * 2.1); g.bezierCurveTo(x + s * 0.7, y - s * 2.1, x + s * 0.9, y - s * 1.1, x, y); g.fill(); g.stroke();
+            g.fillStyle = '#0b1a10'; g.beginPath(); g.arc(x, y - s * 1.4, s * 0.3, 0, 7); g.fill();
+        };
         const mini = $('minimap'), mctx = mini.getContext('2d');
+        let miniRange = 380;
         function drawMini() {
-            const g = mctx, S = mini.width, c = S / 2, RAD = c - 8, range = 430, sc = RAD / range;
-            const sinY = Math.sin(PL.yaw), cosY = Math.cos(PL.yaw);
-            const tr = (x, z) => { const ex = x - PL.x, ez = z - PL.z; return [c + (ex * cosY - ez * sinY) * sc, c + (ex * sinY + ez * cosY) * sc]; };
+            const g = mctx, S = mini.width, c = S / 2, RAD = c - 15, cy = c + RAD * 0.26;
+            // Le zoom recule avec la vitesse, et la voiture est placée sous le centre pour voir plus loin devant
+            miniRange += (300 + Math.min(1, PL.kmh / 300) * 400 - miniRange) * 0.04;
+            const sc = RAD / miniRange, sinY = Math.sin(PL.yaw), cosY = Math.cos(PL.yaw);
+            const tr = (x, z) => { const ex = x - PL.x, ez = z - PL.z; return [c + (ex * cosY - ez * sinY) * sc, cy + (ex * sinY + ez * cosY) * sc]; };
+            const inDisc = (q, m) => (q[0] - c) * (q[0] - c) + (q[1] - c) * (q[1] - c) < (RAD - m) * (RAD - m);
             g.clearRect(0, 0, S, S);
             g.save();
             g.beginPath(); g.arc(c, c, RAD, 0, 7); g.clip();
-            g.fillStyle = 'rgba(14,18,22,0.55)'; g.fillRect(0, 0, S, S);
-            g.lineCap = 'round'; g.lineJoin = 'round';
-            for(const L of mapLines) {
-                g.strokeStyle = 'rgba(214,218,222,0.9)'; g.lineWidth = Math.max(3.2, L.hw * 2 * sc);
-                g.beginPath();
-                let pen = false;
-                const p = L.pts;
-                for(let k = 0; k < p.length; k += 2) {
-                    if(Math.abs(p[k] - PL.x) > range + 40 || Math.abs(p[k + 1] - PL.z) > range + 40) { pen = false; continue; }
-                    const q = tr(p[k], p[k + 1]);
-                    if(pen) g.lineTo(q[0], q[1]); else g.moveTo(q[0], q[1]);
-                    pen = true;
-                }
-                g.stroke();
-            }
-            for(const t of traffic) { if(!t.R) continue; const q = tr(t.x, t.z); g.fillStyle = '#ffffff'; g.beginPath(); g.arc(q[0], q[1], 2.6, 0, 7); g.fill(); }
-            radars.forEach((r, k) => { const q = tr(r.x, r.z); g.fillStyle = radarBest[k] ? 'rgba(246,194,28,0.45)' : '#f6c21c'; g.beginPath(); g.arc(q[0], q[1], 4.5, 0, 7); g.fill(); });
+            g.fillStyle = '#2f3d2e'; g.fillRect(0, 0, S, S);
+            g.translate(c, cy); g.rotate(PL.yaw); g.scale(sc, sc); g.translate(-PL.x, -PL.z);
+            if(mapImg) g.drawImage(mapImg, -MAP_HALF, -MAP_HALF, 2 * MAP_HALF, 2 * MAP_HALF);
+            g.fillStyle = 'rgba(10,16,14,0.16)'; g.fillRect(-MAP_HALF, -MAP_HALF, 2 * MAP_HALF, 2 * MAP_HALF);
+            if(roadPaths[0]) drawRoadsOn(g, sc, 1);
             g.restore();
-            // Planques : sur la carte, ou ramenées au bord quand elles sont loin
+            g.save();
+            g.beginPath(); g.arc(c, c, RAD, 0, 7); g.clip();
+            for(const t of traffic) { if(!t.R) continue; const q = tr(t.x, t.z); if(!inDisc(q, 4)) continue; g.fillStyle = '#ffffff'; g.strokeStyle = '#15181b'; g.lineWidth = 1.2; g.beginPath(); g.arc(q[0], q[1], 3, 0, 7); g.fill(); g.stroke(); }
+            radars.forEach((r, k) => {
+                const q = tr(r.x, r.z);
+                if(!inDisc(q, 8)) return;
+                g.fillStyle = radarBest[k] ? '#8a7a45' : '#ff9d1c'; g.strokeStyle = '#1b1508'; g.lineWidth = 1.4;
+                g.beginPath(); g.moveTo(q[0], q[1] - 6.5); g.lineTo(q[0] + 6.5, q[1]); g.lineTo(q[0], q[1] + 6.5); g.lineTo(q[0] - 6.5, q[1]); g.closePath(); g.fill(); g.stroke();
+            });
+            // Cône de vision et flèche de la voiture
+            const cone = g.createRadialGradient(c, cy, 0, c, cy, 62);
+            cone.addColorStop(0, 'rgba(255,255,255,0.34)'); cone.addColorStop(1, 'rgba(255,255,255,0)');
+            g.fillStyle = cone; g.beginPath(); g.moveTo(c, cy); g.arc(c, cy, 62, -Math.PI / 2 - 0.5, -Math.PI / 2 + 0.5); g.closePath(); g.fill();
+            // Verre : assombri sur les bords, léger reflet en haut
+            const vg = g.createRadialGradient(c, c, RAD * 0.55, c, c, RAD);
+            vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.5)');
+            g.fillStyle = vg; g.fillRect(0, 0, S, S);
+            const gl = g.createLinearGradient(0, c - RAD, 0, c);
+            gl.addColorStop(0, 'rgba(255,255,255,0.16)'); gl.addColorStop(1, 'rgba(255,255,255,0)');
+            g.fillStyle = gl; g.beginPath(); g.ellipse(c, c - RAD * 0.52, RAD * 0.86, RAD * 0.5, 0, 0, 7); g.fill();
+            g.restore();
+            // Planques : sur la carte, ou ramenées au bord quand elles sont loin (la destination du GPS est plus grosse)
             for(const h of hides) {
-                const q = tr(h.x, h.z), dx = q[0] - c, dy = q[1] - c, d = Math.hypot(dx, dy), k = d > RAD - 6 ? (RAD - 6) / d : 1;
-                g.fillStyle = '#58d86a'; g.strokeStyle = '#0c1a10'; g.lineWidth = 1.5;
-                g.beginPath(); g.arc(c + dx * k, c + dy * k, k < 1 ? 4.5 : 6.5, 0, 7); g.fill(); g.stroke();
+                const q = tr(h.x, h.z), dx = q[0] - c, dy = q[1] - c, d = Math.hypot(dx, dy), k = d > RAD - 8 ? (RAD - 8) / d : 1, dest = h === gpsHide;
+                if(k < 1 && !dest) continue;
+                pinIcon(g, c + dx * k, c + dy * k + (k < 1 ? 5 : 0), dest ? 7.5 : 6, '#52e06c');
             }
-            g.strokeStyle = 'rgba(244,244,240,0.9)'; g.lineWidth = 2.4;
-            g.beginPath(); g.arc(c, c, RAD, 0, 7); g.stroke();
-            for(let k = 0; k < 24; k++) { const a = k * Math.PI / 12 + PL.yaw; g.lineWidth = k % 6 === 0 ? 2.4 : 1; g.beginPath(); g.moveTo(c + Math.sin(a) * RAD, c - Math.cos(a) * RAD); g.lineTo(c + Math.sin(a) * (RAD + (k % 6 === 0 ? 7 : 4)), c - Math.cos(a) * (RAD + (k % 6 === 0 ? 7 : 4))); g.stroke(); }
-            g.fillStyle = '#ffffff'; g.strokeStyle = '#101216'; g.lineWidth = 1.5;
-            g.beginPath(); g.moveTo(c, c - 11); g.lineTo(c + 7.5, c + 8); g.lineTo(c, c + 4); g.lineTo(c - 7.5, c + 8); g.closePath(); g.fill(); g.stroke();
+            g.fillStyle = '#ffffff'; g.strokeStyle = '#101216'; g.lineWidth = 1.8; g.lineJoin = 'round';
+            g.beginPath(); g.moveTo(c, cy - 13); g.lineTo(c + 8.5, cy + 9); g.lineTo(c, cy + 4.5); g.lineTo(c - 8.5, cy + 9); g.closePath(); g.fill(); g.stroke();
+            // Couronne métallique, graduations et nord
+            const ring = g.createLinearGradient(0, c - RAD, 0, c + RAD);
+            ring.addColorStop(0, '#f3f5f6'); ring.addColorStop(0.5, '#8d949b'); ring.addColorStop(1, '#d5d9dc');
+            g.strokeStyle = 'rgba(8,10,12,0.85)'; g.lineWidth = 7; g.beginPath(); g.arc(c, c, RAD + 1.5, 0, 7); g.stroke();
+            g.strokeStyle = ring; g.lineWidth = 3.4; g.beginPath(); g.arc(c, c, RAD + 1.5, 0, 7); g.stroke();
+            g.strokeStyle = 'rgba(244,244,240,0.9)';
+            for(let k = 1; k < 24; k++) { const a = k * Math.PI / 12 + PL.yaw, l = k % 6 === 0 ? 8 : 4; g.lineWidth = k % 6 === 0 ? 2.2 : 1; g.beginPath(); g.moveTo(c + Math.sin(a) * (RAD + 5), c - Math.cos(a) * (RAD + 5)); g.lineTo(c + Math.sin(a) * (RAD + 5 + l), c - Math.cos(a) * (RAD + 5 + l)); g.stroke(); }
+            const nx = c + Math.sin(PL.yaw) * (RAD + 3), ny = c - Math.cos(PL.yaw) * (RAD + 3);
+            g.fillStyle = '#16181c'; g.strokeStyle = '#f3f5f6'; g.lineWidth = 1.4; g.beginPath(); g.arc(nx, ny, 9.5, 0, 7); g.fill(); g.stroke();
+            g.fillStyle = '#ff5340'; g.font = '700 13px "Barlow Condensed", "Arial Narrow", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('N', nx, ny + 1);
         }
         const big = $('bigmap');
         function drawBigMap() {
             const dpr = Math.min(window.devicePixelRatio || 1, 2), W = big.width = Math.floor(window.innerWidth * dpr), H = big.height = Math.floor(window.innerHeight * dpr);
-            const g = big.getContext('2d'), sc = Math.min(W, H) * 0.44 / 4600, cx = W / 2, cy = H / 2 + 14 * dpr, u = dpr * clamp(H / dpr / 720, 0.6, 1.8);
+            const g = big.getContext('2d'), u = dpr * clamp(H / dpr / 720, 0.6, 1.8), size = Math.min(W * 0.62, H * 0.9), sc = size / (2 * MAP_HALF), cx = W - size / 2 - 40 * u, cy = H / 2;
             const tr = (x, z) => [cx + x * sc, cy + z * sc];
             g.clearRect(0, 0, W, H);
-            g.fillStyle = 'rgba(40,52,40,0.55)'; g.beginPath(); g.arc(cx, cy, WORLD_R * sc, 0, 7); g.fill();
-            g.strokeStyle = 'rgba(255,255,255,0.25)'; g.lineWidth = u; g.stroke();
-            g.lineCap = 'round'; g.lineJoin = 'round';
-            [['#15181b', 3.2], ['#e3e6e8', 1]].forEach(([col, k]) => {
-                for(const L of mapLines) {
-                    g.strokeStyle = col; g.lineWidth = (L.hw > 7 ? 3.6 : 2.4) * u * k * (k > 1 ? 0.55 : 1);
-                    g.beginPath();
-                    for(let i = 0; i < L.pts.length; i += 2) { const q = tr(L.pts[i], L.pts[i + 1]); if(i) g.lineTo(q[0], q[1]); else g.moveTo(q[0], q[1]); }
-                    g.stroke();
-                }
+            g.save();
+            g.translate(cx, cy); g.scale(sc, sc);
+            g.beginPath(); g.rect(-MAP_HALF, -MAP_HALF, 2 * MAP_HALF, 2 * MAP_HALF); g.clip();
+            if(mapImg) g.drawImage(mapImg, -MAP_HALF, -MAP_HALF, 2 * MAP_HALF, 2 * MAP_HALF);
+            g.strokeStyle = 'rgba(255,255,255,0.35)'; g.lineWidth = 1.2 * u / sc; g.setLineDash([14 * u / sc, 10 * u / sc]);
+            g.beginPath(); g.arc(0, 0, WORLD_R, 0, 7); g.stroke(); g.setLineDash([]);
+            if(roadPaths[0]) drawRoadsOn(g, sc, 0.5 * u);
+            g.restore();
+            g.strokeStyle = 'rgba(244,244,240,0.75)'; g.lineWidth = 1.5 * u; g.strokeRect(cx - size / 2, cy - size / 2, size, size);
+            g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+            radars.forEach((r, k) => {
+                const q = tr(r.x, r.z), s = 5 * u;
+                g.fillStyle = radarBest[k] ? '#8a7a45' : '#ff9d1c'; g.strokeStyle = '#1b1508'; g.lineWidth = u;
+                g.beginPath(); g.moveTo(q[0], q[1] - s); g.lineTo(q[0] + s, q[1]); g.lineTo(q[0], q[1] + s); g.lineTo(q[0] - s, q[1]); g.closePath(); g.fill(); g.stroke();
             });
-            g.font = '600 ' + 13 * u + 'px "Barlow Condensed", sans-serif'; g.textAlign = 'center';
-            radars.forEach((r, k) => { const q = tr(r.x, r.z); g.fillStyle = radarBest[k] ? 'rgba(246,194,28,0.4)' : '#f6c21c'; g.beginPath(); g.arc(q[0], q[1], 4.5 * u, 0, 7); g.fill(); });
-            hides.forEach(h => { const q = tr(h.x, h.z); g.fillStyle = '#58d86a'; g.beginPath(); g.arc(q[0], q[1], 6.5 * u, 0, 7); g.fill(); g.fillStyle = '#dff5e2'; g.fillText(h.name, q[0], q[1] - 11 * u); });
+            g.font = '600 ' + 14 * u + 'px "Barlow Condensed", "Arial Narrow", sans-serif';
+            hides.forEach(h => {
+                const q = tr(h.x, h.z);
+                pinIcon(g, q[0], q[1], (h === gpsHide ? 8 : 6.5) * u, '#52e06c');
+                g.lineWidth = 3 * u; g.strokeStyle = 'rgba(8,12,10,0.85)'; g.strokeText(h.name, q[0], q[1] - 20 * u);
+                g.fillStyle = '#e9f8ec'; g.fillText(h.name, q[0], q[1] - 20 * u);
+            });
             const q = tr(PL.x, PL.z);
             g.save(); g.translate(q[0], q[1]); g.rotate(-PL.yaw);
-            g.fillStyle = '#fff'; g.strokeStyle = '#101216'; g.lineWidth = 1.5 * u;
-            g.beginPath(); g.moveTo(0, -11 * u); g.lineTo(7.5 * u, 8 * u); g.lineTo(0, 4 * u); g.lineTo(-7.5 * u, 8 * u); g.closePath(); g.fill(); g.stroke();
+            g.fillStyle = '#fff'; g.strokeStyle = '#101216'; g.lineWidth = 1.6 * u; g.lineJoin = 'round';
+            g.beginPath(); g.moveTo(0, -12 * u); g.lineTo(8 * u, 9 * u); g.lineTo(0, 4.5 * u); g.lineTo(-8 * u, 9 * u); g.closePath(); g.fill(); g.stroke();
             g.restore();
+            // Colonne de gauche : titre, itinéraire, légende
+            const lx = 44 * u;
             g.fillStyle = '#f4f4f0'; g.textAlign = 'left';
-            g.font = '600 ' + 30 * u + 'px "Barlow Condensed", sans-serif'; g.fillText('CARTE DU COMTÉ', 40 * u, 56 * u);
-            g.font = '500 ' + 16 * u + 'px "Barlow Condensed", sans-serif';
-            g.fillStyle = '#b9bcc0'; g.fillText('9 × 9 km  ·  ' + Math.round(roads.reduce((s, R) => s + R.len, 0) / 1000) + ' km de routes', 40 * u, 80 * u);
-            [['#58d86a', 'Planque : retour au garage'], ['#f6c21c', 'Radar à flasher (' + radarCount() + ' / ' + radars.length + ')'], ['#ffffff', 'Ta voiture']].forEach(([col, s], k) => {
-                g.fillStyle = col; g.beginPath(); g.arc(46 * u, H - (86 - k * 24) * u, 5.5 * u, 0, 7); g.fill();
-                g.fillStyle = '#e8e8e4'; g.fillText(s, 60 * u, H - (81 - k * 24) * u);
+            g.font = '600 ' + 34 * u + 'px "Barlow Condensed", "Arial Narrow", sans-serif'; g.fillText('CARTE DU COMTÉ', lx, 70 * u);
+            g.font = '500 ' + 17 * u + 'px "Barlow Condensed", "Arial Narrow", sans-serif';
+            g.fillStyle = '#b9bcc0'; g.fillText('14 × 14 km  ·  ' + Math.round(roads.reduce((s, R) => s + R.len, 0) / 1000) + ' km de routes', lx, 96 * u);
+            if(gpsHide) {
+                g.fillStyle = '#3fe672'; g.font = '600 ' + 15 * u + 'px "Barlow Condensed", "Arial Narrow", sans-serif'; g.fillText('ITINÉRAIRE', lx, 150 * u);
+                g.fillStyle = '#f4f4f0'; g.font = '600 ' + 24 * u + 'px "Barlow Condensed", "Arial Narrow", sans-serif'; g.fillText(gpsHide.name, lx, 176 * u);
+                g.fillStyle = '#b9bcc0'; g.font = '500 ' + 17 * u + 'px "Barlow Condensed", "Arial Narrow", sans-serif'; g.fillText(fr1(gpsDist / 1000) + ' km par la route', lx, 198 * u);
+            }
+            g.font = '500 ' + 17 * u + 'px "Barlow Condensed", "Arial Narrow", sans-serif';
+            const rows = [['#52e06c', 'Planque : retour au garage'], ['#ff9d1c', 'Radar à flasher (' + radarCount() + ' / ' + radars.length + ')'], ['#f5d273', 'Rocade à quatre voies'], ['#f4f3ee', 'Route'], ['#4a88b0', 'Lac'], ['#ffffff', 'Ta voiture']];
+            rows.forEach(([col, s], k) => {
+                const y = H - (60 + (rows.length - 1 - k) * 26) * u;
+                g.fillStyle = col; g.beginPath(); g.arc(lx + 6 * u, y - 5 * u, 5.5 * u, 0, 7); g.fill();
+                g.fillStyle = '#e8e8e4'; g.fillText(s, lx + 22 * u, y);
             });
-            g.textAlign = 'right'; g.fillStyle = '#b9bcc0'; g.fillText('M ou Échap : fermer la carte', W - 40 * u, H - 34 * u);
+            g.fillStyle = '#b9bcc0'; g.fillText('M ou Échap : fermer la carte', lx, H - 26 * u);
         }
         let flashT = 0, hintT = 9;
         function updateHud(dt) {
@@ -2089,10 +2668,10 @@
             setT('h-km', fr1(mt.dist / 1000)); setT('h-time', fmtTime(sessionTime));
             setT('h-radars', radarCount() + '/' + radars.length);
             setT('h-best', radarTop() ? radarTop() + ' km/h' : '—');
-            let nh = hides[0], nd = 1e9;
-            for(const h of hides) { const d = Math.hypot(h.x - PL.x, h.z - PL.z); if(d < nd) { nd = d; nh = h; } }
-            setT('h-gps-name', nh.name.replace('Planque ', ''));
-            setT('h-gps-d', nd < 1000 ? Math.round(nd / 10) * 10 + ' m' : fr1(nd / 1000) + ' km');
+            if(gpsHide) {
+                setT('h-gps-name', gpsHide.name.replace('Planque ', ''));
+                setT('h-gps-d', gpsDist < 1000 ? Math.round(gpsDist / 10) * 10 + ' m' : fr1(gpsDist / 1000) + ' km');
+            }
             const on = chain.pts >= 1;
             $('h-chain').classList.toggle('on', on);
             if(on) {
@@ -2190,31 +2769,37 @@
         window.addEventListener('blur', () => { for(const k in keys) keys[k] = false; });
 
         // ====== Départ : on quitte le garage pour le monde ouvert ======
+        let starting = false;
         window.startGame = () => {
-            if(gameActive || leaving) return;
+            if(gameActive || leaving || starting) return;
+            starting = true;
             const f = $('fade');
-            f.textContent = 'Chargement du comté…';
+            f.textContent = 'Chargement du ciel…';
             f.classList.add('on');
             startAudio();
-            // On laisse le navigateur afficher le message avant de construire la carte
-            setTimeout(() => {
-                $('lobby').style.display = 'none';
-                buildWorld();
-                PERF = perfOf();
-                const R = innerRoad;
-                let i = 40;
-                while(R.jn[i]) i++;
-                placeOnRoad(R, i);
-                traffic.forEach(spawnTraffic);
-                $('ui-layer').classList.add('active');
-                $('vignette').classList.add('active');
-                renderHudList();
-                updateVisuals(0.016); updateCamera(1);
-                renderer.compile(scene, camera);
-                clock.getDelta();
-                gameActive = true;
-                setTimeout(() => { f.classList.remove('on'); f.textContent = ''; }, 250);
-            }, 700);
+            // 1) les nuages sont calculés tuile par tuile, 2) puis la carte est construite
+            setTimeout(() => bakeClouds(pc => { f.textContent = 'Chargement du ciel… ' + pc + ' %'; }, () => {
+                f.textContent = 'Chargement du comté…';
+                setTimeout(() => {
+                    $('lobby').style.display = 'none';
+                    buildWorld();
+                    PERF = perfOf();
+                    const R = innerRoad;
+                    let i = 40;
+                    while(R.jn[i]) i++;
+                    placeOnRoad(R, i);
+                    traffic.forEach(spawnTraffic);
+                    updateGps();
+                    $('ui-layer').classList.add('active');
+                    $('vignette').classList.add('active');
+                    renderHudList();
+                    updateVisuals(0.016); updateCamera(1);
+                    renderer.compile(scene, camera);
+                    clock.getDelta();
+                    gameActive = true;
+                    setTimeout(() => { f.classList.remove('on'); f.textContent = ''; }, 250);
+                }, 80);
+            }), 650);
         };
 
         function animate() {
