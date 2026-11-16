@@ -1611,8 +1611,26 @@
         function groundY(x, z) {
             roadAt(x, z);
             let lift = 0;
-            if(Q.R) { const ad = Math.abs(Q.d), hw = Q.R.hw; lift = ad <= hw ? LIFT : ad < hw + 3.5 ? LIFT * (1 - (ad - hw) / 3.5) : 0; }
-            return hAt(x, z) + lift;
+            if(Q.R) lift = roadLift(Q.R, Q.i, Q.d);
+            const h = hAt(x, z);
+            for(let k = 0; k < hides.length; k++) { const a = apronY(hides[k], x, z, h); if(a !== null) return Math.max(a, h + lift); }
+            return h + lift;
+        }
+        // Parvis en béton d'une planque : du seuil de la porte (niveau du sol intérieur) jusqu'au bord de la route
+        function apronY(H, x, z, h) {
+            if(H.y0 === undefined) return null;
+            const dx = x - H.bx, dz = z - H.bz, lx = dx * H.ux + dz * H.uz, lz = dx * H.vx + dz * H.vz, zA = HIDE_D / 2, zB = HIDE_SET + 0.4;
+            if(Math.abs(lx) > HIDE_W / 2 + 1.5 || lz < zA || lz > zB) return null;
+            const t = (lz - zA) / (zB - zA), road = h + LIFT * 0.7;
+            return Math.max(h + 0.05, H.y0 + 0.02 + (road - H.y0 - 0.02) * t * t * (3 - 2 * t));
+        }
+        // Hauteur de la chaussée au-dessus du terrain, à l'écart latéral d (m) : la route est mise presque à plat en travers
+        // (remblai côté aval) ; l'accotement redescend jusqu'au terrain sur 3,5 m
+        function roadLift(R, i, d) {
+            const ad = Math.abs(d), hw = R.hw;
+            if(ad >= hw + 3.5) return 0;
+            const e = LIFT + (R.rb ? R.rb[i] + R.rc[i] * clamp(d, -hw, hw) : 0);
+            return ad <= hw ? e : e * (1 - (ad - hw) / 3.5);
         }
         // Lacs : dans des cuvettes naturelles, loin de toute route
         for(let tries = 0; tries < 4000 && lakes.length < 3; tries++) {
@@ -1635,6 +1653,25 @@
             const ox = -R.tz[i] * sd, oz = R.tx[i] * sd;   // de la route vers le bâtiment
             hides.push({ R, i, sd, name: HIDE_NAMES[k], x: R.px[i] - R.tz[i] * l, z: R.pz[i] + R.tx[i] * l, dist: routeField(R.g0 + i),
                 bx: R.px[i] + ox * (R.hw + HIDE_SET), bz: R.pz[i] + oz * (R.hw + HIDE_SET), ux: oz, uz: -ox, vx: -ox, vz: -oz });
+        });
+        // Dévers : le terrain penche jusqu'à 6° en travers des routes ; une vraie route est presque plate (on garde 20 % de la pente).
+        // Le côté amont reste au ras du terrain, le côté aval est rehaussé (remblai). Pas de correction aux carrefours ni devant les planques.
+        roads.forEach(R => {
+            const N = R.px.length, hw = R.hw, sl = new Float32Array(N), f = new Float32Array(N).fill(1);
+            for(let i = 0; i < N; i++) { const nx = -R.tz[i], nz = R.tx[i]; sl[i] = (hAt(R.px[i] + nx * hw, R.pz[i] + nz * hw) - hAt(R.px[i] - nx * hw, R.pz[i] - nz * hw)) / (2 * hw); }
+            const lock = new Uint8Array(N);
+            for(let i = 0; i < R.n; i++) if(R.jn[i]) lock[i] = 1;
+            hides.forEach(H => { if(H.R === R) for(let j = H.i - 20; j <= H.i + 20; j++) lock[R.closed ? (j + R.n) % R.n : clamp(j, 0, N - 1)] = 1; });
+            if(!R.closed) { lock[0] = lock[N - 1] = 1; }
+            const at = (j) => R.closed ? lock[((j % R.n) + R.n) % R.n] : lock[clamp(j, 0, N - 1)];
+            for(let i = 0; i < N; i++) { let d = 99; for(let k = 0; k <= 10 && d === 99; k++) if(at(i - k) || at(i + k)) d = k; f[i] = sstep(0, 10, d); }
+            R.rb = new Float32Array(N); R.rc = new Float32Array(N);
+            for(let i = 0; i < N; i++) {
+                let a = 0, w = 0;
+                for(let k = -5; k <= 5; k++) { const j = R.closed ? ((i + k) % R.n + R.n) % R.n : clamp(i + k, 0, N - 1); a += sl[j]; w++; }
+                const sm = a / w, k = 0.8 * f[i];
+                R.rc[i] = -k * sm; R.rb[i] = k * Math.abs(sm) * hw;
+            }
         });
         [[0, 0.04], [0, 0.18], [0, 0.33], [0, 0.47], [0, 0.62], [0, 0.76], [0, 0.9], [1, 0.08], [1, 0.28], [1, 0.48], [1, 0.68], [1, 0.88], [2, 0.2], [2, 0.7], [3, 0.5], [5, 0.5], [8, 0.5], [10, 0.5], [12, 0.5], [14, 0.5]].forEach(([ri, u]) => {
             const R = roads[ri];
@@ -2278,7 +2315,7 @@
                         const i = list[j], nx = -R.tz[i], nz = R.tx[i];
                         for(let c = 0; c < 7; c++) {
                             const x = R.px[i] + nx * lat[c], z = R.pz[i] + nz * lat[c], o = (j * 7 + c) * 3;
-                            pos[o] = x; pos[o + 1] = hAt(x, z) + (c === 0 || c === 6 ? 0.03 : LIFT + R.idx * 0.004); pos[o + 2] = z;   // le bord découpé de l'accotement se pose sur le terrain
+                            pos[o] = x; pos[o + 1] = hAt(x, z) + (c === 0 || c === 6 ? 0.03 : roadLift(R, i, lat[c]) + R.idx * 0.004); pos[o + 2] = z;   // le bord découpé de l'accotement se pose sur le terrain
                             nrm(x, z, nor, o, 2);
                             uv[(j * 7 + c) * 2] = (lat[c] + hw + 3.5) / W; uv[(j * 7 + c) * 2 + 1] = i * R.step * vS;
                         }
@@ -2306,7 +2343,7 @@
                             const s0 = i, s1 = e, base = bp.length / 3;
                             for(let j = s0; j <= s1; j++) {
                                 const nx = -R.tz[j], nz = R.tx[j], l = sd * (hw + 1.6), ix = -nx * sd, iz = -nz * sd;   // (ix, iz) : vers la chaussée
-                                const x0 = R.px[j] + nx * l, z0 = R.pz[j] + nz * l, gy = hAt(x0, z0) + 0.06;
+                                const x0 = R.px[j] + nx * l, z0 = R.pz[j] + nz * l, gy = hAt(x0, z0) + roadLift(R, j, l) * 0.85 + 0.03;
                                 const f = Math.min(1, (j - s0) / 2.5, (s1 - j) / 2.5);   // extrémités enterrées en pente
                                 for(let k = 0; k < WB.length; k++) {
                                     const d = WB[k][0], hh = WB[k][1] * (0.12 + 0.88 * f);
@@ -2324,7 +2361,7 @@
                                         const fp = Math.min(1, (j + t - s0) / 2.5, (s1 - j - t) / 2.5);
                                         if(fp < 0.5) continue;
                                         const lp = sd * (hw + 1.6 + 0.24), qx = px + nx * lp, qz = pz + nz * lp;
-                                        posts.push(qx, hAt(qx, qz), qz, Math.atan2(ix, iz), (j * 2 + h) % 6 === 0 ? 1 : 0);
+                                        posts.push(qx, hAt(qx, qz) + roadLift(R, j, lp) * 0.85 - 0.03, qz, Math.atan2(ix, iz), (j * 2 + h) % 6 === 0 ? 1 : 0);
                                     }
                                 }
                             }
@@ -2332,7 +2369,7 @@
                             for(let j = s0; j < s1; j += 4) {
                                 const j2 = Math.min(s1, j + 4), l = sd * (hw + 1.6);
                                 const ax = R.px[j] - R.tz[j] * l, az = R.pz[j] + R.tx[j] * l, bx = R.px[j2] - R.tz[j2] * l, bz = R.pz[j2] + R.tx[j2] * l;
-                                wall(rpL, rnL, ax, hAt(ax, az) + 0.46, az, bx, hAt(bx, bz) + 0.46, bz, 0.3, R.tz[j] * sd, -R.tx[j] * sd);
+                                wall(rpL, rnL, ax, hAt(ax, az) + roadLift(R, j, l) + 0.46, az, bx, hAt(bx, bz) + roadLift(R, j2, l) + 0.46, bz, 0.3, R.tz[j] * sd, -R.tx[j] * sd);
                             }
                             i = e + 1;
                         }
@@ -2387,7 +2424,7 @@
             dummy.scale.set(1, 1, 1);
             // Lampadaires (le bras pointe vers la route), ampoules allumées
             const lampGeo = mergeGeos([[new THREE.CylinderGeometry(0.08, 0.13, 9, 6), MX(0, 4.5, 0), 0x6f767d], [new THREE.BoxGeometry(2.4, 0.1, 0.1), MX(-1.15, 8.95, 0), 0x6f767d], [new THREE.BoxGeometry(0.8, 0.14, 0.34), MX(-2.2, 8.92, 0), 0x50555b]]);
-            const lampFill = k => { const x = lamps[k * 4], z = lamps[k * 4 + 1]; dummy.position.set(x, hAt(x, z), z); dummy.rotation.set(0, Math.atan2(-lamps[k * 4 + 3], lamps[k * 4 + 2]), 0); };
+            const lampFill = k => { const x = lamps[k * 4], z = lamps[k * 4 + 1]; dummy.position.set(x, groundY(x, z), z); dummy.rotation.set(0, Math.atan2(-lamps[k * 4 + 3], lamps[k * 4 + 2]), 0); };
             inst(lampGeo, new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 0.6, roughness: 0.5 }), lamps.length / 4, lampFill);
             inst(new THREE.BoxGeometry(0.62, 0.06, 0.26).applyMatrix4(MX(-2.2, 8.83, 0)), new THREE.MeshBasicMaterial({ color: new THREE.Color(3.0, 2.3, 1.3) }), lamps.length / 4, lampFill);
             const poleGeo = mergeGeos([[new THREE.CylinderGeometry(0.11, 0.16, 9.6, 5, 1, true), MX(0, 4.8, 0), 0x5a4735], [new THREE.BoxGeometry(0.14, 0.14, 2.5), MX(0, 9, 0), 0x4a3b2e]]);
@@ -2401,12 +2438,12 @@
             const delinTex = makeTex(16, 128, (g, w, h) => { g.fillStyle = '#ecece6'; g.fillRect(0, 0, w, h); g.fillStyle = '#17181b'; g.fillRect(0, 18, w, 26); g.fillStyle = '#ff7a1a'; g.fillRect(3, 24, w - 6, 13); }, 0, 0, true);
             const delinGeo = mergeGeos([[new THREE.PlaneGeometry(0.12, 1.05), MX(0, 0.52, 0), 0xffffff], [new THREE.PlaneGeometry(0.12, 1.05), MX(0, 0.52, 0, 0, Math.PI / 2, 0), 0xffffff]]);
             { const u0 = new THREE.PlaneGeometry(1, 1).toNonIndexed().attributes.uv.array, u = []; for(let k = 0; k < 2; k++) for(let i = 0; i < u0.length; i++) u.push(u0[i]); delinGeo.setAttribute('uv', new THREE.Float32BufferAttribute(u, 2)); }
-            inst(delinGeo, new THREE.MeshLambertMaterial({ map: delinTex, side: THREE.DoubleSide }), delin.length / 3, k => { const x = delin[k * 3], z = delin[k * 3 + 1]; dummy.position.set(x, hAt(x, z), z); dummy.rotation.set(0, delin[k * 3 + 2], 0); });
+            inst(delinGeo, new THREE.MeshLambertMaterial({ map: delinTex, side: THREE.DoubleSide }), delin.length / 3, k => { const x = delin[k * 3], z = delin[k * 3 + 1]; dummy.position.set(x, groundY(x, z) - 0.02, z); dummy.rotation.set(0, delin[k * 3 + 2], 0); });
             const chevTex = makeTex(128, 160, (g, w, h) => {
                 g.fillStyle = '#111'; g.fillRect(0, 0, w, h); g.fillStyle = '#f2c417'; g.fillRect(6, 6, w - 12, h - 12);
                 g.fillStyle = '#111'; g.beginPath(); g.moveTo(28, 22); g.lineTo(64, 22); g.lineTo(104, 80); g.lineTo(64, 138); g.lineTo(28, 138); g.lineTo(68, 80); g.closePath(); g.fill();
             }, 0, 0, true);
-            const chevFill = k => { const x = chev[k * 3], z = chev[k * 3 + 1]; dummy.position.set(x, hAt(x, z), z); dummy.rotation.set(0, chev[k * 3 + 2], 0); };
+            const chevFill = k => { const x = chev[k * 3], z = chev[k * 3 + 1]; dummy.position.set(x, groundY(x, z) - 0.02, z); dummy.rotation.set(0, chev[k * 3 + 2], 0); };
             inst(new THREE.PlaneGeometry(0.75, 0.94).applyMatrix4(MX(0, 1.55, 0)), new THREE.MeshLambertMaterial({ map: chevTex, side: THREE.DoubleSide }), chev.length / 3, chevFill);
             inst(new THREE.BoxGeometry(0.07, 1.2, 0.07).applyMatrix4(MX(0, 0.6, -0.04)), steelMat, chev.length / 3, chevFill);
 
@@ -2590,7 +2627,7 @@
                 for(let a = 0; a <= NZ; a++) for(let b = 0; b <= NX; b++) {
                     const lz = zA + (zB - zA) * a / NZ, lx = -W / 2 - 1.5 + (W + 3) * b / NX;
                     const x = h.bx + h.ux * lx + h.vx * lz, z = h.bz + h.uz * lx + h.vz * lz, t = a / NZ;
-                    const road = hAt(x, z) + LIFT * 0.7, yy = Math.max(hAt(x, z) + 0.05, y0 + 0.02 + (road - y0 - 0.02) * t * t * (3 - 2 * t));
+                    const yy = apronY(h, x, z, hAt(x, z)) ?? (hAt(x, z) + 0.05);
                     pos.push(x, yy, z); uvs.push(lx / 4, lz / 4);
                     if(a < NZ && b < NX) { const o = a * (NX + 1) + b; idx.push(o, o + 1, o + NX + 1, o + 1, o + NX + 2, o + NX + 1); }
                 }
@@ -2605,7 +2642,7 @@
             });
             // --- Radars : mât et boîtier au bord de la chaussée ---
             const radarGeo = mergeGeos([[new THREE.CylinderGeometry(0.08, 0.1, 3.2, 6), MX(0, 1.6, 0), 0x5d6369], [new THREE.BoxGeometry(0.55, 0.8, 0.5), MX(0, 3.4, 0), 0xd9a520], [new THREE.BoxGeometry(0.4, 0.3, 0.52), MX(0, 3.5, 0), 0x121315]]);
-            inst(radarGeo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6 }), radars.length, k => { const r = radars[k], l = r.R.hw + 2.3, x = r.x - r.R.tz[r.i] * l, z = r.z + r.R.tx[r.i] * l; dummy.position.set(x, hAt(x, z), z); dummy.rotation.set(0, Math.atan2(r.R.tx[r.i], r.R.tz[r.i]), 0); }, true);
+            inst(radarGeo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6 }), radars.length, k => { const r = radars[k], l = r.R.hw + 2.3, x = r.x - r.R.tz[r.i] * l, z = r.z + r.R.tx[r.i] * l; dummy.position.set(x, groundY(x, z) - 0.02, z); dummy.rotation.set(0, Math.atan2(r.R.tx[r.i], r.R.tz[r.i]), 0); }, true);
 
             // --- Végétation : arbres peints sur des plans croisés, buissons et herbes hautes au bord des routes ---
             const atlas = paintTreeAtlas();
@@ -2879,18 +2916,24 @@
                 const Z = (zf) => (zf - 0.5) * L;
                 const zf0 = T.st[1][0], zr0 = T.st[T.st.length - 2][0];
                 const sF = secAt(T, 0.03), sR = secAt(T, 0.975);
+                // Roue (pneu, flanc, jante à 5 branches, cache-moyeu) : géométrie à part, centrée sur le moyeu, pour qu'elle tourne
+                const wp = [], o = 0.1;
+                wp.push([new THREE.CylinderGeometry(r, r, 0.2, 22), MX(0, 0, 0, 0, 0, Math.PI / 2), 0x151515]);                     // pneu
+                wp.push([new THREE.CylinderGeometry(r * 0.88, r * 0.88, 0.02, 22), MX(o * 0.99, 0, 0, 0, 0, Math.PI / 2), 0x0c0c0c]);   // flanc
+                wp.push([new THREE.CylinderGeometry(r * 0.66, r * 0.66, 0.02, 22), MX(o * 1.02, 0, 0, 0, 0, Math.PI / 2), 0xa8adb2]);  // jante
+                wp.push([new THREE.CylinderGeometry(r * 0.55, r * 0.55, 0.02, 20), MX(o * 1.05, 0, 0, 0, 0, Math.PI / 2), 0x2a2c2f]);  // creux
+                for(let k = 0; k < 5; k++) { const an = k / 5 * Math.PI * 2; wp.push([new THREE.BoxGeometry(0.02, r * 0.5, 0.065), MX(o * 1.1, Math.cos(an) * r * 0.3, Math.sin(an) * r * 0.3, an, 0, 0), 0xb4b9be]); }   // branches
+                wp.push([new THREE.CylinderGeometry(r * 0.14, r * 0.14, 0.03, 12), MX(o * 1.15, 0, 0, 0, 0, Math.PI / 2), 0x8d9297]);   // cache-moyeu
+                wp.push([new THREE.BoxGeometry(0.03, 0.05, 0.05), MX(o * 1.1, r * 0.5, 0), 0x8a8f94]);   // valve : on voit la roue tourner
                 T.ax.forEach(a => [-1, 1].forEach(sd => {
-                    const x = sd * (hw - 0.2), z = Z(a), o = sd * 0.1;
-                    parts.push([new THREE.CylinderGeometry(r, r, 0.2, 22), MX(x, r, z, 0, 0, Math.PI / 2), 0x151515]);                    // pneu
-                    parts.push([new THREE.CylinderGeometry(r * 0.88, r * 0.88, 0.02, 22), MX(x + o * 0.99, r, z, 0, 0, Math.PI / 2), 0x0c0c0c]);  // flanc
-                    parts.push([new THREE.CylinderGeometry(r * 0.66, r * 0.66, 0.02, 22), MX(x + o * 1.02, r, z, 0, 0, Math.PI / 2), 0xa8adb2]); // jante
-                    parts.push([new THREE.CylinderGeometry(r * 0.55, r * 0.55, 0.02, 20), MX(x + o * 1.05, r, z, 0, 0, Math.PI / 2), 0x2a2c2f]);  // creux
-                    for(let k = 0; k < 5; k++) { const an = k / 5 * Math.PI * 2; parts.push([new THREE.BoxGeometry(0.02, r * 0.5, 0.065), MX(x + o * 1.1, r + Math.cos(an) * r * 0.3, z + Math.sin(an) * r * 0.3, an, 0, 0), 0xb4b9be]); }   // branches
-                    parts.push([new THREE.CylinderGeometry(r * 0.14, r * 0.14, 0.03, 12), MX(x + o * 1.15, r, z, 0, 0, Math.PI / 2), 0x8d9297]);   // cache-moyeu
+                    const z = Z(a);
                     // Passage de roue : coque noire vue de l'intérieur
                     const lg = new THREE.CylinderGeometry(r + 0.07, r + 0.07, 0.34, 18, 1, true, 0, Math.PI);
                     parts.push([lg, MX(sd * (hw - 0.2), r, z, Math.PI / 2, 0, Math.PI / 2), 0x0a0a0a]);
                 }));
+                // Dessous de caisse sombre entre les roues (plancher, réservoir, échappement)
+                parts.push([new THREE.BoxGeometry(hw * 1.7, 0.1, (T.ax[1] - T.ax[0]) * L + 0.3), MX(0, 0.22, Z((T.ax[0] + T.ax[1]) / 2)), 0x0b0b0c]);
+                parts.push([new THREE.CylinderGeometry(0.035, 0.035, 0.18, 8), MX(-hw * 0.55, 0.2, Z(1) - 0.02, Math.PI / 2, 0, 0), 0x3a3b3d]);
                 const fz = Z(0) - 0.01, rz = Z(1) + 0.01;
                 parts.push([new THREE.BoxGeometry(hw * 1.5, 0.15, 0.08), MX(0, 0.37, fz + 0.05), 0x141516]);                        // entrée d'air basse
                 parts.push([new THREE.BoxGeometry(hw * 0.8, 0.12, 0.06), MX(0, sF.belt - 0.12, Z(0.012)), 0x18191b]);               // calandre
@@ -2922,23 +2965,46 @@
                     parts.push([new THREE.BoxGeometry(0.52, 0.11, 0.012), MX(0, y, z), 0xe9e9e4]);
                     parts.push([new THREE.BoxGeometry(0.045, 0.11, 0.014), MX(-0.235 * sg, y, z), 0x1d3f9a]);
                 });
-                return { trim: mergeGeos(parts), lamps: mergeGeos(lamps) };
+                return { trim: mergeGeos(parts), lamps: mergeGeos(lamps), wheel: mergeGeos(wp) };
             }
             const carGeos = CAR_TYPES.map(T => Object.assign({ body: carBody(T) }, carTrim(T)));
             const tTrimMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0.25, side: THREE.DoubleSide });
             const tLampMat = new THREE.MeshBasicMaterial({ vertexColors: true, color: new THREE.Color(1.5, 1.5, 1.5) });
             const tGlassMat = new THREE.MeshStandardMaterial({ color: lin(0x10151b), roughness: 0.06, metalness: 0.2, envMapIntensity: 1.6 });
+            // Ombre de contact sous chaque voiture : la caisse ne « flotte » plus au-dessus de la route
+            const tShadowTex = (() => { const N = 128, c = document.createElement('canvas'); c.width = c.height = N; const g = c.getContext('2d');
+                const gr = g.createRadialGradient(N / 2, N / 2, 0, N / 2, N / 2, N / 2); gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(0.55, 'rgba(0,0,0,0.9)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+                g.fillStyle = gr; g.fillRect(0, 0, N, N); return new THREE.CanvasTexture(c); })();
+            const tShadowGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2).translate(0, 0.03, 0);
+            const tShadowMat = new THREE.MeshBasicMaterial({ map: tShadowTex, color: 0x000000, transparent: true, opacity: 0.72, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -8, polygonOffsetUnits: -8 });
             // Teintes courantes : blanc, gris, noir, bleus, rouge sombre, beige, vert ; métallisées ou unies
             [[0xe9e9e6, 0], [0xa9adb1, 1], [0x1a1c1f, 1], [0x5d646c, 1], [0x2a3f63, 1], [0x7b1d1d, 1], [0xd6d2c6, 0], [0x3f4b40, 1], [0xf2f2ef, 0], [0x7c8a96, 1], [0xb64a1f, 0], [0x8e9093, 1], [0x24282e, 1], [0x9eb4c4, 0]].forEach(([c, met], k) => {
                 const G = carGeos[[0, 1, 2, 4, 1, 3, 0, 2, 1, 4, 0, 3, 2, 1][k]];
                 const m = new THREE.Group();
                 const paintMat = new THREE.MeshPhysicalMaterial({ color: lin(c), metalness: met ? 0.5 : 0.05, roughness: met ? 0.32 : 0.42, clearcoat: 1, clearcoatRoughness: 0.08, side: THREE.DoubleSide });
+                const T = CAR_TYPES[[0, 1, 2, 4, 1, 3, 0, 2, 1, 4, 0, 3, 2, 1][k]];
+                // Caisse suspendue (tangage et roulis) au-dessus des roues, qui restent posées sur la route
+                const body = new THREE.Group();
                 const b = new THREE.Mesh(G.body, [paintMat, tGlassMat]);
                 b.castShadow = true;
-                m.add(b, new THREE.Mesh(G.trim, tTrimMat), new THREE.Mesh(G.lamps, tLampMat));
+                body.add(b, new THREE.Mesh(G.trim, tTrimMat), new THREE.Mesh(G.lamps, tLampMat));
+                body.rotation.order = 'YXZ';
+                const sh = new THREE.Mesh(tShadowGeo, tShadowMat);
+                sh.scale.set(T.W + 0.5, 1, T.L + 0.7); sh.renderOrder = 1;
+                m.add(sh, body);
+                const wheels = [];
+                T.ax.forEach((a, ai) => [-1, 1].forEach(sd => {
+                    const piv = new THREE.Group(), w = new THREE.Mesh(G.wheel, tTrimMat);
+                    piv.position.set(sd * (T.W / 2 - 0.2), T.r, (a - 0.5) * T.L);
+                    w.rotation.set(0, sd > 0 ? 0 : Math.PI, 0);
+                    w.castShadow = true;
+                    piv.add(w); m.add(piv);
+                    wheels.push({ piv, w, front: ai === 0 });
+                }));
                 m.rotation.order = 'YXZ';
                 scene.add(m);
-                traffic.push({ m, R: null, p: 0, dir: 1, lat: 3, v: 25, v0: 25, stun: 0, nm: 0, x: 0, z: 0, fx: 0, fz: -1 });
+                traffic.push({ m, body, wheels, T, R: null, p: 0, dir: 1, lat: 3, v: 25, v0: 25, stun: 0, nm: 0, x: 0, z: 0, fx: 0, fz: -1,
+                    spin: 0, yaw: 0, ya: 0, sP: 0, sPv: 0, sR: 0, sRv: 0, vPrev: 25, ready: false });
             });
 
             // --- Fond de carte (2048 px) : relief ombré, courbes de niveau, prairies, forêts, roche, neige, lacs ---
@@ -3027,6 +3093,15 @@
             const l = R.hw * (R.cls === 0 ? 0.25 : 0.5);
             PL.x = R.px[i] - R.tz[i] * l; PL.z = R.pz[i] + R.tx[i] * l;
             PL.yaw = Math.atan2(-R.tx[i], -R.tz[i]);
+            PL.vx = PL.vz = PL.vf = PL.vl = PL.w = 0; PL.steer = 0; PL.drift = false; PL.inside = true;
+            PL.y = groundY(PL.x, PL.z);
+            camYaw = PL.yaw; camY = PL.y + 2;
+        }
+        // Départ dans une planque : sur le parvis, devant la porte du garage, face à la route
+        function placeAtHide(H) {
+            const lz = HIDE_D / 2 + 3.9;
+            PL.x = H.bx + H.vx * lz; PL.z = H.bz + H.vz * lz;
+            PL.yaw = Math.atan2(-H.vx, -H.vz);
             PL.vx = PL.vz = PL.vf = PL.vl = PL.w = 0; PL.steer = 0; PL.drift = false; PL.inside = true;
             PL.y = groundY(PL.x, PL.z);
             camYaw = PL.yaw; camY = PL.y + 2;
@@ -3160,11 +3235,38 @@
                 if(d < 260 || d > 850) continue;
                 t.R = R; t.p = i; t.dir = Math.random() < 0.5 ? 1 : -1;
                 t.lat = R.cls === 0 ? (Math.random() < 0.5 ? 2.25 : 6.75) : 3;
-                t.v = t.v0 = 20 + Math.random() * 11; t.stun = 0; t.nm = 0;
+                t.v = t.v0 = 20 + Math.random() * 11; t.stun = 0; t.nm = 0; t.ready = false;
                 t.m.visible = true;
                 return;
             }
             t.R = null; t.m.visible = false;
+        }
+        // Pose une voiture du trafic sur ses 4 roues (hauteur de la route sous chaque pneu), fait tourner et braquer les roues,
+        // et laisse la caisse bouger sur sa suspension (plongée au freinage, cabrage à l'accélération, roulis en virage)
+        function placeTraffic(t, i, l, dt) {
+            const T = t.T, R = t.R, hl = T.L * (T.ax[1] - T.ax[0]) / 2, ht = T.W / 2 - 0.2, rx = -t.fz, rz = t.fx;
+            const zc = -T.L * ((T.ax[0] + T.ax[1]) / 2 - 0.5);   // centre de l'empattement, vers l'avant
+            const cx = t.x + t.fx * zc, cz = t.z + t.fz * zc, sg = t.dir;
+            const H = (a, s) => { const x = cx + t.fx * a + rx * s, z = cz + t.fz * a + rz * s; return hAt(x, z) + roadLift(R, i, l + sg * s); };
+            const fl = H(hl, -ht), fr = H(hl, ht), rl = H(-hl, -ht), rr = H(-hl, ht);
+            const y = (fl + fr + rl + rr) / 4, pitch = Math.atan(((fl + fr) - (rl + rr)) / (4 * hl)), roll = Math.atan(((fr + rr) - (fl + rl)) / (4 * ht));
+            const yaw = Math.atan2(-t.fx, -t.fz);
+            if(!t.ready) { t.yaw = yaw; t.vPrev = t.v; t.ready = true; t.sP = t.sPv = t.sR = t.sRv = 0; }
+            const yr = angDiff(yaw, t.yaw) / Math.max(dt, 1e-3); t.yaw = yaw;
+            const acc = (t.v - t.vPrev) / Math.max(dt, 1e-3); t.vPrev = t.v;
+            t.ya += (yr - t.ya) * Math.min(1, dt * 6);
+            // Suspension : ressort amorti (pulsation 9 rad/s, amortissement 0,7) vers l'assiette imposée par les accélérations
+            const tgP = clamp(acc * 0.004, -0.035, 0.02), tgR = clamp(-t.v * t.ya * 0.0045, -0.04, 0.04), K = 81, C = 12.6, st = Math.min(dt, 0.033);
+            t.sPv += ((tgP - t.sP) * K - t.sPv * C) * st; t.sP += t.sPv * st;
+            t.sRv += ((tgR - t.sR) * K - t.sRv * C) * st; t.sR += t.sRv * st;
+            t.m.position.set(t.x, y, t.z);
+            t.m.rotation.set(pitch, yaw, roll);
+            t.body.rotation.set(t.sP, 0, t.sR);
+            t.body.position.y = -Math.abs(t.sP) * 0.6;
+            // Roues : rotation au sol (v / r) et braquage des roues avant selon la courbure
+            t.spin -= t.v * dt / T.r;
+            const steer = clamp(t.ya * (hl * 2) / Math.max(t.v, 3), -0.5, 0.5);
+            for(const wh of t.wheels) { wh.w.rotation.x = t.spin; if(wh.front) wh.piv.rotation.y = steer; }
         }
         function stepTraffic(dt) {
             const pv = Math.hypot(PL.vx, PL.vz);
@@ -3182,10 +3284,7 @@
                 t.fx = tx * t.dir; t.fz = tz * t.dir;
                 const ex = PL.x - t.x, ez = PL.z - t.z, d = Math.hypot(ex, ez);
                 if(d > 950) { spawnTraffic(t); continue; }
-                const y = hAt(t.x, t.z) + LIFT;
-                t.m.position.set(t.x, y, t.z);
-                t.m.rotation.y = Math.atan2(-t.fx, -t.fz);
-                t.m.rotation.x = Math.atan((hAt(t.x + t.fx * 2, t.z + t.fz * 2) - hAt(t.x - t.fx * 2, t.z - t.fz * 2)) / 4);
+                placeTraffic(t, i, l, dt);
                 // Ralentit derrière le joueur
                 const along = ex * t.fx + ez * t.fz, side = ex * -t.fz + ez * t.fx;
                 if(along > 0 && along < 28 && Math.abs(side) < 2.3) t.v = Math.min(t.v, Math.max(0, PL.vx * t.fx + PL.vz * t.fz) + (along - 7) * 0.6);
@@ -3280,6 +3379,7 @@
         const flameTex = radialTex([[0, 'rgba(255,255,255,1)'], [0.3, 'rgba(120,190,255,0.8)'], [1, 'rgba(40,90,255,0)']]);
         const flames = [-1, 1].map(sd => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: flameTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 })); s.position.set(sd * 0.3, 0.52, 3.45); player.add(s); return s; });
 
+        const SUS = { p: 0, pv: 0, r: 0, rv: 0, gp: 0, gr: 0 };   // assiette de la caisse (suspension) et du sol, lissées
         function updateVisuals(dt) {
             const sinY = Math.sin(PL.yaw), cosY = Math.cos(PL.yaw), fx = -sinY, fz = -cosY, rx = cosY, rz = -sinY;
             player.position.set(PL.x, PL.y, PL.z);
@@ -3287,8 +3387,14 @@
             const pitch = Math.atan((groundY(PL.x + fx * 1.5, PL.z + fz * 1.5) - groundY(PL.x - fx * 1.5, PL.z - fz * 1.5)) / 3);
             const roll = Math.atan((groundY(PL.x + rx * 0.8, PL.z + rz * 0.8) - groundY(PL.x - rx * 0.8, PL.z - rz * 0.8)) / 1.6);
             const bumpy = PL.onRoad ? 0 : Math.min(1, Math.abs(PL.vf) / 20);
-            player.rotation.x = pitch + clamp(PL.accA * 0.0035, -0.05, 0.035) + Math.sin(time * 31) * 0.012 * bumpy;
-            player.rotation.z = roll - clamp(PL.latA * 0.0045, -0.075, 0.075) + Math.sin(time * 23) * 0.015 * bumpy;
+            // Suspension : ressort amorti (≈ 1,4 Hz, amortissement 0,7) ; plongée au freinage, cabrage à l'accélération,
+            // roulis vers l'extérieur du virage limité à ~2,5° comme une vraie sportive
+            const tgP = clamp(PL.accA * 0.0028, -0.04, 0.025), tgR = clamp(-PL.latA * 0.0032, -0.045, 0.045), st = Math.min(dt, 0.033);
+            SUS.pv += ((tgP - SUS.p) * 81 - SUS.pv * 12.6) * st; SUS.p += SUS.pv * st;
+            SUS.rv += ((tgR - SUS.r) * 81 - SUS.rv * 12.6) * st; SUS.r += SUS.rv * st;
+            SUS.gp += (pitch - SUS.gp) * Math.min(1, dt * 14); SUS.gr += (roll - SUS.gr) * Math.min(1, dt * 14);
+            player.rotation.x = SUS.gp + SUS.p + Math.sin(time * 31) * 0.012 * bumpy;
+            player.rotation.z = SUS.gr + SUS.r + Math.sin(time * 23) * 0.015 * bumpy;
             PL.spin -= PL.vf * dt / 0.36;
             if(player.wheels) player.wheels.forEach(wh => { wh.g.rotation.x = PL.spin; if(wh.front) wh.g.rotation.y = PL.steer * 0.42; });
             if(player.tailMat) player.tailMat.emissiveIntensity = (keys.ArrowDown || keys.s || PAD.brk > 0.04) ? 6 : 2.4;
@@ -3332,7 +3438,7 @@
                 // Vue capot
                 camera.position.set(PL.x - sinY * 0.4, PL.y + 1.02, PL.z - cosY * 0.4);
                 camera.lookAt(PL.x - sinY * 40, PL.y + 0.9 + (groundY(PL.x - sinY * 12, PL.z - cosY * 12) - PL.y) * 0.8, PL.z - cosY * 40);
-                camera.rotation.z += player.rotation.z * 0.6;
+                camera.rotation.z += (SUS.gr + SUS.r) * 0.35;   // la tête du pilote compense : l'horizon reste presque droit
                 camYaw = PL.yaw;
             } else {
                 // Poursuite : la caméra suit le cap avec un léger retard et regarde un peu vers la trajectoire
@@ -3945,14 +4051,14 @@
                     $('lobby').style.display = 'none';
                     buildWorld();
                     PERF = perfOf();
-                    // Départ sur la route, juste avant la dernière planque utilisée (la première au premier lancement)
-                    let hk = 0;
-                    try { hk = parseInt(localStorage.getItem('nfsLastHide'), 10); } catch (e) {}
-                    if(!(hk >= 0 && hk < hides.length)) hk = 0;
-                    const H = hides[hk], R = H.R;
-                    let i = Math.max(1, H.i - 5);
-                    while(R.jn[i] && i > 1) i--;
-                    placeOnRoad(R, i);
+                    // Départ dans une planque tirée au hasard (jamais deux fois de suite la même)
+                    let last = -1;
+                    try { last = parseInt(localStorage.getItem('nfsStartHide'), 10); } catch (e) {}
+                    let hk = Math.floor(Math.random() * hides.length);
+                    if(hk === last && hides.length > 1) hk = (hk + 1 + Math.floor(Math.random() * (hides.length - 1))) % hides.length;
+                    try { localStorage.setItem('nfsStartHide', String(hk)); } catch (e) {}
+                    const H = hides[hk];
+                    placeAtHide(H);
                     startHide = H;
                     traffic.forEach(spawnTraffic);
                     camMode = SET.cam;
