@@ -305,7 +305,16 @@
         #lobby .gx-row { display: flex; justify-content: space-between; align-items: center; gap: 1vw; padding: 0.9vh 1.9vw; border: 1.5px solid transparent; cursor: pointer; font: 500 clamp(13.9px, 2.1vh, 22.1px)/1 var(--gx-cond); }
         #lobby .gx-row.sel { border-color: rgba(225,232,255,0.8); background: linear-gradient(90deg, var(--gx-sel), rgba(132,152,205,0.12)); }
         #lobby .gx-chooser { display: flex; align-items: center; gap: 0.9vw; }
-        #lobby .gx-chooser b { min-width: 7.5vw; text-align: center; font-weight: 600; }
+        #lobby .gx-chooser b { min-width: 6.5vw; text-align: center; font-weight: 600; }
+        #lobby .gx-set { width: min(38vw, 660px); }
+        #lobby .gx-set .gx-row { padding: 1.05vh 1.9vw; }
+        #lobby .gx-set .gx-row.act { color: var(--gx-mute); }
+        #lobby .gx-set .gx-row.act.sel { color: #fff; }
+        #lobby .gx-meter { position: relative; width: 5vw; height: 4px; background: rgba(255,255,255,0.18); }
+        #lobby .gx-meter b { position: absolute; left: 0; top: 0; bottom: 0; min-width: 0 !important; background: var(--gx-gold); }
+        #lobby .gx-set-desc { margin: 1.2vh 1.9vw 0; padding-top: 1.1vh; border-top: 1px solid var(--gx-line-soft); font: 500 clamp(11px, 1.6vh, 14.5px)/1.4 'Barlow', sans-serif; color: var(--gx-mute); min-height: 2.8em; }
+        #lobby .gx-keys { width: min(22vw, 380px); }
+        #lobby .gx-keys li > span:last-child { display: flex; gap: 4px; }
         #lobby .gx-chooser button { all: unset; cursor: pointer; width: 0; height: 0; border-top: 7px solid transparent; border-bottom: 7px solid transparent; }
         #lobby .gx-chooser button.l { border-right: 9px solid #e6e6e6; }
         #lobby .gx-chooser button.r { border-left: 9px solid #e6e6e6; }
@@ -370,7 +379,6 @@
             <header class="gx-top">
                 <div class="gx-title">
                     <h1 id="gx-title">Garage</h1>
-                    <div class="gx-pager" id="gx-pager"></div>
                 </div>
                 <div class="gx-id">
                     <div>
@@ -414,6 +422,22 @@
                         <div class="gx-paint-row gx-panel" id="paint-row" role="listbox" aria-label="Couleurs"></div>
                         <button type="button" class="gx-pa r" data-step="1" aria-label="Couleur suivante"></button>
                     </div>
+                </div>
+            </section>
+            <section class="gx-screen" data-screen="settings" hidden>
+                <div class="gx-set gx-panel"><h3>Réglages</h3><div id="set-rows"></div><p class="gx-set-desc" id="set-desc"></p></div>
+                <div class="gx-keys gx-panel"><h3>Commandes</h3>
+                    <ul>
+                        <li><span>Accélérer</span><span><kbd>Z</kbd> <kbd>RT</kbd></span></li>
+                        <li><span>Freiner / reculer</span><span><kbd>S</kbd> <kbd>LT</kbd></span></li>
+                        <li><span>Tourner</span><span><kbd>Q</kbd><kbd>D</kbd> <kbd>Stick</kbd></span></li>
+                        <li><span>Frein à main</span><span><kbd>Espace</kbd> <kbd>■ / X</kbd></span></li>
+                        <li><span>Nitro</span><span><kbd>Maj</kbd> <kbd>✕ / A</kbd></span></li>
+                        <li><span>Carte</span><span><kbd>M</kbd> <kbd>Share</kbd></span></li>
+                        <li><span>Replacer</span><span><kbd>R</kbd> <kbd>△ / Y</kbd></span></li>
+                        <li><span>Caméra</span><span><kbd>C</kbd> <kbd>L1 / R1</kbd></span></li>
+                        <li><span>Garage</span><span><kbd>Échap</kbd> <kbd>Options</kbd></span></li>
+                    </ul>
                 </div>
             </section>
             <div class="gx-info" id="gx-info" hidden></div>
@@ -1080,6 +1104,19 @@
         const fmtSP = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
         const pick = (a) => a[Math.floor(Math.random() * a.length)];
         const hex6 = (c) => '#' + c.toString(16).padStart(6, '0');
+        // Réglages du joueur (page « Réglages » du garage)
+        const SET_DEF = { steer: 5, stick: 1, rumble: 1, cam: 0, vol: 8, grass: 2, mini: 0 };
+        const SET = Object.assign({}, SET_DEF, loadJSON('nfsSettings', {}));
+        const SET_ROWS = [
+            { k: 'steer', label: 'Sensibilité de la direction', min: 1, max: 10, desc: 'Force du braquage, au clavier comme à la manette. 5 = réglage d’origine.' },
+            { k: 'stick', label: 'Réactivité du stick', opts: ['Douce', 'Normale', 'Vive'], desc: 'Douce : petits mouvements très progressifs. Vive : réponse directe.' },
+            { k: 'rumble', label: 'Vibrations de la manette', opts: ['Désactivées', 'Activées'], desc: 'Chocs, glissades, nitro et herbe.' },
+            { k: 'cam', label: 'Caméra au départ', opts: ['Poursuite', 'Capot'], desc: 'Touche C ou L1 / R1 pour changer en roulant.' },
+            { k: 'vol', label: 'Volume', min: 0, max: 10, desc: 'Moteur, démarreur et effets.' },
+            { k: 'grass', label: 'Herbe en volume', opts: ['Désactivée', 'Légère', 'Dense'], desc: 'Touffes d’herbe 3D autour de la voiture. Désactivée = plus fluide.' },
+            { k: 'mini', label: 'Mini-carte', opts: ['Suit la voiture', 'Nord en haut'], desc: 'Sens d’affichage de la mini-carte.' },
+            { k: 'reset', label: 'Rétablir les réglages d’origine', action: true, desc: 'Remet toutes les valeurs ci-dessus par défaut.' }
+        ];
 
         const CAR_COLORS = [{n:'Gris titane',c:0x6f747c},{n:'Noir carbone',c:0x18191c},{n:'Orange solaire',c:0xf0661c},{n:'Bleu golfe',c:0x2f6bff},{n:'Argent lunaire',c:0xb9c0c9},{n:'Rouge signal',c:0xe3262e},{n:'Or des dunes',c:0xe8b33c},{n:'Vert jade',c:0x13a37a},{n:'Violet nuit',c:0x6c3cf0},{n:'Blanc perle',c:0xeeeee8}];
         const RED = 0xe3262e, BLUE = 0x2f6bff;
@@ -1169,18 +1206,19 @@
         const fr1 = (x) => x.toFixed(1).replace('.', ',');
 
         // ====== Interface du garage ======
-        const SCREENS = ['home', 'lists', 'cars', 'perf', 'paint'];
-        const TITLES = { home: 'Garage', lists: 'Choisir une Speedliste', cars: 'Garage / Changer de voiture', perf: 'Garage / Améliorer performance', paint: 'Personnaliser la voiture / Peinture' };
-        const SHIFT = { home: 0.05, lists: 0, cars: 0.08, perf: 0.08, paint: 0 };
+        const TITLES = { home: 'Garage', lists: 'Choisir une Speedliste', cars: 'Garage / Changer de voiture', perf: 'Garage / Améliorer performance', paint: 'Personnaliser la voiture / Peinture', settings: 'Garage / Réglages' };
+        const SHIFT = { home: 0.05, lists: 0, cars: 0.08, perf: 0.08, paint: 0, settings: 0.02 };
         // Distance de la caméra : voiture très grosse dans le garage (comme dans NFS Rivals), plus petite quand des cartes occupent le bas
-        const DIST = { home: 7.2, lists: 10.8, cars: 9.4, perf: 9.4, paint: 8.2 };
+        const DIST = { home: 7.2, lists: 10.8, cars: 9.4, perf: 9.4, paint: 8.2, settings: 10.4 };
         const MENU = [
             { label: 'Quitter le garage', icon: 'exit', go: 'start' },
             { label: 'Changer de Speedliste', icon: 'list', go: 'lists' },
             { label: 'Changer de voiture', icon: 'car', go: 'cars' },
             { label: 'Améliorer performance', icon: 'wrench', go: 'perf' },
-            { label: 'Personnaliser la voiture', icon: 'brush', go: 'paint' }
+            { label: 'Personnaliser la voiture', icon: 'brush', go: 'paint' },
+            { label: 'Réglages', icon: 'sliders', go: 'settings' }
         ];
+        let setSel = 0;
         let screen = 'home', menuSel = 0, listSel = 0, carSel = 0, upSel = 0, paintSel = 0, buyMsg = '';
         const $ = (id) => document.getElementById(id);
 
@@ -1242,6 +1280,22 @@
             $('paint-row').innerHTML = CAR_COLORS.map((o, i) => '<button type="button" class="gx-sw' + (i === paintSel ? ' sel' : '') + (o.c === carColor ? ' cur' : '') + '" data-i="' + i + '" role="option" aria-selected="' + (i === paintSel) + '" aria-label="' + o.n + '" style="--c:' + hex6(o.c) + '"></button>').join('');
             $('paint-name').textContent = CAR_COLORS[paintSel].n;
         }
+        function applySettings() { if(audioOut) audioOut.gain.value = SET.vol / 8; }
+        function setVal(r) { return r.opts ? r.opts[SET[r.k]] : String(SET[r.k]); }
+        function renderSettings() {
+            $('set-rows').innerHTML = SET_ROWS.map((r, i) => '<div class="gx-row' + (i === setSel ? ' sel' : '') + (r.action ? ' act' : '') + '" data-i="' + i + '"><span>' + r.label + '</span>'
+                + (r.action ? '' : '<span class="gx-chooser"><button type="button" class="l" data-step="-1" aria-label="Moins"></button>'
+                + (r.min !== undefined ? '<i class="gx-meter"><b style="width:' + ((SET[r.k] - r.min) / (r.max - r.min) * 100) + '%"></b></i>' : '') + '<b>' + setVal(r) + '</b><button type="button" class="r" data-step="1" aria-label="Plus"></button></span>') + '</div>').join('');
+            $('set-desc').textContent = SET_ROWS[setSel].desc;
+        }
+        function changeSetting(step) {
+            const r = SET_ROWS[setSel];
+            if(r.action) { if(step === 0) { Object.assign(SET, SET_DEF); store('nfsSettings', SET); applySettings(); } renderSettings(); return; }
+            if(!step) step = 1;
+            if(r.opts) SET[r.k] = (SET[r.k] + step + r.opts.length) % r.opts.length;
+            else SET[r.k] = clamp(SET[r.k] + step, r.min, r.max);
+            store('nfsSettings', SET); applySettings(); renderSettings();
+        }
         function pickPaint(i) { paintSel = (i + CAR_COLORS.length) % CAR_COLORS.length; applyColor(CAR_COLORS[paintSel].c); renderPaint(); }
         function renderInfo() {
             const box = $('gx-info');
@@ -1263,7 +1317,7 @@
         }
         function renderFooter() {
             const key = (k, label, act) => '<button type="button" class="gx-hint" data-act="' + act + '"><span class="gx-key">' + k + '</span>' + label + '</button>';
-            $('gx-bot-left').innerHTML = key('A / E', 'Changer de page', 'next');
+            $('gx-bot-left').innerHTML = screen === 'settings' ? key('← →', 'Modifier', 'none') : '';
             $('gx-bot-right').innerHTML = (screen === 'perf' ? '' : key('Entrée', 'Sélectionner', 'select')) + (screen === 'home' ? '' : key('Échap', 'Retour', 'back'));
         }
         function go(next) {
@@ -1273,9 +1327,8 @@
             if(next === 'paint') paintSel = Math.max(0, CAR_COLORS.findIndex(o => o.c === carColor));
             document.querySelectorAll('#lobby .gx-screen').forEach(sec => { sec.hidden = sec.dataset.screen !== next; });
             $('gx-title').textContent = TITLES[next];
-            $('gx-pager').innerHTML = '<span class="gx-cap">A</span>' + SCREENS.map((sc, i) => '<button type="button" class="' + (sc === next ? 'on' : '') + '" data-i="' + i + '" aria-label="' + TITLES[sc] + '"></button>').join('') + '<span class="gx-cap">E</span>';
             camShiftTarget = SHIFT[next]; camDistTarget = DIST[next];
-            ({ home: () => { renderMenu(); renderSpeedlist(); }, lists: renderLists, cars: renderCars, perf: renderPerf, paint: renderPaint })[next]();
+            ({ home: () => { renderMenu(); renderSpeedlist(); }, lists: renderLists, cars: renderCars, perf: renderPerf, paint: renderPaint, settings: renderSettings })[next]();
             if(next === 'home' || next === 'paint') renderInfo();
             renderFooter();
         }
@@ -1299,6 +1352,7 @@
             else if(screen === 'lists') chooseList();
             else if(screen === 'cars') { if(carSel === 0) go('home'); }
             else if(screen === 'paint') go('home');
+            else if(screen === 'settings') changeSetting(0);
         }
         // Clavier du garage : flèches ou ZQSD, Entrée, Échap, A / E pour changer de page
         function garageKey(kn) {
@@ -1307,7 +1361,8 @@
             const step = left ? -1 : right ? 1 : 0;
             if(kn === 'Enter') { activate(); return true; }
             if(kn === 'Escape' || kn === 'Backspace') { if(screen !== 'home') go('home'); return true; }
-            if(kn === 'a' || kn === 'e') { const i = SCREENS.indexOf(screen); go(SCREENS[(i + (kn === 'e' ? 1 : -1) + SCREENS.length) % SCREENS.length]); return true; }
+            if(screen === 'settings' && (up || down)) { setSel = (setSel + (down ? 1 : -1) + SET_ROWS.length) % SET_ROWS.length; renderSettings(); return true; }
+            if(screen === 'settings' && step) { changeSetting(step); return true; }
             if(screen === 'home' && (up || down)) { menuSel = (menuSel + (down ? 1 : -1) + MENU.length) % MENU.length; renderMenu(); return true; }
             if(screen === 'lists' && step) { listSel = (listSel + step + SPEEDLISTS.length) % SPEEDLISTS.length; renderLists(); return true; }
             if(screen === 'cars' && step) { carSel = (carSel + step + 5) % 5; renderCars(); return true; }
@@ -1326,7 +1381,7 @@
         $('paint-row').onclick = (e) => { const b = closest(e, '[data-i]'); if(b) pickPaint(+b.dataset.i); };
         document.querySelectorAll('#lobby .gx-pa').forEach(b => { b.onclick = () => pickPaint(paintSel + +b.dataset.step); });
         $('gx-info').onclick = (e) => { const b = closest(e, '[data-act]'); if(!b) return; if(b.dataset.act === 'buy') buy(); if(b.dataset.act === 'choose') chooseList(); };
-        $('gx-pager').onclick = (e) => { const b = closest(e, '[data-i]'); if(b) go(SCREENS[+b.dataset.i]); };
+        $('set-rows').onclick = (e) => { const r = closest(e, '[data-i]'); if(!r) return; setSel = +r.dataset.i; const b = closest(e, '[data-step]'); if(b) changeSetting(+b.dataset.step); else if(SET_ROWS[setSel].action) changeSetting(0); else renderSettings(); };
         document.querySelector('#lobby .gx-bot').onclick = (e) => {
             const b = closest(e, '[data-act]'); if(!b) return;
             const a = b.dataset.act;
@@ -2677,7 +2732,7 @@
                     transformed.x += ( sin( uTime * 2.1 + tPh ) + 0.4 * sin( uTime * 5.3 + tPh * 2.0 ) ) * tSw;
                     transformed.z += cos( uTime * 1.7 + tPh * 1.3 ) * tSw * 0.7;`);
             };
-            const TT = 16, TR = 4, TCAP = 220, tuftCache = new Map();
+            const TT = 16, TR = 4, TCAP = [0, 110, 220][SET.grass] || 1, tuftCache = new Map();
             const tuftMesh = new THREE.InstancedMesh(tuftGeo, tuftMat, (2 * TR + 1) * (2 * TR + 1) * TCAP);
             tuftMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(tuftMesh.count * 3), 3);
             tuftMesh.frustumCulled = false; tuftMesh.receiveShadow = true; tuftMesh.count = 0; tuftMesh.name = 'tufts';
@@ -2723,7 +2778,7 @@
                 return T;
             };
             let tuftKey = '';
-            updateTufts = () => {
+            if(SET.grass) updateTufts = () => {
                 const tx = Math.floor(PL.x / TT), tz = Math.floor(PL.z / TT), key = tx + ':' + tz;
                 if(key === tuftKey) return;
                 tuftKey = key;
@@ -2886,23 +2941,49 @@
                 traffic.push({ m, R: null, p: 0, dir: 1, lat: 3, v: 25, v0: 25, stun: 0, nm: 0, x: 0, z: 0, fx: 0, fz: -1 });
             });
 
-            // --- Fond de carte : relief ombré, forêts, prairies, lacs, sommets (mini-carte et grande carte) ---
-            const MN = 1024, mc = document.createElement('canvas');
+            // --- Fond de carte (2048 px) : relief ombré, courbes de niveau, prairies, forêts, roche, neige, lacs ---
+            const MN = 2048, HN = 1024, mc = document.createElement('canvas');
             mc.width = mc.height = MN;
-            const mg = mc.getContext('2d'), im = mg.createImageData(MN, MN), md = im.data, hs = new Float32Array(MN * MN), mcell = 2 * MAP_HALF / MN;
-            for(let j = 0; j < MN; j++) for(let i = 0; i < MN; i++) hs[j * MN + i] = hAt((i + 0.5) * mcell - MAP_HALF, (j + 0.5) * mcell - MAP_HALF);
+            const mg = mc.getContext('2d', { willReadFrequently: true }), im = mg.createImageData(MN, MN), md = im.data, hcell = 2 * MAP_HALF / HN, mcell = 2 * MAP_HALF / MN;
+            const hs = new Float32Array((HN + 1) * (HN + 1));   // altitudes sur une grille 2 fois plus lâche, interpolées
+            for(let j = 0; j <= HN; j++) for(let i = 0; i <= HN; i++) hs[j * (HN + 1) + i] = hAt(i * hcell - MAP_HALF, j * hcell - MAP_HALF);
+            const hI = (x, z) => {
+                const u = clamp((x + MAP_HALF) / hcell, 0, HN - 0.001), v = clamp((z + MAP_HALF) / hcell, 0, HN - 0.001), i = Math.floor(u), j = Math.floor(v), fu = u - i, fv = v - j, o = j * (HN + 1) + i;
+                return (hs[o] * (1 - fu) + hs[o + 1] * fu) * (1 - fv) + (hs[o + HN + 1] * (1 - fu) + hs[o + HN + 2] * fu) * fv;
+            };
+            const mix3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+            const LUSH = [104, 132, 78], DRY = [150, 152, 98], FOREST = [52, 82, 52], FOREST2 = [38, 64, 42], ROCK = [138, 130, 120], ROCK2 = [176, 168, 154], SNOW = [244, 246, 249];
             for(let j = 0; j < MN; j++) for(let i = 0; i < MN; i++) {
-                const x = (i + 0.5) * mcell - MAP_HALF, z = (j + 0.5) * mcell - MAP_HALF, o = j * MN + i, h = hs[o];
-                const gx = (hs[j * MN + Math.min(MN - 1, i + 1)] - hs[j * MN + Math.max(0, i - 1)]) / (2 * mcell), gz = (hs[Math.min(MN - 1, j + 1) * MN + i] - hs[Math.max(0, j - 1) * MN + i]) / (2 * mcell);
-                const shadeK = clamp(1 - (gx * SUN_DIR.x + gz * SUN_DIR.z) * 4.5, 0.55, 1.45), f = forestAt(x, z), dry = sstep(0.42, 0.7, vnoise(x / 700 + 5, z / 700));
-                let r = 118 + 34 * dry, g = 146 + 4 * dry, b = 84 + 8 * dry;
-                r += (74 - r) * f * 0.7; g += (108 - g) * f * 0.7; b += (66 - b) * f * 0.7;
-                if(h > 90) { const k = sstep(90, 420, h); r += (150 - r) * k; g += (146 - g) * k; b += (140 - b) * k; const s = sstep(860, 1050, h); r += (245 - r) * s; g += (247 - g) * s; b += (250 - b) * s; }
-                let water = 0;
-                for(const L of lakes) if(Math.hypot(L.x - x, L.z - z) < L.r && h < L.level) water = clamp((L.level - h) / 3, 0.6, 1);
-                if(water) { r = 62 - 20 * water; g = 112 - 26 * water; b = 150 - 20 * water; }
-                const k2 = water ? 1 : shadeK;
-                md[o * 4] = clamp(r * k2, 0, 255); md[o * 4 + 1] = clamp(g * k2, 0, 255); md[o * 4 + 2] = clamp(b * k2, 0, 255); md[o * 4 + 3] = 255;
+                const x = (i + 0.5) * mcell - MAP_HALF, z = (j + 0.5) * mcell - MAP_HALF, o = j * MN + i, h = hI(x, z), e = mcell;
+                const gx = (hI(x + e, z) - hI(x - e, z)) / (2 * e), gz = (hI(x, z + e) - hI(x, z - e)) / (2 * e);
+                // Ombrage : lumière du nord-ouest + lumière zénithale douce, relief exagéré pour la lisibilité
+                const nx = -gx * 3, nz = -gz * 3, nl = Math.hypot(nx, 1, nz), dif = (nx * -0.55 + 0.7 + nz * -0.45) / nl / 1.0, shade = clamp(0.62 + 0.5 * dif, 0.45, 1.25);
+                const dry = sstep(0.38, 0.72, vnoise(x / 900 + 5, z / 900)) * 0.7 + (vnoise(x / 230, z / 230 + 4) - 0.5) * 0.25;
+                let col = mix3(LUSH, DRY, clamp(dry, 0, 1));
+                const f = forestAt(x, z);
+                if(f > 0.02) {
+                    // Cimes d'arbres : petit grain de taches claires et sombres
+                    const cell = hash2(Math.floor(x / 22), Math.floor(z / 22)), ring = vnoise(x / 9, z / 9);
+                    const fc = mix3(FOREST, FOREST2, clamp(ring * 0.9 + cell * 0.3 - 0.2, 0, 1));
+                    col = mix3(col, fc, sstep(0.25, 0.6, f));
+                }
+                if(h > 80) { const k = sstep(80, 420, h) * (0.7 + 0.3 * sstep(0.15, 0.5, Math.hypot(gx, gz))); col = mix3(col, mix3(ROCK, ROCK2, vnoise(x / 300, z / 300)), k); }
+                const sn = sstep(840, 1000, h + (vnoise(x / 400, z / 400) - 0.5) * 200) * (1 - sstep(0.9, 1.6, Math.hypot(gx, gz)));
+                col = mix3(col, SNOW, sn);
+                let r = col[0] * shade, g2 = col[1] * shade, b = col[2] * shade;
+                // Courbes de niveau : tous les 10 m en plaine, maîtresses tous les 50 m ; tous les 100 m en montagne
+                const step = h > 150 ? 100 : 10, slopeW = Math.hypot(gx, gz) * mcell / step, fr = Math.abs(((h / step) % 1 + 1) % 1 - 0.5) * 2;
+                if(slopeW > 0.002 && 1 - fr < slopeW * 1.4 + 0.03) { const major = h <= 150 && Math.abs(h / 50 - Math.round(h / 50)) * 50 < step * 0.5; const k = major ? 0.8 : 0.9; r *= k; g2 *= k; b *= k; }
+                // Lacs : bleu profond au centre, plus clair près des rives, liseré clair
+                for(const L of lakes) {
+                    const dl = Math.hypot(L.x - x, L.z - z);
+                    if(dl > L.r) continue;
+                    if(h < L.level) { const dep = clamp((L.level - h) / 6, 0, 1); const wc = mix3([96, 160, 196], [34, 88, 132], dep); r = wc[0]; g2 = wc[1] + vnoise(x / 18, z / 18) * 6; b = wc[2]; }
+                    else if(h < L.level + 0.6) { r = 214; g2 = 224; b = 210; }
+                }
+                // Hors de la zone jouable : un voile qui fait ressortir le comté
+                const rr = Math.hypot(x, z), out = sstep(WORLD_R + 150, WORLD_R + 900, rr) * 0.35;
+                md[o * 4] = clamp(r * (1 - out), 0, 255); md[o * 4 + 1] = clamp(g2 * (1 - out), 0, 255); md[o * 4 + 2] = clamp(b * (1 - out) + out * 18, 0, 255); md[o * 4 + 3] = 255;
             }
             mg.putImageData(im, 0, 0);
             mapImg = mc;
@@ -2978,11 +3059,11 @@
             // Direction : le braquage se réduit avec la vitesse, la vitesse de rotation est limitée par l'adhérence
             const av = Math.abs(PL.vf), target = clamp((left ? 1 : 0) - (right ? 1 : 0) - (dead ? 0 : PAD.steer), -1, 1);
             PL.steer += (target - PL.steer) * Math.min(1, dt * (target ? (hb ? 9 : 4.5 + av * 0.05) : 8));
-            const steerMax = 0.44 / (1 + Math.pow(av / 30, 1.2));
+            const sens = 0.55 + 0.09 * SET.steer, steerMax = 0.39 * sens / (1 + Math.pow(av / 30, 1.2));   // sensibilité réglable (5 = origine)
             if(hb && av > 8) PL.drift = true;
             if(PL.drift && !hb && (Math.abs(PL.vl) < 1.2 || av < 5)) PL.drift = false;
             let w = PL.vf / 2.7 * Math.tan(PL.steer * steerMax);
-            const wLim = Math.max(mu * GRAV / Math.max(av, 6), (0.66 + av * 0.0034) * (onRoad ? 1 : 0.6)) * (hb ? 3.4 : PL.drift ? 1.5 : 1.08);   // plus on va vite, plus la voiture tourne fort
+            const wLim = Math.max(mu * GRAV / Math.max(av, 6), (0.58 + av * 0.003) * sens * (onRoad ? 1 : 0.6)) * (hb ? 3.4 : PL.drift ? 1.5 : 1.08);   // plus on va vite, plus la voiture tourne fort
             if(hb && !dead) w *= 1.5 + 1.6 * clamp(1 - av / 45, 0, 1);   // le frein à main fait pivoter l'arrière franchement, même à basse vitesse
             w = clamp(w, -wLim, wLim);
             w -= 1.3 * PL.vl / Math.max(av, 8) * (hb ? 0.12 : PL.drift ? 0.55 : 1);  // la voiture se réaligne sur sa trajectoire
@@ -3340,7 +3421,7 @@
             gpsPts.push(best.x, best.z);
         }
         // Routes et itinéraire, dessinés en mètres dans un contexte déjà placé sur le monde (px = pixels par mètre)
-        function drawRoadsOn(g, px, wide) {
+        function drawRoadsOn(g, px, wide, glow) {
             const w = (m, minPx) => Math.max(m, minPx / px);
             g.lineJoin = 'round'; g.lineCap = 'round';
             g.strokeStyle = 'rgba(22,25,29,0.92)';
@@ -3352,7 +3433,9 @@
                 g.beginPath(); g.moveTo(gpsPts[0], gpsPts[1]);
                 for(let k = 2; k < gpsPts.length; k += 2) g.lineTo(gpsPts[k], gpsPts[k + 1]);
                 g.strokeStyle = 'rgba(8,60,26,0.9)'; g.lineWidth = w(17, 5.6 * wide); g.stroke();
+                if(glow) { g.shadowColor = 'rgba(63,230,114,0.9)'; g.shadowBlur = glow; }
                 g.strokeStyle = '#3fe672'; g.lineWidth = w(10, 3.2 * wide); g.stroke();
+                g.shadowBlur = 0;
             }
         }
         const pinIcon = (g, x, y, s, col) => {   // repère de planque
@@ -3363,17 +3446,18 @@
         const mini = $('minimap'), mctx = mini.getContext('2d');
         let miniRange = 380;
         function drawMini() {
-            const g = mctx, S = mini.width, c = S / 2, RAD = c - 15, cy = c + RAD * 0.26;
+            const north = SET.mini === 1, rot = north ? 0 : PL.yaw;   // carte tournée avec la voiture, ou nord en haut
+            const g = mctx, S = mini.width, c = S / 2, RAD = c - 15, cy = north ? c : c + RAD * 0.26;
             // Le zoom recule avec la vitesse, et la voiture est placée sous le centre pour voir plus loin devant
             miniRange += (300 + Math.min(1, PL.kmh / 300) * 400 - miniRange) * 0.04;
-            const sc = RAD / miniRange, sinY = Math.sin(PL.yaw), cosY = Math.cos(PL.yaw);
+            const sc = RAD / miniRange, sinY = Math.sin(rot), cosY = Math.cos(rot);
             const tr = (x, z) => { const ex = x - PL.x, ez = z - PL.z; return [c + (ex * cosY - ez * sinY) * sc, cy + (ex * sinY + ez * cosY) * sc]; };
             const inDisc = (q, m) => (q[0] - c) * (q[0] - c) + (q[1] - c) * (q[1] - c) < (RAD - m) * (RAD - m);
             g.clearRect(0, 0, S, S);
             g.save();
             g.beginPath(); g.arc(c, c, RAD, 0, 7); g.clip();
             g.fillStyle = '#2f3d2e'; g.fillRect(0, 0, S, S);
-            g.translate(c, cy); g.rotate(PL.yaw); g.scale(sc, sc); g.translate(-PL.x, -PL.z);
+            g.translate(c, cy); g.rotate(rot); g.scale(sc, sc); g.translate(-PL.x, -PL.z);
             if(mapImg) g.drawImage(mapImg, -MAP_HALF, -MAP_HALF, 2 * MAP_HALF, 2 * MAP_HALF);
             g.fillStyle = 'rgba(10,16,14,0.16)'; g.fillRect(-MAP_HALF, -MAP_HALF, 2 * MAP_HALF, 2 * MAP_HALF);
             if(roadPaths[0]) drawRoadsOn(g, sc, 1);
@@ -3390,7 +3474,8 @@
             // Cône de vision et flèche de la voiture
             const cone = g.createRadialGradient(c, cy, 0, c, cy, 62);
             cone.addColorStop(0, 'rgba(255,255,255,0.34)'); cone.addColorStop(1, 'rgba(255,255,255,0)');
-            g.fillStyle = cone; g.beginPath(); g.moveTo(c, cy); g.arc(c, cy, 62, -Math.PI / 2 - 0.5, -Math.PI / 2 + 0.5); g.closePath(); g.fill();
+            const ha = -Math.PI / 2 + rot - PL.yaw;   // cap de la voiture à l'écran
+            g.fillStyle = cone; g.beginPath(); g.moveTo(c, cy); g.arc(c, cy, 62, ha - 0.5, ha + 0.5); g.closePath(); g.fill();
             // Verre : assombri sur les bords, léger reflet en haut
             const vg = g.createRadialGradient(c, c, RAD * 0.55, c, c, RAD);
             vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.5)');
@@ -3406,70 +3491,159 @@
                 pinIcon(g, c + dx * k, c + dy * k + (k < 1 ? 5 : 0), dest ? 7.5 : 6, '#52e06c');
             }
             g.fillStyle = '#ffffff'; g.strokeStyle = '#101216'; g.lineWidth = 1.8; g.lineJoin = 'round';
-            g.beginPath(); g.moveTo(c, cy - 13); g.lineTo(c + 8.5, cy + 9); g.lineTo(c, cy + 4.5); g.lineTo(c - 8.5, cy + 9); g.closePath(); g.fill(); g.stroke();
+            g.save(); g.translate(c, cy); g.rotate(rot - PL.yaw);
+            g.beginPath(); g.moveTo(0, -13); g.lineTo(8.5, 9); g.lineTo(0, 4.5); g.lineTo(-8.5, 9); g.closePath(); g.fill(); g.stroke();
+            g.restore();
             // Couronne métallique, graduations et nord
             const ring = g.createLinearGradient(0, c - RAD, 0, c + RAD);
             ring.addColorStop(0, '#f3f5f6'); ring.addColorStop(0.5, '#8d949b'); ring.addColorStop(1, '#d5d9dc');
             g.strokeStyle = 'rgba(8,10,12,0.85)'; g.lineWidth = 7; g.beginPath(); g.arc(c, c, RAD + 1.5, 0, 7); g.stroke();
             g.strokeStyle = ring; g.lineWidth = 3.4; g.beginPath(); g.arc(c, c, RAD + 1.5, 0, 7); g.stroke();
             g.strokeStyle = 'rgba(244,244,240,0.9)';
-            for(let k = 1; k < 24; k++) { const a = k * Math.PI / 12 + PL.yaw, l = k % 6 === 0 ? 8 : 4; g.lineWidth = k % 6 === 0 ? 2.2 : 1; g.beginPath(); g.moveTo(c + Math.sin(a) * (RAD + 5), c - Math.cos(a) * (RAD + 5)); g.lineTo(c + Math.sin(a) * (RAD + 5 + l), c - Math.cos(a) * (RAD + 5 + l)); g.stroke(); }
-            const nx = c + Math.sin(PL.yaw) * (RAD + 3), ny = c - Math.cos(PL.yaw) * (RAD + 3);
+            for(let k = 1; k < 24; k++) { const a = k * Math.PI / 12 + rot, l = k % 6 === 0 ? 8 : 4; g.lineWidth = k % 6 === 0 ? 2.2 : 1; g.beginPath(); g.moveTo(c + Math.sin(a) * (RAD + 5), c - Math.cos(a) * (RAD + 5)); g.lineTo(c + Math.sin(a) * (RAD + 5 + l), c - Math.cos(a) * (RAD + 5 + l)); g.stroke(); }
+            const nx = c + Math.sin(rot) * (RAD + 3), ny = c - Math.cos(rot) * (RAD + 3);
             g.fillStyle = '#16181c'; g.strokeStyle = '#f3f5f6'; g.lineWidth = 1.4; g.beginPath(); g.arc(nx, ny, 9.5, 0, 7); g.fill(); g.stroke();
             g.fillStyle = '#ff5340'; g.font = '700 13px "Barlow Condensed", "Arial Narrow", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('N', nx, ny + 1);
         }
+        // ====== Grande carte : plein écran, zoom (molette, + / -, gâchettes) et déplacement (glisser, ZQSD / flèches, stick) ======
         const big = $('bigmap');
-        function drawBigMap() {
-            const dpr = Math.min(window.devicePixelRatio || 1, 2), W = big.width = Math.floor(window.innerWidth * dpr), H = big.height = Math.floor(window.innerHeight * dpr);
-            const g = big.getContext('2d'), u = dpr * clamp(H / dpr / 720, 0.6, 1.8), size = Math.min(W * 0.62, H * 0.9), sc = size / (2 * MAP_HALF), cx = W - size / 2 - 40 * u, cy = H / 2;
-            const tr = (x, z) => [cx + x * sc, cy + z * sc];
-            g.clearRect(0, 0, W, H);
+        const bm = { zoom: 2.4, cx: 0, cz: 0, center: true, drag: null };
+        const FONT = (w, px) => w + ' ' + px + 'px "Barlow Condensed", "Arial Narrow", sans-serif';
+        function bmView() {
+            const W = big.width, H = big.height, dpr = W / Math.max(1, big.clientWidth || window.innerWidth), u = dpr * clamp(H / dpr / 720, 0.6, 1.8);
+            const panel = Math.min(W * 0.34, 400 * u), sc0 = Math.min(W - panel - 40 * u, H - 40 * u) / (2 * MAP_HALF);
+            return { W, H, u, dpr, panel, sc: sc0 * bm.zoom, ox: panel + (W - panel) / 2, oy: H / 2 };
+        }
+        const bmClamp = () => { bm.zoom = clamp(bm.zoom, 1, 10); const lim = MAP_HALF * (1 - 0.5 / bm.zoom); bm.cx = clamp(bm.cx, -lim, lim); bm.cz = clamp(bm.cz, -lim, lim); };
+        function bmZoomAt(f, sx, sy) {
+            const v = bmView(), wx = bm.cx + (sx - v.ox) / v.sc, wz = bm.cz + (sy - v.oy) / v.sc;
+            bm.zoom = clamp(bm.zoom * f, 1, 10);
+            const s2 = bmView().sc;
+            bm.cx = wx - (sx - v.ox) / s2; bm.cz = wz - (sy - v.oy) / s2;
+            bmClamp();
+        }
+        big.addEventListener('wheel', (e) => { if(!mapOpen) return; e.preventDefault(); const v = bmView(); bmZoomAt(Math.exp(-e.deltaY * 0.0016), e.offsetX * v.dpr, e.offsetY * v.dpr); }, { passive: false });
+        big.addEventListener('pointerdown', (e) => { bm.drag = [e.clientX, e.clientY]; big.setPointerCapture(e.pointerId); });
+        big.addEventListener('pointermove', (e) => { if(!bm.drag) return; const v = bmView(); bm.cx -= (e.clientX - bm.drag[0]) * v.dpr / v.sc; bm.cz -= (e.clientY - bm.drag[1]) * v.dpr / v.sc; bm.drag = [e.clientX, e.clientY]; bmClamp(); });
+        big.addEventListener('pointerup', () => { bm.drag = null; });
+        big.addEventListener('dblclick', (e) => { const v = bmView(); bmZoomAt(1.8, e.offsetX * v.dpr, e.offsetY * v.dpr); });
+        const roundRect = (g, x, y, w, h, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); };
+        const radarIcon = (g, x, y, s, done) => {
+            g.fillStyle = done ? '#8a7a45' : '#ff9d1c'; g.strokeStyle = '#1b1508'; g.lineWidth = s * 0.22;
+            g.beginPath(); g.moveTo(x, y - s); g.lineTo(x + s, y); g.lineTo(x, y + s); g.lineTo(x - s, y); g.closePath(); g.fill(); g.stroke();
+            g.fillStyle = '#1b1508'; g.fillRect(x - s * 0.38, y - s * 0.22, s * 0.76, s * 0.44); g.fillStyle = done ? '#8a7a45' : '#ff9d1c'; g.beginPath(); g.arc(x, y, s * 0.15, 0, 7); g.fill();
+        };
+        function drawBigMap(dt) {
+            dt = dt || 0.016;
+            const dpr = Math.min(window.devicePixelRatio || 1, 2), Wt = Math.floor(window.innerWidth * dpr), Ht = Math.floor(window.innerHeight * dpr);
+            if(big.width !== Wt) big.width = Wt;
+            if(big.height !== Ht) big.height = Ht;
+            if(bm.center) { bm.cx = PL.x; bm.cz = PL.z; bm.center = false; bmClamp(); }
+            // Déplacement et zoom continus (clavier, manette)
+            let v = bmView();
+            const px = (keys.ArrowRight || keys.d ? 1 : 0) - (keys.ArrowLeft || keys.q || keys.a ? 1 : 0) + (Math.abs(PAD.ax || 0) > 0.15 ? PAD.ax : 0) + (Math.abs(PAD.rx || 0) > 0.15 ? PAD.rx : 0);
+            const pz = (keys.ArrowDown || keys.s ? 1 : 0) - (keys.ArrowUp || keys.z || keys.w ? 1 : 0) + (Math.abs(PAD.ay || 0) > 0.15 ? PAD.ay : 0) + (Math.abs(PAD.ry || 0) > 0.15 ? PAD.ry : 0);
+            if(px || pz) { const sp = v.H / v.sc * 0.7 * dt; bm.cx += clamp(px, -1, 1) * sp; bm.cz += clamp(pz, -1, 1) * sp; bmClamp(); }
+            const zi = (keys['+'] || keys['='] || keys.PageUp ? 1 : 0) + (PAD.thr || 0), zo = (keys['-'] || keys.PageDown ? 1 : 0) + (PAD.brk || 0);
+            if(zi > 0.05 || zo > 0.05) bmZoomAt(Math.exp((zi - zo) * 1.6 * dt), v.ox, v.oy);
+            v = bmView();
+            const { W, H, u, panel, sc, ox, oy } = v, g = big.getContext('2d'), now = performance.now() / 1000;
+            const tr = (x, z) => [ox + (x - bm.cx) * sc, oy + (z - bm.cz) * sc];
+            g.setTransform(1, 0, 0, 1, 0, 0);
+            g.fillStyle = '#07090b'; g.fillRect(0, 0, W, H);
+            // Fond, zone jouable, routes et itinéraire
             g.save();
-            g.translate(cx, cy); g.scale(sc, sc);
-            g.beginPath(); g.rect(-MAP_HALF, -MAP_HALF, 2 * MAP_HALF, 2 * MAP_HALF); g.clip();
+            g.translate(ox, oy); g.scale(sc, sc); g.translate(-bm.cx, -bm.cz);
+            g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
             if(mapImg) g.drawImage(mapImg, -MAP_HALF, -MAP_HALF, 2 * MAP_HALF, 2 * MAP_HALF);
-            g.strokeStyle = 'rgba(255,255,255,0.35)'; g.lineWidth = 1.2 * u / sc; g.setLineDash([14 * u / sc, 10 * u / sc]);
+            g.strokeStyle = 'rgba(255,255,255,0.4)'; g.lineWidth = 1.4 * u / sc; g.setLineDash([12 * u / sc, 9 * u / sc]);
             g.beginPath(); g.arc(0, 0, WORLD_R, 0, 7); g.stroke(); g.setLineDash([]);
-            if(roadPaths[0]) drawRoadsOn(g, sc, 0.5 * u);
+            if(roadPaths[0]) drawRoadsOn(g, sc, 0.5 * u * (0.85 + bm.zoom * 0.12), 14 * u);
             g.restore();
-            g.strokeStyle = 'rgba(244,244,240,0.75)'; g.lineWidth = 1.5 * u; g.strokeRect(cx - size / 2, cy - size / 2, size, size);
-            g.textAlign = 'center'; g.textBaseline = 'alphabetic';
-            radars.forEach((r, k) => {
-                const q = tr(r.x, r.z), s = 5 * u;
-                g.fillStyle = radarBest[k] ? '#8a7a45' : '#ff9d1c'; g.strokeStyle = '#1b1508'; g.lineWidth = u;
-                g.beginPath(); g.moveTo(q[0], q[1] - s); g.lineTo(q[0] + s, q[1]); g.lineTo(q[0], q[1] + s); g.lineTo(q[0] - s, q[1]); g.closePath(); g.fill(); g.stroke();
-            });
-            g.font = '600 ' + 14 * u + 'px "Barlow Condensed", "Arial Narrow", sans-serif';
+            // Radars et planques
+            const ic = u * (0.85 + Math.min(bm.zoom, 5) * 0.08);
+            radars.forEach((r, k) => { const q = tr(r.x, r.z); if(q[0] > panel * 0.6 && q[0] < W + 20 && q[1] > -20 && q[1] < H + 20) radarIcon(g, q[0], q[1], 6.5 * ic, radarBest[k]); });
+            g.textAlign = 'center'; g.textBaseline = 'middle';
             hides.forEach(h => {
-                const q = tr(h.x, h.z);
-                pinIcon(g, q[0], q[1], (h === gpsHide ? 8 : 6.5) * u, '#52e06c');
-                g.lineWidth = 3 * u; g.strokeStyle = 'rgba(8,12,10,0.85)'; g.strokeText(h.name, q[0], q[1] - 20 * u);
-                g.fillStyle = '#e9f8ec'; g.fillText(h.name, q[0], q[1] - 20 * u);
+                const q = tr(h.x, h.z), dest = h === gpsHide, s = (dest ? 8.5 : 7) * ic;
+                if(q[0] < panel * 0.6 || q[0] > W + 60 || q[1] < -60 || q[1] > H + 60) return;
+                if(dest) { const pr = (now * 0.8) % 1; g.strokeStyle = 'rgba(82,224,108,' + (0.7 * (1 - pr)) + ')'; g.lineWidth = 2.5 * u; g.beginPath(); g.arc(q[0], q[1], (6 + pr * 22) * u, 0, 7); g.stroke(); }
+                g.shadowColor = 'rgba(0,0,0,0.6)'; g.shadowBlur = 6 * u; pinIcon(g, q[0], q[1], s, '#52e06c'); g.shadowBlur = 0;
+                g.font = FONT(600, 15 * ic);
+                const tw = g.measureText(h.name).width + 18 * ic, ty = q[1] - s * 2.1 - 16 * ic;
+                g.fillStyle = dest ? 'rgba(14,46,24,0.92)' : 'rgba(10,14,12,0.84)'; roundRect(g, q[0] - tw / 2, ty - 11 * ic, tw, 22 * ic, 11 * ic); g.fill();
+                g.strokeStyle = dest ? '#52e06c' : 'rgba(120,230,140,0.55)'; g.lineWidth = 1.3 * u; g.stroke();
+                g.fillStyle = '#eafaee'; g.fillText(h.name, q[0], ty + 1 * ic);
             });
-            const q = tr(PL.x, PL.z);
+            // Voiture : halo pulsé, cône de vision, flèche
+            const q = tr(PL.x, PL.z), pr = (now * 0.9) % 1;
+            g.strokeStyle = 'rgba(255,255,255,' + (0.55 * (1 - pr)) + ')'; g.lineWidth = 2 * u; g.beginPath(); g.arc(q[0], q[1], (8 + pr * 26) * u, 0, 7); g.stroke();
             g.save(); g.translate(q[0], q[1]); g.rotate(-PL.yaw);
-            g.fillStyle = '#fff'; g.strokeStyle = '#101216'; g.lineWidth = 1.6 * u; g.lineJoin = 'round';
-            g.beginPath(); g.moveTo(0, -12 * u); g.lineTo(8 * u, 9 * u); g.lineTo(0, 4.5 * u); g.lineTo(-8 * u, 9 * u); g.closePath(); g.fill(); g.stroke();
+            const cone = g.createRadialGradient(0, 0, 0, 0, 0, 70 * u); cone.addColorStop(0, 'rgba(255,255,255,0.32)'); cone.addColorStop(1, 'rgba(255,255,255,0)');
+            g.fillStyle = cone; g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, 70 * u, -Math.PI / 2 - 0.45, -Math.PI / 2 + 0.45); g.closePath(); g.fill();
+            g.shadowColor = 'rgba(0,0,0,0.7)'; g.shadowBlur = 8 * u;
+            g.fillStyle = '#fff'; g.strokeStyle = '#101216'; g.lineWidth = 1.8 * u; g.lineJoin = 'round';
+            g.beginPath(); g.moveTo(0, -14 * u); g.lineTo(9.5 * u, 10 * u); g.lineTo(0, 5 * u); g.lineTo(-9.5 * u, 10 * u); g.closePath(); g.fill(); g.stroke();
             g.restore();
-            // Colonne de gauche : titre, itinéraire, légende
+            // Vignettage
+            const vg = g.createRadialGradient(ox, oy, Math.min(W, H) * 0.35, ox, oy, Math.max(W, H) * 0.75);
+            vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.55)'); g.fillStyle = vg; g.fillRect(0, 0, W, H);
+            // Panneau de gauche
+            const pg = g.createLinearGradient(0, 0, panel + 120 * u, 0);
+            pg.addColorStop(0, 'rgba(6,8,10,0.94)'); pg.addColorStop(0.72, 'rgba(6,8,10,0.82)'); pg.addColorStop(1, 'rgba(6,8,10,0)');
+            g.fillStyle = pg; g.fillRect(0, 0, panel + 120 * u, H);
             const lx = 44 * u;
-            g.fillStyle = '#f4f4f0'; g.textAlign = 'left';
-            g.font = '600 ' + 34 * u + 'px "Barlow Condensed", "Arial Narrow", sans-serif'; g.fillText('CARTE DU COMTÉ', lx, 70 * u);
-            g.font = '500 ' + 17 * u + 'px "Barlow Condensed", "Arial Narrow", sans-serif';
-            g.fillStyle = '#b9bcc0'; g.fillText('14 × 14 km  ·  ' + Math.round(roads.reduce((s, R) => s + R.len, 0) / 1000) + ' km de routes', lx, 96 * u);
+            g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+            g.fillStyle = '#f4f4f0'; g.font = FONT(600, 38 * u); g.fillText('CARTE DU COMTÉ', lx, 74 * u);
+            g.fillStyle = '#9ea3a8'; g.font = FONT(500, 17 * u); g.fillText('14 × 14 km  ·  ' + Math.round(roads.reduce((s, R) => s + R.len, 0) / 1000) + ' km de routes  ·  ' + hides.length + ' planques', lx, 100 * u);
+            g.fillStyle = 'rgba(255,255,255,0.18)'; g.fillRect(lx, 118 * u, panel - lx - 30 * u, 1.5 * u);
+            let y = 160 * u;
             if(gpsHide) {
-                g.fillStyle = '#3fe672'; g.font = '600 ' + 15 * u + 'px "Barlow Condensed", "Arial Narrow", sans-serif'; g.fillText('ITINÉRAIRE', lx, 150 * u);
-                g.fillStyle = '#f4f4f0'; g.font = '600 ' + 24 * u + 'px "Barlow Condensed", "Arial Narrow", sans-serif'; g.fillText(gpsHide.name, lx, 176 * u);
-                g.fillStyle = '#b9bcc0'; g.font = '500 ' + 17 * u + 'px "Barlow Condensed", "Arial Narrow", sans-serif'; g.fillText(fr1(gpsDist / 1000) + ' km par la route', lx, 198 * u);
+                g.fillStyle = 'rgba(82,224,108,0.12)'; roundRect(g, lx - 12 * u, y - 30 * u, panel - lx - 18 * u, 92 * u, 8 * u); g.fill();
+                g.fillStyle = '#52e06c'; g.fillRect(lx - 12 * u, y - 30 * u, 4 * u, 92 * u);
+                g.fillStyle = '#52e06c'; g.font = FONT(600, 15 * u); g.fillText('ITINÉRAIRE GPS', lx + 4 * u, y - 6 * u);
+                g.fillStyle = '#f4f4f0'; g.font = FONT(600, 27 * u); g.fillText(gpsHide.name, lx + 4 * u, y + 24 * u);
+                g.fillStyle = '#b9bcc0'; g.font = FONT(500, 17 * u); g.fillText(fr1(gpsDist / 1000) + ' km par la route', lx + 4 * u, y + 48 * u);
+                y += 110 * u;
             }
-            g.font = '500 ' + 17 * u + 'px "Barlow Condensed", "Arial Narrow", sans-serif';
-            const rows = [['#52e06c', 'Planque : retour au garage'], ['#ff9d1c', 'Radar à flasher (' + radarCount() + ' / ' + radars.length + ')'], ['#f5d273', 'Rocade à quatre voies'], ['#f4f3ee', 'Route'], ['#4a88b0', 'Lac'], ['#ffffff', 'Ta voiture']];
-            rows.forEach(([col, s], k) => {
-                const y = H - (60 + (rows.length - 1 - k) * 26) * u;
-                g.fillStyle = col; g.beginPath(); g.arc(lx + 6 * u, y - 5 * u, 5.5 * u, 0, 7); g.fill();
-                g.fillStyle = '#e8e8e4'; g.fillText(s, lx + 22 * u, y);
+            g.font = FONT(500, 17 * u);
+            [['Radars flashés', radarCount() + ' / ' + radars.length], ['Distance parcourue', fr1(mt.dist / 1000) + ' km'], ['SP de la sortie', fmtSP(mt.raceSP)]].forEach(([a, b]) => {
+                g.fillStyle = '#9ea3a8'; g.textAlign = 'left'; g.fillText(a, lx, y); g.fillStyle = '#f4f4f0'; g.textAlign = 'right'; g.fillText(b, panel - 30 * u, y); y += 28 * u;
             });
-            g.fillStyle = '#b9bcc0'; g.fillText('M ou Échap : fermer la carte', lx, H - 26 * u);
+            g.textAlign = 'left';
+            // Légende
+            y = Math.max(y + 24 * u, H - 330 * u);
+            g.fillStyle = '#f4f4f0'; g.font = FONT(600, 15 * u); g.fillText('LÉGENDE', lx, y); y += 30 * u;
+            g.font = FONT(500, 17 * u);
+            const leg = [
+                [(x, yy) => pinIcon(g, x, yy + 7 * u, 6 * u, '#52e06c'), 'Planque : retour au garage'],
+                [(x, yy) => radarIcon(g, x, yy, 6.5 * u, false), 'Radar à flasher'],
+                [(x, yy) => { g.strokeStyle = 'rgba(22,25,29,0.9)'; g.lineWidth = 9 * u; g.beginPath(); g.moveTo(x - 10 * u, yy); g.lineTo(x + 10 * u, yy); g.stroke(); g.strokeStyle = '#f5d273'; g.lineWidth = 5 * u; g.stroke(); }, 'Rocade à quatre voies'],
+                [(x, yy) => { g.strokeStyle = 'rgba(22,25,29,0.9)'; g.lineWidth = 7 * u; g.beginPath(); g.moveTo(x - 10 * u, yy); g.lineTo(x + 10 * u, yy); g.stroke(); g.strokeStyle = '#f4f3ee'; g.lineWidth = 3.5 * u; g.stroke(); }, 'Route'],
+                [(x, yy) => { g.strokeStyle = '#3fe672'; g.lineWidth = 4 * u; g.beginPath(); g.moveTo(x - 10 * u, yy); g.lineTo(x + 10 * u, yy); g.stroke(); }, 'Itinéraire GPS'],
+                [(x, yy) => { g.fillStyle = '#2c6a98'; g.beginPath(); g.arc(x, yy, 7 * u, 0, 7); g.fill(); }, 'Lac'],
+                [(x, yy) => { g.fillStyle = '#3c5c3c'; g.beginPath(); g.arc(x, yy, 7 * u, 0, 7); g.fill(); }, 'Forêt']
+            ];
+            g.lineCap = 'round';
+            leg.forEach(([icon, s]) => { icon(lx + 10 * u, y - 5 * u); g.fillStyle = '#e8e8e4'; g.font = FONT(500, 17 * u); g.fillText(s, lx + 32 * u, y); y += 27 * u; });
+            // Commandes de la carte
+            const cap = (t, x, yy) => { g.font = FONT(700, 13 * u); const w = g.measureText(t).width + 12 * u; g.fillStyle = '#e9e9e9'; roundRect(g, x, yy - 14 * u, w, 19 * u, 5 * u); g.fill(); g.fillStyle = '#111'; g.fillText(t, x + 6 * u, yy); return x + w + 6 * u; };
+            const hint = (ks, label, yy) => { let x = lx; ks.forEach(k => { x = cap(k, x, yy); }); g.fillStyle = '#b9bcc0'; g.font = FONT(500, 16 * u); g.fillText(label, x + 4 * u, yy); };
+            hint(['Molette', 'RT', 'LT'], 'Zoom', H - 92 * u);
+            hint(['Glisser', 'ZQSD', 'Stick'], 'Déplacer', H - 64 * u);
+            hint(['C', '✕'], 'Centrer', H - 36 * u);
+            // Boussole, échelle, zoom (en haut et en bas à droite)
+            const cxr = W - 54 * u, cyr = 58 * u;
+            g.fillStyle = 'rgba(8,10,12,0.75)'; g.beginPath(); g.arc(cxr, cyr, 30 * u, 0, 7); g.fill();
+            g.strokeStyle = 'rgba(244,244,240,0.7)'; g.lineWidth = 1.4 * u; g.stroke();
+            g.fillStyle = '#ff5340'; g.beginPath(); g.moveTo(cxr, cyr - 22 * u); g.lineTo(cxr + 6 * u, cyr); g.lineTo(cxr - 6 * u, cyr); g.closePath(); g.fill();
+            g.fillStyle = '#e8e8e4'; g.beginPath(); g.moveTo(cxr, cyr + 22 * u); g.lineTo(cxr + 6 * u, cyr); g.lineTo(cxr - 6 * u, cyr); g.closePath(); g.fill();
+            g.textAlign = 'center'; g.fillStyle = '#f4f4f0'; g.font = FONT(700, 13 * u); g.fillText('N', cxr, cyr - 34 * u + 3 * u);
+            const nice = [100, 200, 250, 500, 1000, 2000, 5000].find(m => m * sc > 110 * u) || 5000, bw = nice * sc, bx = W - 40 * u - bw, by = H - 40 * u;
+            g.fillStyle = 'rgba(8,10,12,0.75)'; roundRect(g, bx - 14 * u, by - 34 * u, bw + 28 * u, 46 * u, 6 * u); g.fill();
+            g.fillStyle = '#f4f4f0'; g.fillRect(bx, by - 4 * u, bw, 4 * u); g.fillRect(bx, by - 10 * u, 2 * u, 10 * u); g.fillRect(bx + bw - 2 * u, by - 10 * u, 2 * u, 10 * u);
+            g.font = FONT(600, 15 * u); g.fillText(nice >= 1000 ? (nice / 1000) + ' km' : nice + ' m', bx + bw / 2, by - 15 * u);
+            g.textAlign = 'right'; g.fillStyle = '#9ea3a8'; g.font = FONT(500, 15 * u); g.fillText('Zoom ×' + fr1(bm.zoom) + '   ·   M / Échap / Rond : fermer', bx - 24 * u, by - 1 * u);
         }
         let flashT = 0, hintT = 9;
         function updateHud(dt) {
@@ -3511,7 +3685,7 @@
         }
 
         // ====== Son : moteur, vent, pneus (WebAudio, démarre en quittant le garage). Touche X pour couper. ======
-        let audio = null, engSrc = null, engDrive = null, engLp = null, screamOsc = null, screamGain = null, inductGain = null, popBuf = null;
+        let audio = null, audioOut = null, engSrc = null, engDrive = null, engLp = null, screamOsc = null, screamGain = null, inductGain = null, popBuf = null;
         let engineGain = null, windGain = null, scrapeGain = null, squealGain = null, prevThr = false;
         const ENG_REF = 6000;   // régime auquel la boucle d'échappement est enregistrée
         // Boucle d'échappement d'un V12 : 12 explosions par cycle de 720°, alternées entre les deux bancs (gauche/droite),
@@ -3543,9 +3717,10 @@
         function startAudio() {
             try {
                 audio = new (window.AudioContext || window.webkitAudioContext)();
+                audioOut = audio.createGain(); audioOut.gain.value = SET.vol / 8; audioOut.connect(audio.destination);
                 engineGain = audio.createGain(); engineGain.gain.value = 0;
                 const comp = audio.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4;
-                engineGain.connect(comp); comp.connect(audio.destination);
+                engineGain.connect(comp); comp.connect(audioOut);
                 // Échappement
                 engSrc = audio.createBufferSource(); engSrc.buffer = buildV12Buffer(); engSrc.loop = true;
                 engDrive = audio.createWaveShaper();
@@ -3567,7 +3742,7 @@
                     const src = audio.createBufferSource(); src.buffer = buf; src.loop = true;
                     const f = audio.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
                     const g = audio.createGain(); g.gain.value = 0;
-                    src.connect(f); f.connect(g); g.connect(dest || audio.destination); src.start();
+                    src.connect(f); f.connect(g); g.connect(dest || audioOut); src.start();
                     g.filt = f; return g;
                 };
                 inductGain = noise('bandpass', 2400, 1.2, engineGain);   // aspiration
@@ -3621,14 +3796,14 @@
                 const f = audio.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 3800;
                 const body = audio.createBiquadFilter(); body.type = 'lowshelf'; body.frequency.value = 160; body.gain.value = 5;
                 const g = audio.createGain(); g.gain.value = 0.42;
-                src.connect(f); f.connect(body); body.connect(g); g.connect(audio.destination); src.start();
+                src.connect(f); f.connect(body); body.connect(g); g.connect(audioOut); src.start();
             } catch (e) {}
         }
         function playPop(when, vol) {
             const s = audio.createBufferSource(); s.buffer = popBuf; s.playbackRate.value = 0.8 + Math.random() * 0.5;
             const f = audio.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1400 + Math.random() * 1600;
             const g = audio.createGain(); g.gain.value = vol;
-            s.connect(f); f.connect(g); g.connect(audio.destination); s.start(when);
+            s.connect(f); f.connect(g); g.connect(audioOut); s.start(when);
         }
         function engineCatch() {
             if(!audio || muted) return;
@@ -3661,6 +3836,7 @@
         // ====== Clavier ======
         function toggleMap(on) {
             mapOpen = on; paused = on;
+            if(on) { bm.center = true; bm.zoom = 2.4; }
             big.classList.toggle('on', on);
             if(on) drawBigMap(); else clock.getDelta();
         }
@@ -3691,7 +3867,7 @@
                 if(kn === 'm' || kn === 'Tab') toggleMap(!mapOpen);
                 else if(kn === 'Escape') { if(mapOpen) toggleMap(false); else leaveToGarage(); }
                 else if(kn === 'x') muted = !muted;
-                else if(kn === 'c') camMode = 1 - camMode;
+                else if(kn === 'c') { if(mapOpen) bm.center = true; else camMode = 1 - camMode; }
                 else if(kn === 'r' && !mapOpen && PL.wreck <= 0) { loseChain(); respawn(); }
             }
             if([' ', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.key)) e.preventDefault();
@@ -3703,7 +3879,7 @@
         // Gâchette droite accélère, gauche freine, stick gauche (ou croix) tourne, Carré / X = frein à main, Croix / A = nitro,
         // Triangle / Y = replacer, Share / View = carte, Options / Menu = garage, L1 / R1 = caméra
         const padPrev = [], padHold = {};
-        const dz = (v) => { const a = Math.abs(v); return a < 0.14 ? 0 : Math.sign(v) * 0.85 * Math.pow((a - 0.14) / 0.86, 1.7); };   // zone morte, courbe douce : petit mouvement du stick = petit braquage
+        const dz = (v) => { const a = Math.abs(v), e = [2.2, 1.7, 1.25][SET.stick], k = [0.75, 0.85, 1][SET.stick]; return a < 0.14 ? 0 : Math.sign(v) * k * Math.pow((a - 0.14) / 0.86, e); };   // zone morte, courbe réglable : petit mouvement du stick = petit braquage
         function pollPad(dt) {
             const gp = (navigator.getGamepads ? Array.from(navigator.getGamepads()) : []).find(g => g && g.connected && g.buttons.length >= 8);
             PAD.on = !!gp;
@@ -3713,20 +3889,22 @@
             const ax = gp.axes[0] || 0, ay = gp.axes[1] || 0;
             const dl = down(14), dr = down(15), du = down(12), dd = down(13);
             if(gameActive) {
-                PAD.thr = b(7); PAD.brk = b(6);
+                PAD.thr = b(7); PAD.brk = b(6); PAD.ax = ax; PAD.ay = ay; PAD.rx = gp.axes[2] || 0; PAD.ry = gp.axes[3] || 0;
                 PAD.steer = dl ? -1 : dr ? 1 : dz(ax);   // stick vers la gauche = valeur négative
                 PAD.hb = !!down(2); PAD.boost = !!down(0);
                 if(!leaving) {
                     if(PAD.thr > 0.3 && !mapOpen) startEngine();
                     if(edge(8)) toggleMap(!mapOpen);
                     if(edge(9)) { if(mapOpen) toggleMap(false); else leaveToGarage(); }
+                    if(edge(1) && mapOpen) toggleMap(false);
+                    if(edge(0) && mapOpen) bm.center = true;
                     if(edge(3) && !mapOpen && PL.wreck <= 0) { loseChain(); respawn(); }
                     if(edge(4) || edge(5)) camMode = 1 - camMode;
                 }
                 if(Math.abs(ax) > 0.3 || PAD.thr > 0.1 || PAD.brk > 0.1) PAD.used = true;
                 // Vibrations : chocs, glissade, nitro, herbe
                 PAD.rumbleT -= dt;
-                if(PAD.rumbleT <= 0 && gp.vibrationActuator && gp.vibrationActuator.playEffect && !paused && !leaving) {
+                if(PAD.rumbleT <= 0 && SET.rumble && gp.vibrationActuator && gp.vibrationActuator.playEffect && !paused && !leaving) {
                     PAD.rumbleT = 0.12;
                     const strong = clamp(PAD.kick + (PAD.hb && Math.abs(PL.vf) > 8 ? 0.35 : 0), 0, 1);
                     const weak = clamp(slideAmt * 0.5 + (PL.boost ? 0.35 : 0) + (!PL.onRoad ? Math.min(0.3, PL.kmh / 600) : 0), 0, 1);
@@ -3746,8 +3924,6 @@
                 });
                 if(edge(0)) garageKey('Enter');
                 if(edge(1)) garageKey('Escape');
-                if(edge(4)) garageKey('a');
-                if(edge(5)) garageKey('e');
                 PAD.used = true;
             }
         }
@@ -3779,6 +3955,7 @@
                     placeOnRoad(R, i);
                     startHide = H;
                     traffic.forEach(spawnTraffic);
+                    camMode = SET.cam;
                     updateGps();
                     $('ui-layer').classList.add('active');
                     $('vignette').classList.add('active');
@@ -3797,7 +3974,7 @@
             const dt = Math.min(clock.getDelta(), 0.05);
             pollPad(dt);
             if(!gameActive) return;   // le garage couvre l'écran : inutile de dessiner le monde
-            if(paused) { if(mapOpen) drawBigMap(); updateAudio(dt); return; }
+            if(paused) { if(mapOpen) drawBigMap(dt); updateAudio(dt); return; }
             time += dt;
             if(!leaving) {
                 const n = dt > 0.02 ? 3 : 2;

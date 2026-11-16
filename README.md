@@ -23,6 +23,14 @@ Ouvre `index.html` dans un navigateur récent (Chrome, Edge, Firefox). Une conne
 
 Dans le garage : flèches `↑` `↓` pour naviguer, `Entrée` pour valider, `Échap` pour revenir.
 
+### Réglages (garage → Réglages)
+
+Sensibilité de la direction (1 à 10), réactivité du stick, vibrations, caméra au départ, volume, herbe en volume (désactivée / légère / dense), mini-carte (suit la voiture ou nord en haut). Les réglages sont mémorisés.
+
+### Carte (`M`)
+
+Carte plein écran : molette, `+` / `-` ou gâchettes pour zoomer, glisser, `ZQSD` / flèches ou stick pour se déplacer, `C` ou Croix pour recentrer sur la voiture.
+
 ### Manette (Xbox, PlayStation, générique : branchée ou en Bluetooth)
 
 | Bouton | Action |
@@ -37,7 +45,7 @@ Dans le garage : flèches `↑` `↓` pour naviguer, `Entrée` pour valider, `É
 | Options / Menu | Retour au garage |
 | L1 / R1 | Changer de caméra |
 
-Dans le garage : croix ou stick pour naviguer, Croix / A pour valider, Rond / B pour revenir, L1 / R1 pour changer de page. La manette vibre sur les chocs, les glissades et le nitro.
+Dans le garage : croix ou stick pour naviguer, Croix / A pour valider, Rond / B pour revenir. La manette vibre sur les chocs, les glissades et le nitro.
 
 ## Le jeu
 
