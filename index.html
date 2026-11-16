@@ -471,11 +471,14 @@
         setTimeout(resizePreview, 100);
 
         // Lumières de l'entrepôt : contre-jour chaud des verrières, rappel froid devant, plafonnier
-        previewScene.add(new THREE.HemisphereLight(0xcfd6e6, 0x14110e, 0.5));
+        previewScene.add(new THREE.HemisphereLight(0xcfd6e6, 0x2a2420, 1.15));
         const keyLight = new THREE.DirectionalLight(0xffc489, 2.6);
         keyLight.position.set(5, 7, -8);
-        const fillLight = new THREE.DirectionalLight(0x9fb4ff, 0.8);
+        const fillLight = new THREE.DirectionalLight(0x9fb4ff, 1.5);
         fillLight.position.set(-8, 4, 9);
+        const frontLight = new THREE.DirectionalLight(0xfff0e0, 1.6);   // éclaire la face visible même sans reflets d'environnement
+        frontLight.position.set(3, 5, 12);
+        previewScene.add(frontLight);
         const topLight = new THREE.SpotLight(0xfff1dd, 2.2, 40, 0.7, 0.7);
         topLight.position.set(0, 10, 2);
         previewScene.add(keyLight, fillLight, topLight);
@@ -890,7 +893,7 @@
             } catch (e) { return null; }
         }
         scene.environment = buildEnv(renderer, skyMat);
-        previewScene.environment = buildEnv(previewRenderer, garageSkyMat);
+        // Pas d'environnement PMREM dans le garage : sur certains GPU il rend la voiture noire. Les lumières directes suffisent.
 
         // Bruit 3D par texture (astuce d'Inigo Quilez : le canal vert est le rouge décalé de (37, 17))
         const noise3Tex = (() => {
