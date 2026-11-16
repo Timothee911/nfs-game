@@ -1645,7 +1645,7 @@
 
         // Planques (retour au garage) et radars, posés le long des routes
         const hides = [], radars = [];
-        const HIDE_W = 16, HIDE_D = 12, HIDE_SET = 16.5;   // planque : largeur (le long de la route), profondeur, recul du centre depuis le bord
+        const HIDE_W = 16, HIDE_D = 12, HIDE_SET = 16.5, HIDE_LINE = 1.5, HIDE_DOOR = 8;   // planque : largeur (le long de la route), profondeur, recul du centre depuis le bord
         const HIDE_NAMES = ['Planque du Nord', 'Planque des Pins', 'Planque du Lac', 'Planque du Col', 'Planque de la Scierie', 'Planque du Belvédère'];
         [[4, 0.5, 1], [6, 0.45, -1], [9, 0.5, 1], [11, 0.5, -1], [13, 0.5, 1], [15, 0.45, -1]].forEach(([ri, u, sd], k) => {
             const R = roads[ri], i = Math.floor(u * R.n), l = sd * (R.hw + 1.9);
@@ -2410,7 +2410,7 @@
                             prevPole = cur;
                         }
                     }
-                    if(R.jn[i]) continue;
+                    if(R.jn[i] || hides.some(H => H.R === R && Math.abs(H.i - i) < 16)) continue;   // rien sur le parvis des planques
                     if(i % 12 === 6 && !R.rail[i]) [-1, 1].forEach(sd => { const l = sd * (hw + 1.3); delin.push(R.px[i] + nx * l, R.pz[i] + nz * l, Math.atan2(R.tx[i], R.tz[i])); });
                     if(i % 6 === 0 && i >= 6 && i < R.n - 6) {
                         const turn = angDiff(Math.atan2(R.tx[i + 5], R.tz[i + 5]), Math.atan2(R.tx[i - 5], R.tz[i - 5])) / (10 * R.step);   // courbure (1/m), positive = virage à gauche
@@ -2556,7 +2556,9 @@
             const dumpster = mergeGeos([[new THREE.BoxGeometry(2.0, 1.25, 1.3), MX(0, 0.75, 0), 0x2b5a3a], [new THREE.BoxGeometry(2.05, 0.08, 1.4), MX(0, 1.42, -0.05, -0.12, 0, 0), 0x1f3f2a], [new THREE.BoxGeometry(2.1, 0.12, 0.12), MX(0, 0.15, 0.6), 0x222222]]);
             const floodHead = mergeGeos([[new THREE.BoxGeometry(0.7, 0.4, 0.3), MX(0, 0, 0), 0x2a2d30], [new THREE.BoxGeometry(1.4, 0.06, 0.06), MX(0, -0.25, -0.1), 0x2a2d30]]);
             const add = (grp, geo, mat, x, y, z, rx, ry, rz, shadow) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx || 0, ry || 0, rz || 0); if(shadow) { m.castShadow = true; m.receiveShadow = true; } grp.add(m); return m; };
-            const beamMat = new THREE.MeshBasicMaterial({ color: 0x4dff7a, transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, fog: false });
+            const lineMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.1, 1, 0.3), toneMapped: false, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 });
+            const lineGlowTex = makeTex(64, 64, (g, w, hh) => { const gr = g.createLinearGradient(0, 0, 0, hh); gr.addColorStop(0, 'rgba(80,255,130,0)'); gr.addColorStop(0.5, 'rgba(80,255,130,0.55)'); gr.addColorStop(1, 'rgba(80,255,130,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, hh); }, 0, 0, true);
+            const lineGlowMat = new THREE.MeshBasicMaterial({ map: lineGlowTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -7, polygonOffsetUnits: -7 });
             hides.forEach(h => {
                 const R = h.R, i = h.i;
                 // Niveau du sol : le plus haut des coins, le soubassement en béton rattrape la pente
@@ -2633,12 +2635,15 @@
                 }
                 const ag = new THREE.BufferGeometry(); ag.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); ag.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2)); ag.setIndex(idx); ag.computeVertexNormals();
                 const apron = new THREE.Mesh(ag, M.conc); apron.receiveShadow = true; scene.add(apron); h.apron = apron;
-                // Marqueur de la planque : faisceau et anneau verts (repère de jeu)
-                const y = hAt(h.x, h.z) + LIFT * 0.5;
-                const beam = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.4, 70, 20, 1, true), beamMat); beam.position.set(h.x, y + 35, h.z);
-                const ringM = new THREE.Mesh(new THREE.RingGeometry(3.4, 4.1, 40), new THREE.MeshBasicMaterial({ color: 0x4dff7a, transparent: true, opacity: 0.8, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -30, polygonOffsetUnits: -30 }));
-                ringM.rotation.x = -Math.PI / 2; ringM.position.set(h.x, y + 0.14, h.z);
-                scene.add(beam, ringM);
+                // Ligne d'entrée verte peinte au sol devant la porte : la toucher ramène au garage
+                const lz = D / 2 + HIDE_LINE, lw = h.bx + h.vx * lz, lzw = h.bz + h.vz * lz;
+                let ly = -1e9;
+                for(let a = -1; a <= 1; a++) for(let b = -1; b <= 1; b++) { const x = lw + h.ux * a * DW / 2 + h.vx * b * 0.4, z = lzw + h.uz * a * DW / 2 + h.vz * b * 0.4; ly = Math.max(ly, (apronY(h, x, z, hAt(x, z)) ?? hAt(x, z)) - y0 + 0.03); }
+                const line = new THREE.Mesh(new THREE.PlaneGeometry(DW - 0.4, 0.45).rotateX(-Math.PI / 2), lineMat);
+                line.position.set(0, ly, lz); line.renderOrder = 2; grp.add(line);
+                const glow = new THREE.Mesh(new THREE.PlaneGeometry(DW + 0.6, 2.2).rotateX(-Math.PI / 2), lineGlowMat);
+                glow.position.set(0, ly + 0.005, lz); glow.renderOrder = 3; grp.add(glow);
+                h.lineX = lw; h.lineZ = lzw;
             });
             // --- Radars : mât et boîtier au bord de la chaussée ---
             const radarGeo = mergeGeos([[new THREE.CylinderGeometry(0.08, 0.1, 3.2, 6), MX(0, 1.6, 0), 0x5d6369], [new THREE.BoxGeometry(0.55, 0.8, 0.5), MX(0, 3.4, 0), 0xd9a520], [new THREE.BoxGeometry(0.4, 0.3, 0.52), MX(0, 3.5, 0), 0x121315]]);
@@ -3099,7 +3104,7 @@
         }
         // Départ dans une planque : sur le parvis, devant la porte du garage, face à la route
         function placeAtHide(H) {
-            const lz = HIDE_D / 2 + 3.9;
+            const lz = HIDE_D / 2 + 5.4;
             PL.x = H.bx + H.vx * lz; PL.z = H.bz + H.vz * lz;
             PL.yaw = Math.atan2(-H.vx, -H.vz);
             PL.vx = PL.vz = PL.vf = PL.vl = PL.w = 0; PL.steer = 0; PL.drift = false; PL.inside = true;
@@ -3337,8 +3342,18 @@
             }
             // Planque : s'y arrêter ramène au garage
             let near = 1e9;
-            for(const h of hides) { const d = Math.hypot(h.x - PL.x, h.z - PL.z); if(d < near) near = d; if(d < 5.5 && kmh < 60 && !leaving && h !== startHide) { try { localStorage.setItem('nfsLastHide', String(hides.indexOf(h))); } catch (e) {} leaveToGarage('Planque'); } }
-            hideHint = near < 70 && kmh >= 60;
+            // Entrée au garage : l'avant ou l'arrière de la voiture touche la ligne verte devant la porte d'une planque
+            const fx = -Math.sin(PL.yaw), fz = -Math.cos(PL.yaw);
+            for(const h of hides) {
+                if(h.lineX === undefined || h === startHide) continue;
+                const d = Math.hypot(h.lineX - PL.x, h.lineZ - PL.z); if(d < near) near = d;
+                if(leaving || d > 12) continue;
+                for(const e of [2.2, -2.2]) {
+                    const dx = PL.x + fx * e - h.bx, dz = PL.z + fz * e - h.bz, lx = dx * h.ux + dz * h.uz, lz = dx * h.vx + dz * h.vz;
+                    if(Math.abs(lx) < HIDE_DOOR / 2 && lz < HIDE_D / 2 + HIDE_LINE + 0.25) { leaveToGarage('Planque'); break; }
+                }
+            }
+            hideHint = near < 45 && !leaving;
             // Lac : la voiture coule, elle est replacée sur la route
             if(PL.wreck <= 0) for(const L of lakes) if(Math.hypot(PL.x - L.x, PL.z - L.z) < L.r && hAt(PL.x, PL.z) < L.level - 0.7) { PL.hp = 0; toast("À l'eau !", 'La voiture est replacée sur la route', ''); }
             gpsT -= dt;
@@ -3782,7 +3797,7 @@
             const hint = $('h-hint');
             const hv = hideHint ? 1 : hintT > 0 ? (PAD.used && PAD.on ? 3 : 2) : 0;
             if(hv === cache.hint) {}
-            else if(hv === 1) hint.innerHTML = 'Ralentis sous 60 km/h pour entrer dans la planque';
+            else if(hv === 1) hint.innerHTML = 'Touche la ligne verte devant la porte pour rentrer au garage';
             else if(hv === 2) hint.innerHTML = '<kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> conduire  <kbd>Espace</kbd> frein à main  <kbd>Maj</kbd> nitro  <kbd>M</kbd> carte  <kbd>R</kbd> replacer  <kbd>Échap</kbd> garage';
             else if(hv === 3) hint.innerHTML = '<kbd>RT</kbd> accélérer  <kbd>LT</kbd> frein  <kbd>◄ ►</kbd> diriger  <kbd>■ / X</kbd> frein à main  <kbd>✕ / A</kbd> nitro  <kbd>△ / Y</kbd> replacer  <kbd>Share</kbd> carte';
             cache.hint = hv;
