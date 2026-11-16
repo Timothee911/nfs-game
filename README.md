@@ -23,6 +23,22 @@ Ouvre `index.html` dans un navigateur récent (Chrome, Edge, Firefox). Une conne
 
 Dans le garage : flèches `↑` `↓` pour naviguer, `Entrée` pour valider, `Échap` pour revenir.
 
+### Manette (Xbox, PlayStation, générique : branchée ou en Bluetooth)
+
+| Bouton | Action |
+|---|---|
+| Gâchette droite (RT / R2) | Accélérer (progressif) ; démarre aussi le moteur |
+| Gâchette gauche (LT / L2) | Freiner, puis marche arrière (progressif) |
+| Stick gauche ou croix directionnelle | Tourner (progressif) |
+| Carré (PlayStation) / X (Xbox) | Frein à main (drift) |
+| Croix (PlayStation) / A (Xbox) | Nitro |
+| Triangle / Y | Replacer la voiture |
+| Share / View | Carte |
+| Options / Menu | Retour au garage |
+| L1 / R1 | Changer de caméra |
+
+Dans le garage : croix ou stick pour naviguer, Croix / A pour valider, Rond / B pour revenir, L1 / R1 pour changer de page. La manette vibre sur les chocs, les glissades et le nitro.
+
 ## Le jeu
 
 - **Carte** : une rocade à quatre voies de 36 km, deux boucles intérieures, treize routes de liaison sinueuses et deux traversantes, sur un relief de collines et de vallons, avec trois lacs, des forêts, des glissières, des lampadaires, des lignes électriques, des balises et des chevrons dans les virages serrés.

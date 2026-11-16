@@ -2785,6 +2785,8 @@
             onRoad: true, inside: true, drift: false, boost: false, latA: 0, accA: 0, wreck: 0, spin: 0 };
         const traffic = [];
         const keys = {};
+        // Manette : valeurs lues à chaque image (gâchettes et stick analogiques)
+        const PAD = { on: false, used: false, thr: 0, brk: 0, steer: 0, hb: false, boost: false, rumbleT: 0, kick: 0 };
         const clock = new THREE.Clock();
         let gameActive = false, paused = false, leaving = false, mapOpen = false, muted = false, camMode = 0;
         let time = 0, sessionTime = 0, shake = 0, camYaw = 0, camY = 0, fovBoost = 0, slideAmt = 0, scrape = 0;
@@ -2806,6 +2808,7 @@
             PL.hp -= v * 1.6;
             shake = Math.max(shake, Math.min(1.1, v * 0.07));
             scrape = 0.4;
+            PAD.kick = Math.max(PAD.kick, Math.min(1, v / 14));
             if(v > 7) loseChain();
         }
         function placeOnRoad(R, i, stopped) {
@@ -2826,10 +2829,12 @@
 
         function stepPlayer(dt) {
             const dead = PL.wreck > 0;
-            const up = !dead && ENG.on && (keys.ArrowUp || keys.z || keys.w), down = !dead && (keys.ArrowDown || keys.s);
+            const kUp = keys.ArrowUp || keys.z || keys.w, kDown = keys.ArrowDown || keys.s;
+            const thr = kUp ? 1 : PAD.thr, brk = kDown ? 1 : PAD.brk;   // pédales : tout ou rien au clavier, progressives à la manette
+            const up = !dead && ENG.on && thr > 0.04, down = !dead && brk > 0.04;
             const left = !dead && (keys.ArrowLeft || keys.q || keys.a), right = !dead && (keys.ArrowRight || keys.d);
-            const hb = dead || !!keys[' '];
-            const boost = !dead && ENG.on && (keys.Shift || keys.n) && PL.nitro > 0 && !down;
+            const hb = dead || !!keys[' '] || PAD.hb;
+            const boost = !dead && ENG.on && (keys.Shift || keys.n || PAD.boost) && PL.nitro > 0 && !down;
             PL.boost = !!boost;
             PL.nitro = boost ? Math.max(0, PL.nitro - 21 * dt) : Math.min(100, PL.nitro + 3.2 * PERF.recharge * dt);
 
@@ -2840,7 +2845,7 @@
             const vmax = 94 * PERF.top, vtop = vmax * (boost ? 1.14 : 1);
 
             // Direction : le braquage se réduit avec la vitesse, la vitesse de rotation est limitée par l'adhérence
-            const av = Math.abs(PL.vf), target = (left ? 1 : 0) - (right ? 1 : 0);
+            const av = Math.abs(PL.vf), target = clamp((left ? 1 : 0) - (right ? 1 : 0) - (dead ? 0 : PAD.steer), -1, 1);
             PL.steer += (target - PL.steer) * Math.min(1, dt * (target ? (hb ? 9 : 4.5 + av * 0.05) : 8));
             const steerMax = 0.5 / (1 + Math.pow(av / 30, 1.2));
             if(hb && av > 8) PL.drift = true;
@@ -2861,9 +2866,9 @@
 
             // Moteur, freins, résistances
             let a = 0;
-            if((up || boost) && vf > -1) a = Math.min(11.5 * PERF.accel * (boost ? 1.5 : 1) * (1 - Math.pow(Math.max(0, vf) / vtop, 2)), mu * GRAV * 0.95);
-            else if(up) a = 14;
-            if(down) a = vf > 1 ? -Math.min(30, mu * GRAV * 2.1) : ENG.on ? -6 * (1 - Math.min(1, -vf / 16)) : 0;   // freins puissants
+            if((up || boost) && vf > -1) a = Math.min(11.5 * PERF.accel * (boost ? 1.5 : thr) * (1 - Math.pow(Math.max(0, vf) / vtop, 2)), mu * GRAV * 0.95);
+            else if(up) a = 14 * thr;
+            if(down) a = (vf > 1 ? -Math.min(30, mu * GRAV * 2.1) : ENG.on ? -6 * (1 - Math.min(1, -vf / 16)) : 0) * brk;   // freins puissants
             if(!up && !down && !boost) a -= Math.sign(vf) * 0.9 + 0.00032 * vf * Math.abs(vf);
             if(!onRoad) a -= Math.sign(vf) * (2.2 + 0.17 * Math.abs(vf));
             if(hb && dead) a -= Math.sign(vf) * 4;
@@ -3074,7 +3079,7 @@
             player.rotation.z = roll - clamp(PL.latA * 0.0045, -0.075, 0.075) + Math.sin(time * 23) * 0.015 * bumpy;
             PL.spin -= PL.vf * dt / 0.36;
             if(player.wheels) player.wheels.forEach(wh => { wh.g.rotation.x = PL.spin; if(wh.front) wh.g.rotation.y = PL.steer * 0.42; });
-            if(player.tailMat) player.tailMat.emissiveIntensity = (keys.ArrowDown || keys.s) ? 6 : 2.4;
+            if(player.tailMat) player.tailMat.emissiveIntensity = (keys.ArrowDown || keys.s || PAD.brk > 0.04) ? 6 : 2.4;
             const fl = PL.boost ? 1 : 0;
             flames.forEach(s => { s.material.opacity += (fl - s.material.opacity) * Math.min(1, dt * 12); const sc = 0.5 + s.material.opacity * (0.9 + Math.random() * 0.5); s.scale.set(sc, sc, 1); });
             // Fumée quand les pneus glissent
@@ -3364,10 +3369,11 @@
             $('flash').style.opacity = String(flashT * 0.7);
             hintT -= dt;
             const hint = $('h-hint');
-            const hv = hideHint ? 1 : hintT > 0 ? 2 : 0;
+            const hv = hideHint ? 1 : hintT > 0 ? (PAD.used && PAD.on ? 3 : 2) : 0;
             if(hv === cache.hint) {}
             else if(hv === 1) hint.innerHTML = 'Ralentis sous 60 km/h pour entrer dans la planque';
             else if(hv === 2) hint.innerHTML = '<kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> conduire  <kbd>Espace</kbd> frein à main  <kbd>Maj</kbd> nitro  <kbd>M</kbd> carte  <kbd>R</kbd> replacer  <kbd>Échap</kbd> garage';
+            else if(hv === 3) hint.innerHTML = '<kbd>RT</kbd> accélérer  <kbd>LT</kbd> frein  <kbd>◄ ►</kbd> diriger  <kbd>■ / X</kbd> frein à main  <kbd>✕ / A</kbd> nitro  <kbd>△ / Y</kbd> replacer  <kbd>Share</kbd> carte';
             cache.hint = hv;
             hint.classList.toggle('on', hv > 0);
             drawMini();
@@ -3500,7 +3506,7 @@
         }
         function updateAudio(dt) {
             if(!audio) return;
-            const off = muted || paused || leaving, r = clamp(PL.rpm / 9000, 0, 1.1), thr = !!(ENG.on && (keys.ArrowUp || keys.z || keys.w || PL.boost));
+            const off = muted || paused || leaving, r = clamp(PL.rpm / 9000, 0, 1.1), thr = !!(ENG.on && (keys.ArrowUp || keys.z || keys.w || PAD.thr > 0.2 || PL.boost));
             const now = audio.currentTime;
             engSrc.playbackRate.setTargetAtTime(Math.max(0.05, PL.rpm / ENG_REF), now, 0.02);
             engLp.frequency.setTargetAtTime(700 + r * 3200 + (thr ? 2600 : 0), now, 0.04);
@@ -3536,6 +3542,10 @@
             f.classList.add('on');
             setTimeout(() => location.reload(), 1100);
         }
+        function startEngine() {
+            if(ENG.on || ENG.crank > 0) return;
+            ENG.crank = 1; ENG.crankEnd = performance.now() + 1000; playStarter();
+        }
         // Touches : insensible à la casse (Verr. Maj), + W/A pour les claviers QWERTY
         const keyName = (e) => e.key.length === 1 ? e.key.toLowerCase() : e.key;
         window.addEventListener('keydown', (e) => {
@@ -3546,7 +3556,7 @@
                 return;
             }
             if(first && !leaving) {
-                if((kn === 'z' || kn === 'w' || kn === 'ArrowUp') && !ENG.on && ENG.crank <= 0 && !mapOpen) { ENG.crank = 1; ENG.crankEnd = performance.now() + 1000; playStarter(); }
+                if((kn === 'z' || kn === 'w' || kn === 'ArrowUp') && !mapOpen) startEngine();
                 if(kn === 'm' || kn === 'Tab') toggleMap(!mapOpen);
                 else if(kn === 'Escape') { if(mapOpen) toggleMap(false); else leaveToGarage(); }
                 else if(kn === 'x') muted = !muted;
@@ -3557,6 +3567,60 @@
         });
         window.addEventListener('keyup', (e) => { keys[keyName(e)] = false; });
         window.addEventListener('blur', () => { for(const k in keys) keys[k] = false; });
+
+        // ====== Manette (disposition standard : Xbox, PlayStation, génériques) ======
+        // Gâchette droite accélère, gauche freine, stick gauche (ou croix) tourne, Carré / X = frein à main, Croix / A = nitro,
+        // Triangle / Y = replacer, Share / View = carte, Options / Menu = garage, L1 / R1 = caméra
+        const padPrev = [], padHold = {};
+        const dz = (v) => { const a = Math.abs(v); return a < 0.12 ? 0 : Math.sign(v) * Math.pow((a - 0.12) / 0.88, 1.35); };
+        function pollPad(dt) {
+            const gp = (navigator.getGamepads ? Array.from(navigator.getGamepads()) : []).find(g => g && g.connected && g.buttons.length >= 8);
+            PAD.on = !!gp;
+            if(!gp) { PAD.thr = PAD.brk = PAD.steer = 0; PAD.hb = PAD.boost = false; padPrev.length = 0; return; }
+            const b = (i) => gp.buttons[i] ? gp.buttons[i].value : 0, down = (i) => gp.buttons[i] && gp.buttons[i].pressed;
+            const edge = (i) => { const d = !!down(i), e = d && !padPrev[i]; padPrev[i] = d; return e; };
+            const ax = gp.axes[0] || 0, ay = gp.axes[1] || 0;
+            const dl = down(14), dr = down(15), du = down(12), dd = down(13);
+            if(gameActive) {
+                PAD.thr = b(7); PAD.brk = b(6);
+                PAD.steer = dl ? -1 : dr ? 1 : dz(ax);   // stick vers la gauche = valeur négative
+                PAD.hb = !!down(2); PAD.boost = !!down(0);
+                if(!leaving) {
+                    if(PAD.thr > 0.3 && !mapOpen) startEngine();
+                    if(edge(8)) toggleMap(!mapOpen);
+                    if(edge(9)) { if(mapOpen) toggleMap(false); else leaveToGarage(); }
+                    if(edge(3) && !mapOpen && PL.wreck <= 0) { loseChain(); respawn(); }
+                    if(edge(4) || edge(5)) camMode = 1 - camMode;
+                }
+                if(Math.abs(ax) > 0.3 || PAD.thr > 0.1 || PAD.brk > 0.1) PAD.used = true;
+                // Vibrations : chocs, glissade, nitro, herbe
+                PAD.rumbleT -= dt;
+                if(PAD.rumbleT <= 0 && gp.vibrationActuator && gp.vibrationActuator.playEffect && !paused && !leaving) {
+                    PAD.rumbleT = 0.12;
+                    const strong = clamp(PAD.kick + (PAD.hb && Math.abs(PL.vf) > 8 ? 0.35 : 0), 0, 1);
+                    const weak = clamp(slideAmt * 0.5 + (PL.boost ? 0.35 : 0) + (!PL.onRoad ? Math.min(0.3, PL.kmh / 600) : 0), 0, 1);
+                    PAD.kick = 0;
+                    if(strong > 0.02 || weak > 0.02) gp.vibrationActuator.playEffect('dual-rumble', { duration: 140, strongMagnitude: strong, weakMagnitude: weak }).catch(() => {});
+                }
+            } else {
+                PAD.thr = PAD.brk = PAD.steer = 0; PAD.hb = PAD.boost = false;
+                if(splashOn || $('lobby').style.display === 'none') { for(let i = 0; i < 16; i++) edge(i); return; }
+                // Garage : croix directionnelle ou stick pour naviguer, Croix = valider, Rond = retour, L1 / R1 = page
+                const dirs = [[du || ay < -0.55, 'ArrowUp'], [dd || ay > 0.55, 'ArrowDown'], [dl || ax < -0.55, 'ArrowLeft'], [dr || ax > 0.55, 'ArrowRight']];
+                dirs.forEach(([on, k]) => {   // un pas tout de suite, puis répétition si on maintient
+                    if(!on) { delete padHold[k]; return; }
+                    if(padHold[k] === undefined) { padHold[k] = 0; garageKey(k); return; }
+                    padHold[k] += dt;
+                    if(padHold[k] > 0.42) { padHold[k] = 0.3; garageKey(k); }
+                });
+                if(edge(0)) garageKey('Enter');
+                if(edge(1)) garageKey('Escape');
+                if(edge(4)) garageKey('a');
+                if(edge(5)) garageKey('e');
+                PAD.used = true;
+            }
+        }
+        window.addEventListener('gamepadconnected', () => { PAD.used = true; });
 
         // ====== Départ : on quitte le garage pour le monde ouvert ======
         let starting = false;
@@ -3600,6 +3664,7 @@
         function animate() {
             requestAnimationFrame(animate);
             const dt = Math.min(clock.getDelta(), 0.05);
+            pollPad(dt);
             if(!gameActive) return;   // le garage couvre l'écran : inutile de dessiner le monde
             if(paused) { if(mapOpen) drawBigMap(); updateAudio(dt); return; }
             time += dt;
