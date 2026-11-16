@@ -91,6 +91,9 @@
         #h-hint kbd { display: inline-block; min-width: 1.5em; margin: 0 0.15em; padding: 0 0.4em; border-radius: 0.3em; background: #ececec; color: #111; font: 700 0.75em/1.5 'Barlow', sans-serif; text-align: center; text-shadow: none; vertical-align: 0.1em; }
         #h-wreck { position: absolute; left: 0; right: 0; top: 40%; text-align: center; font-size: 6em; font-weight: 700; letter-spacing: 0.06em; color: #ff5a3c; opacity: 0; transition: opacity 0.3s; }
         #h-wreck.on { opacity: 1; }
+        #h-start { position: absolute; left: 0; right: 0; top: 24%; text-align: center; font-size: 1.5em; font-weight: 600; letter-spacing: 0.08em; color: #f4f4f0; text-shadow: 0 2px 8px rgba(0,0,0,0.8); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+        #h-start.on { opacity: 1; animation: hstart 1.4s ease-in-out infinite; }
+        @keyframes hstart { 50% { opacity: 0.45; } }
         #bigmap { position: absolute; inset: 0; z-index: 50; width: 100%; height: 100%; display: none; background: rgba(8,10,12,0.9); }
         #bigmap.on { display: block; }
         @media (max-width: 900px) { .h-row, .h-zone, .h-easy, .h-obj { display: none; } .h-gps { top: 12em; left: 2em; } #minimap { left: 2em; } .h-dash { right: 1em; width: 26em; } .h-pos { right: 2em; } }
@@ -418,6 +421,7 @@
     <div id="fade"></div>
 
     <div id="ui-layer">
+        <div id="h-start">Appuie sur <b>Z</b> pour démarrer le moteur</div>
         <div class="h-easy"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#f4f4f0"/><path d="M12 4v16M4 12h16" stroke="#1d1f23" stroke-width="3.6"/><circle cx="12" cy="12" r="2.4" fill="#f4f4f0"/></svg><b>EASYDRIVE</b></div>
         <div class="h-zone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M3 18a9 9 0 0 1 18 0"/><path d="M12 18l5.5-7" stroke-width="2.8"/></svg><div><span>Radars</span><em id="h-radars">0/12</em></div></div>
         <div class="h-row"><i>1</i><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4.2"/><path d="M3.5 22c0-5 3.8-8 8.5-8s8.5 3 8.5 8z"/></svg><span>Record radar</span><em id="h-best">—</em></div>
@@ -2144,6 +2148,8 @@
 
         // ====== CONDUITE ======
         // État de la voiture, en mètres et en secondes. yaw = cap (0 : vers -z, positif : vers la gauche)
+        const ENG = { on: false, crank: 0 };   // moteur éteint au départ : Z lance le démarreur, il tourne 1 s plus tard
+        let startHide = null;                  // planque de départ : ignorée tant qu'on ne s'en est pas éloigné
         const PL = { x: 0, y: 0, z: 0, yaw: 0, vx: 0, vz: 0, vf: 0, vl: 0, w: 0, steer: 0, kmh: 0, gear: 1, rpm: 900, nitro: 100, hp: 100,
             onRoad: true, inside: true, drift: false, boost: false, latA: 0, accA: 0, wreck: 0, spin: 0 };
         const traffic = [];
@@ -2189,10 +2195,10 @@
 
         function stepPlayer(dt) {
             const dead = PL.wreck > 0;
-            const up = !dead && (keys.ArrowUp || keys.z || keys.w), down = !dead && (keys.ArrowDown || keys.s);
+            const up = !dead && ENG.on && (keys.ArrowUp || keys.z || keys.w), down = !dead && (keys.ArrowDown || keys.s);
             const left = !dead && (keys.ArrowLeft || keys.q || keys.a), right = !dead && (keys.ArrowRight || keys.d);
             const hb = dead || !!keys[' '];
-            const boost = !dead && (keys.Shift || keys.n) && PL.nitro > 0 && !down;
+            const boost = !dead && ENG.on && (keys.Shift || keys.n) && PL.nitro > 0 && !down;
             PL.boost = !!boost;
             PL.nitro = boost ? Math.max(0, PL.nitro - 21 * dt) : Math.min(100, PL.nitro + 3.2 * PERF.recharge * dt);
 
@@ -2204,37 +2210,41 @@
 
             // Direction : le braquage se réduit avec la vitesse, la vitesse de rotation est limitée par l'adhérence
             const av = Math.abs(PL.vf), target = (left ? 1 : 0) - (right ? 1 : 0);
-            PL.steer += (target - PL.steer) * Math.min(1, dt * (target ? 4.5 : 8));
+            PL.steer += (target - PL.steer) * Math.min(1, dt * (target ? (hb ? 9 : 4.5) : 8));
             const steerMax = 0.5 / (1 + Math.pow(av / 24, 1.5));
             if(hb && av > 8) PL.drift = true;
             if(PL.drift && !hb && (Math.abs(PL.vl) < 1.2 || av < 5)) PL.drift = false;
             let w = PL.vf / 2.7 * Math.tan(PL.steer * steerMax);
-            const wLim = mu * GRAV / Math.max(av, 6) * (hb ? 2.4 : PL.drift ? 1.5 : 1.08);
-            if(hb) w *= 1 + 0.9 * clamp(1 - av / 40, 0, 1);   // le frein à main fait pivoter l'arrière franchement à basse et moyenne vitesse
+            const wLim = mu * GRAV / Math.max(av, 6) * (hb ? 3.4 : PL.drift ? 1.5 : 1.08);
+            if(hb && !dead) w *= 1.5 + 1.6 * clamp(1 - av / 45, 0, 1);   // le frein à main fait pivoter l'arrière franchement, même à basse vitesse
             w = clamp(w, -wLim, wLim);
-            w -= 1.3 * PL.vl / Math.max(av, 8) * (PL.drift || hb ? 0.55 : 1);  // la voiture se réaligne sur sa trajectoire
+            w -= 1.3 * PL.vl / Math.max(av, 8) * (hb ? 0.12 : PL.drift ? 0.55 : 1);  // la voiture se réaligne sur sa trajectoire
             PL.w = w;
             PL.yaw += w * dt;
 
             const sinY = Math.sin(PL.yaw), cosY = Math.cos(PL.yaw), fx = -sinY, fz = -cosY, rx = cosY, rz = -sinY;
             let vf = PL.vx * fx + PL.vz * fz, vl = PL.vx * rx + PL.vz * rz;
             // Adhérence latérale : au-delà, la voiture glisse (frein à main = l'arrière décroche)
-            const latGrip = mu * GRAV * (hb ? 0.16 : PL.drift ? (up ? 0.5 : 0.8) : 1) * dt;
+            const latGrip = mu * GRAV * (hb ? 0.4 + 0.6 * clamp(1 - Math.hypot(PL.vf, PL.vl) / 20, 0, 1) : PL.drift ? (up ? 0.5 : 0.8) : 1) * dt;
             vl = Math.abs(vl) <= latGrip ? 0 : vl - Math.sign(vl) * latGrip;
 
             // Moteur, freins, résistances
             let a = 0;
             if((up || boost) && vf > -1) a = Math.min(11.5 * PERF.accel * (boost ? 1.5 : 1) * (1 - Math.pow(Math.max(0, vf) / vtop, 2)), mu * GRAV * 0.95);
             else if(up) a = 14;
-            if(down) a = vf > 1 ? -Math.min(17, mu * GRAV * 1.2) : -6 * (1 - Math.min(1, -vf / 16));
+            if(down) a = vf > 1 ? -Math.min(30, mu * GRAV * 2.1) : ENG.on ? -6 * (1 - Math.min(1, -vf / 16)) : 0;   // freins puissants
             if(!up && !down && !boost) a -= Math.sign(vf) * 0.9 + 0.00032 * vf * Math.abs(vf);
             if(!onRoad) a -= Math.sign(vf) * (2.2 + 0.17 * Math.abs(vf));
-            if(hb) a -= Math.sign(vf) * (dead ? 4 : 17 + Math.min(av, 60) * 0.12);   // frein à main puissant : bloque les roues arrière
+            if(hb && dead) a -= Math.sign(vf) * 4;
             a -= Math.sign(vf) * Math.min(Math.abs(vl), 12) * 0.16;
             a -= GRAV * (hAt(PL.x + fx * 2, PL.z + fz * 2) - hAt(PL.x - fx * 2, PL.z - fz * 2)) / 4;
             const vf0 = vf;
             vf += a * dt;
             if(!up && !down && !boost && (vf * vf0 < 0 || Math.abs(vf) < 0.25)) vf = 0;
+            if(hb && !dead) {   // frein à main façon Rivals : roues bloquées, freine toute la vitesse, glissade comprise
+                const sp = Math.hypot(vf, vl), dec = (22 + Math.min(sp, 60) * 0.15) * dt, k = sp > dec ? (sp - dec) / sp : 0;
+                vf *= k; vl *= k;
+            }
             PL.vf = vf; PL.vl = vl;
             PL.latA += (vf * w - PL.latA) * Math.min(1, dt * 6);
             PL.accA += ((vf - vf0) / dt - PL.accA) * Math.min(1, dt * 6);
@@ -2370,7 +2380,7 @@
             }
             // Planque : s'y arrêter ramène au garage
             let near = 1e9;
-            for(const h of hides) { const d = Math.hypot(h.x - PL.x, h.z - PL.z); if(d < near) near = d; if(d < 5.5 && kmh < 60 && !leaving) leaveToGarage('Planque'); }
+            for(const h of hides) { const d = Math.hypot(h.x - PL.x, h.z - PL.z); if(d < near) near = d; if(d < 5.5 && kmh < 60 && !leaving && h !== startHide) { try { localStorage.setItem('nfsLastHide', String(hides.indexOf(h))); } catch (e) {} leaveToGarage('Planque'); } }
             hideHint = near < 70 && kmh >= 60;
             // Lac : la voiture coule, elle est replacée sur la route
             if(PL.wreck <= 0) for(const L of lakes) if(Math.hypot(PL.x - L.x, PL.z - L.z) < L.r && hAt(PL.x, PL.z) < L.level - 0.7) { PL.hp = 0; toast("À l'eau !", 'La voiture est replacée sur la route', ''); }
@@ -2390,6 +2400,16 @@
             const lo = gear ? G_TOP[gear - 1] : 0, hi = G_TOP[gear] > 1 ? 1.04 : G_TOP[gear];
             const rpmT = PL.vf < -0.5 ? 1500 + Math.min(1, -PL.vf / 16) * 4500 : (gear ? 4300 : 1000) + clamp((fr - lo) / (hi - lo), 0, 1.05) * (gear ? 4400 : 7700);
             PL.rpm += (rpmT - PL.rpm) * Math.min(1, dt * 9);
+            if(!ENG.on) {
+                if(ENG.crank > 0) {
+                    ENG.crank = Math.max(0.001, (ENG.crankEnd - performance.now()) / 1000);   // 1 s réelle, calée sur le bruit du démarreur
+                    if(performance.now() >= ENG.crankEnd) ENG.crank = 0;
+                    PL.rpm = 230 + 70 * Math.sin(time * 60);
+                    if(ENG.crank <= 0) { ENG.on = true; PL.rpm = 4200; engineCatch(); }   // le moteur prend : coup de gaz puis ralenti
+                } else PL.rpm = 0;
+            }
+            $('h-start').classList.toggle('on', !ENG.on && ENG.crank <= 0);
+            if(startHide && Math.hypot(startHide.x - PL.x, startHide.z - PL.z) > 70) startHide = null;
             trackMissions(dt);
         }
 
@@ -2512,7 +2532,7 @@
             if(!Q.R) { if(gpsHide) gpsDist = Math.hypot(gpsHide.x - PL.x, gpsHide.z - PL.z); return; }
             const g0 = Q.R.g0 + Q.i;
             let best = null, bd = 1e9;
-            for(const h of hides) { const d = h.dist[g0]; if(d >= 0 && d < bd) { bd = d; best = h; } }
+            for(const h of hides) { const d = h.dist[g0]; if(h !== startHide && d >= 0 && d < bd) { bd = d; best = h; } }
             if(!best) return;
             gpsHide = best; gpsDist = bd * STEP + Q.dist;
             gpsPts.length = 0; gpsPts.push(PL.x, PL.z);
@@ -2698,46 +2718,119 @@
         }
 
         // ====== Son : moteur, vent, pneus (WebAudio, démarre en quittant le garage). Touche X pour couper. ======
-        let audio = null, v12 = [], vib = null, lp = null, engineGain = null, windGain = null, scrapeGain = null, squealGain = null;
+        let audio = null, engSrc = null, engDrive = null, engLp = null, screamOsc = null, screamGain = null, inductGain = null, popBuf = null;
+        let engineGain = null, windGain = null, scrapeGain = null, squealGain = null, prevThr = false;
+        const ENG_REF = 6000;   // régime auquel la boucle d'échappement est enregistrée
+        // Boucle d'échappement d'un V12 : 12 explosions par cycle de 720°, alternées entre les deux bancs (gauche/droite),
+        // chacune avec sa propre force : c'est cette irrégularité qui donne le grondement rauque.
+        function buildV12Buffer() {
+            const sr = audio.sampleRate, cyc = Math.round(sr * 120 / ENG_REF), NC = 8, len = cyc * NC;
+            const buf = audio.createBuffer(2, len, sr), L = buf.getChannelData(0), Rr = buf.getChannelData(1);
+            let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+            const cylAmp = []; for(let k = 0; k < 12; k++) cylAmp.push(0.78 + rnd() * 0.32);
+            const plen = Math.round(sr * 0.006);
+            for(let c = 0; c < NC; c++) for(let k = 0; k < 12; k++) {
+                const t0 = c * cyc + Math.round(k * cyc / 12 + (rnd() - 0.5) * cyc * 0.006);
+                const A = cylAmp[k] * (0.9 + rnd() * 0.2), bank = k % 2, ph = rnd() * 0.6;
+                for(let n = 0; n < plen; n++) {
+                    const t = n / sr;
+                    let v = Math.exp(-t / 0.0011) * Math.sin(2 * Math.PI * 520 * t + ph)          // coup de pression principal
+                          + 0.55 * Math.exp(-t / 0.0005) * Math.sin(2 * Math.PI * 1650 * t)        // claquement métallique
+                          + 0.7 * Math.exp(-t / 0.0024) * Math.sin(2 * Math.PI * 190 * t)          // corps grave
+                          + 0.35 * (rnd() * 2 - 1) * Math.exp(-t / 0.0007);                         // souffle
+                    v *= A;
+                    const j = (t0 + n) % len;
+                    L[j] += v * (bank ? 0.7 : 1); Rr[j] += v * (bank ? 1 : 0.7);
+                }
+            }
+            let pk = 0; for(let j = 0; j < len; j++) pk = Math.max(pk, Math.abs(L[j]), Math.abs(Rr[j]));
+            for(let j = 0; j < len; j++) { L[j] /= pk; Rr[j] /= pk; }
+            return buf;
+        }
         function startAudio() {
             try {
                 audio = new (window.AudioContext || window.webkitAudioContext)();
-                lp = audio.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1500;
                 engineGain = audio.createGain(); engineGain.gain.value = 0;
-                // V12 : 6 explosions par tour, donc un fondamental à rpm/10 Hz, riche en harmoniques, avec un léger tremblement
-                const shaper = audio.createWaveShaper(), curve = new Float32Array(256);
-                for(let i = 0; i < 256; i++) { const x = i / 128 - 1; curve[i] = Math.tanh(x * 2.2); }
-                shaper.curve = curve;
-                v12 = [[0.5, 'sawtooth', 0.55], [1, 'sawtooth', 0.8], [2, 'sawtooth', 0.55], [3, 'square', 0.22], [4, 'sawtooth', 0.3], [6, 'triangle', 0.25]].map(([m, t, g]) => {
-                    const o = audio.createOscillator(); o.type = t; const og = audio.createGain(); og.gain.value = g;
-                    o.connect(og); og.connect(shaper); o.start(); return { o, m };
-                });
-                const formant = audio.createBiquadFilter(); formant.type = 'peaking'; formant.frequency.value = 1400; formant.Q.value = 1.4; formant.gain.value = 7;
-                shaper.connect(lp); lp.connect(formant); formant.connect(engineGain); engineGain.connect(audio.destination);
-                vib = audio.createOscillator(); vib.frequency.value = 23;
-                const vg = audio.createGain(); vg.gain.value = 3; vib.connect(vg); v12.forEach(x => vg.connect(x.o.detune)); vib.start();
+                const comp = audio.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4;
+                engineGain.connect(comp); comp.connect(audio.destination);
+                // Échappement
+                engSrc = audio.createBufferSource(); engSrc.buffer = buildV12Buffer(); engSrc.loop = true;
+                engDrive = audio.createWaveShaper();
+                const curve = new Float32Array(1024); for(let i = 0; i < 1024; i++) { const x = i / 512 - 1; curve[i] = Math.tanh(x * 1.8) * 0.9 + 0.1 * Math.tanh(x * 6); }
+                engDrive.curve = curve;
+                engLp = audio.createBiquadFilter(); engLp.type = 'lowpass'; engLp.Q.value = 0.9;
+                const body = audio.createBiquadFilter(); body.type = 'lowshelf'; body.frequency.value = 220; body.gain.value = 6;
+                engSrc.connect(engDrive); engDrive.connect(engLp); engLp.connect(body); body.connect(engineGain); engSrc.start();
+                // Hurlement aigu du V12 à haut régime (2e harmonique de l'allumage)
+                screamOsc = audio.createOscillator(); screamOsc.type = 'sawtooth';
+                const sbp = audio.createBiquadFilter(); sbp.type = 'bandpass'; sbp.Q.value = 2.5;
+                screamGain = audio.createGain(); screamGain.gain.value = 0;
+                screamOsc.connect(sbp); sbp.connect(screamGain); screamGain.connect(engineGain); screamOsc.start();
+                screamOsc.bp = sbp;
                 const buf = audio.createBuffer(1, audio.sampleRate, audio.sampleRate);
                 const d = buf.getChannelData(0);
                 for(let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-                const noise = (type, freq, q) => {
+                const noise = (type, freq, q, dest) => {
                     const src = audio.createBufferSource(); src.buffer = buf; src.loop = true;
                     const f = audio.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
                     const g = audio.createGain(); g.gain.value = 0;
-                    src.connect(f); f.connect(g); g.connect(audio.destination); src.start();
-                    return g;
+                    src.connect(f); f.connect(g); g.connect(dest || audio.destination); src.start();
+                    g.filt = f; return g;
                 };
+                inductGain = noise('bandpass', 2400, 1.2, engineGain);   // aspiration
                 windGain = noise('bandpass', 700, 0.6);
                 scrapeGain = noise('highpass', 2500, 0.7);
                 squealGain = noise('bandpass', 1500, 6);
+                // Pétarades au lâcher de l'accélérateur
+                popBuf = audio.createBuffer(1, Math.round(audio.sampleRate * 0.05), audio.sampleRate);
+                const pd = popBuf.getChannelData(0);
+                for(let i = 0; i < pd.length; i++) { const t = i / audio.sampleRate; pd[i] = ((Math.random() * 2 - 1) * 0.8 + Math.sin(2 * Math.PI * 140 * t)) * Math.exp(-t / 0.008); }
             } catch (e) { audio = null; }
+        }
+        // Démarreur : le lanceur peine sur les compressions pendant 1 s
+        function playStarter() {
+            if(!audio || muted) return;
+            try {
+                const t = audio.currentTime;
+                const o = audio.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(70, t); o.frequency.linearRampToValueAtTime(95, t + 1);
+                const lfo = audio.createOscillator(); lfo.frequency.value = 7.5;
+                const lg = audio.createGain(); lg.gain.value = 0.5;
+                const am = audio.createGain(); am.gain.value = 0.5;
+                lfo.connect(lg); lg.connect(am.gain);
+                const f = audio.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 900;
+                const g = audio.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.16, t + 0.05); g.gain.setValueAtTime(0.16, t + 0.95); g.gain.linearRampToValueAtTime(0, t + 1.05);
+                o.connect(am); am.connect(f); f.connect(g); g.connect(audio.destination);
+                o.start(t); lfo.start(t); o.stop(t + 1.1); lfo.stop(t + 1.1);
+            } catch (e) {}
+        }
+        function playPop(when, vol) {
+            const s = audio.createBufferSource(); s.buffer = popBuf; s.playbackRate.value = 0.8 + Math.random() * 0.5;
+            const f = audio.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1400 + Math.random() * 1600;
+            const g = audio.createGain(); g.gain.value = vol;
+            s.connect(f); f.connect(g); g.connect(audio.destination); s.start(when);
+        }
+        function engineCatch() {
+            if(!audio || muted) return;
+            const t = audio.currentTime;
+            for(let k = 0; k < 3; k++) playPop(t + 0.35 + k * 0.09 + Math.random() * 0.05, 0.12);
         }
         function updateAudio(dt) {
             if(!audio) return;
-            const off = muted || paused || leaving, r = clamp(PL.rpm / 9000, 0, 1.1), thr = keys.ArrowUp || keys.z || keys.w || PL.boost;
-            const f = 70 + PL.rpm / 10 * 0.92;   // idéal : ~85 Hz au ralenti, ~900 Hz à 9 000 tr/min
-            v12.forEach(x => { x.o.frequency.value = f * x.m; });
-            lp.frequency.value = 900 + r * 3600 + (thr ? 1500 : 0);
-            engineGain.gain.value = off ? 0 : 0.045 + (thr ? 0.04 : 0) + r * 0.02 + (PL.boost ? 0.015 : 0);
+            const off = muted || paused || leaving, r = clamp(PL.rpm / 9000, 0, 1.1), thr = !!(ENG.on && (keys.ArrowUp || keys.z || keys.w || PL.boost));
+            const now = audio.currentTime;
+            engSrc.playbackRate.setTargetAtTime(Math.max(0.05, PL.rpm / ENG_REF), now, 0.02);
+            engLp.frequency.setTargetAtTime(700 + r * 3200 + (thr ? 2600 : 0), now, 0.04);
+            const vol = !ENG.on || off ? 0 : 0.16 + (thr ? 0.13 : 0) + r * 0.08 + (PL.boost ? 0.04 : 0);
+            engineGain.gain.setTargetAtTime(vol, now, 0.03);
+            const fire = PL.rpm / 10;   // 6 explosions par tour
+            screamOsc.frequency.setTargetAtTime(Math.max(20, fire * 2), now, 0.02);
+            screamOsc.bp.frequency.setTargetAtTime(Math.max(200, fire * 2), now, 0.02);
+            screamGain.gain.setTargetAtTime(thr ? Math.pow(r, 2.5) * 0.09 : Math.pow(r, 2.5) * 0.025, now, 0.05);
+            inductGain.gain.setTargetAtTime(thr ? 0.05 + r * 0.12 : 0.01, now, 0.05);
+            inductGain.filt.frequency.setTargetAtTime(1500 + r * 3500, now, 0.05);
+            // Pétarades quand on lâche l'accélérateur à haut régime
+            if(prevThr && !thr && PL.rpm > 4800 && !off) { const n = 3 + Math.floor(Math.random() * 5); for(let k = 0; k < n; k++) playPop(now + 0.05 + Math.random() * 0.7, 0.1 + Math.random() * 0.12); }
+            prevThr = thr;
             windGain.gain.value = off ? 0 : Math.min(0.07, Math.pow(PL.kmh / 340, 2) * 0.06);
             scrape = Math.max(0, scrape - dt);
             scrapeGain.gain.value = off || scrape <= 0 ? 0 : 0.07;
@@ -2769,6 +2862,7 @@
                 return;
             }
             if(first && !leaving) {
+                if((kn === 'z' || kn === 'w' || kn === 'ArrowUp') && !ENG.on && ENG.crank <= 0 && !mapOpen) { ENG.crank = 1; ENG.crankEnd = performance.now() + 1000; playStarter(); }
                 if(kn === 'm' || kn === 'Tab') toggleMap(!mapOpen);
                 else if(kn === 'Escape') { if(mapOpen) toggleMap(false); else leaveToGarage(); }
                 else if(kn === 'x') muted = !muted;
@@ -2796,10 +2890,15 @@
                     $('lobby').style.display = 'none';
                     buildWorld();
                     PERF = perfOf();
-                    const R = innerRoad;
-                    let i = 40;
-                    while(R.jn[i]) i++;
+                    // Départ sur la route, juste avant la dernière planque utilisée (la première au premier lancement)
+                    let hk = 0;
+                    try { hk = parseInt(localStorage.getItem('nfsLastHide'), 10); } catch (e) {}
+                    if(!(hk >= 0 && hk < hides.length)) hk = 0;
+                    const H = hides[hk], R = H.R;
+                    let i = Math.max(1, H.i - 5);
+                    while(R.jn[i] && i > 1) i--;
                     placeOnRoad(R, i);
+                    startHide = H;
                     traffic.forEach(spawnTraffic);
                     updateGps();
                     $('ui-layer').classList.add('active');
