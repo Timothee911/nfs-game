@@ -382,7 +382,7 @@
                 </div>
                 <div class="gx-id">
                     <div>
-                        <div class="gx-id-name">Saqr X1 <span class="gx-heat" title="Niveau de performance"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-3 2-4 2-7 2 1 3 3 3 5 1-1 1-3 0-8z"/></svg><b id="gx-heat">1</b></span></div>
+                        <div class="gx-id-name">Ferrari SF90 <span class="gx-heat" title="Niveau de performance"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-3 2-4 2-7 2 1 3 3 3 5 1-1 1-3 0-8z"/></svg><b id="gx-heat">1</b></span></div>
                         <div class="gx-id-sp"><span id="lobby-sp">0</span><em>SP</em></div>
                         <div class="gx-id-rec">Record radar <span id="lobby-best">--</span></div>
                     </div>
@@ -484,6 +484,7 @@
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>window.THREE || document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"><\/script>');</script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
     
     <script>
         if (typeof THREE === 'undefined') {
@@ -892,7 +893,7 @@
         const carShadow = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 7.2), new THREE.MeshBasicMaterial({
             map: radialTex([[0, 'rgba(0,0,0,0.9)'], [0.55, 'rgba(0,0,0,0.55)'], [1, 'rgba(0,0,0,0)']]), transparent: true, depthWrite: false
         }));
-        carShadow.rotation.x = -Math.PI / 2; carShadow.position.y = 0.006; carShadow.renderOrder = 12;
+        carShadow.rotation.x = -Math.PI / 2; carShadow.position.y = 0.006; carShadow.renderOrder = 12; carShadow.userData.keep = true;
         previewCar.add(carShadow);
         const previewMirror = createUltimateCar(0xe3262e, { lights: false });
         previewMirror.scale.y = -1;
@@ -1215,6 +1216,148 @@
         }
         applyColor(carColor);
 
+        // ====== FERRARI SF90 SPIDER : modèle 3D ferrari.glb, qui remplace la voiture dessinée dès qu'il est chargé ======
+        // Modèle « 2021 Ferrari SF90 Spider », licence CC BY-NC.
+        // Le fichier compte plus de 1 200 morceaux : on les fusionne par matière (caisse, roues, étriers) pour garder peu d'appels de dessin.
+        // Si le chargement échoue (page ouverte sans serveur, fichier absent), la voiture dessinée reste en place.
+        const FERRARI_URL = 'ferrari.glb', FERRARI_LEN = 4.71;   // longueur réelle de la SF90 (m)
+        function prepFerrari(gltf) {
+            const root = gltf.scene;
+            root.updateMatrixWorld(true);
+            const wheelNode = (re) => { let f = null; root.traverse(o => { if(!f && re.test(o.name)) f = o; }); return f; };
+            const wn = [/3DWheel_?Front_?L$/, /3DWheel_?Front_?R$/, /3DWheel_?Rear_?L$/, /3DWheel_?Rear_?R$/].map(wheelNode);
+            if(wn.some(n => !n)) throw new Error('roues introuvables dans ferrari.glb');
+            const hubs = wn.map(n => new THREE.Vector3().setFromMatrixPosition(n.matrixWorld));
+            // Repère du jeu : avant vers -z, posée sur le sol, centrée, longueur réelle
+            const box = new THREE.Box3().setFromObject(root), ctr = box.getCenter(new THREE.Vector3());
+            const fwd = hubs[0].clone().add(hubs[1]).sub(hubs[2]).sub(hubs[3]);
+            const rot = new THREE.Matrix4().makeRotationY(Math.PI - Math.atan2(fwd.x, fwd.z));
+            const tb = box.clone().translate(new THREE.Vector3(-ctr.x, -box.min.y, -ctr.z)).applyMatrix4(rot);
+            const sc = FERRARI_LEN / (tb.max.z - tb.min.z);
+            const M = new THREE.Matrix4().makeScale(sc, sc, sc).multiply(rot).multiply(new THREE.Matrix4().makeTranslation(-ctr.x, -box.min.y, -ctr.z));
+            hubs.forEach(h => h.applyMatrix4(M));
+            // Chaque maillage va dans un lot : caisse, roue k (tourne) ou étrier k (braque sans tourner)
+            const lots = new Map(), tmp = new THREE.Vector3(), nm = new THREE.Matrix3(), W = new THREE.Matrix4();
+            root.traverse(o => {
+                if(!o.isMesh) return;
+                let grp = 'body';
+                for(let p = o; p; p = p.parent) { if(/Calliper|Caliper/i.test(p.name)) { grp = 'cal'; break; } if(/Combined_Wheels|Wheel1A_3D/i.test(p.name)) { grp = 'wheel'; break; } }
+                W.multiplyMatrices(M, o.matrixWorld);
+                if(grp !== 'body') {   // roue la plus proche du centre du morceau
+                    o.geometry.computeBoundingBox(); o.geometry.boundingBox.getCenter(tmp).applyMatrix4(W);
+                    let k = 0; hubs.forEach((h, q) => { if(h.distanceTo(tmp) < hubs[k].distanceTo(tmp)) k = q; });
+                    grp += k;
+                }
+                (Array.isArray(o.material) ? o.material : [o.material]).forEach((mat, mi) => {
+                    const key = grp + '|' + (mat.name || mat.uuid);
+                    let L = lots.get(key);
+                    if(!L) lots.set(key, L = { grp, mat, parts: [] });
+                    L.parts.push({ g: o.geometry, W: W.clone(), group: Array.isArray(o.material) ? o.geometry.groups.find(g => g.materialIndex === mi) : null });
+                });
+            });
+            // Fusion : positions et normales dans le repère du jeu (moyeu à l'origine pour les roues), uv, uv2, couleurs
+            const nk = (a) => { if(!a.normalized) return 1; const t = (a.array || a.data.array).constructor; return t === Uint8Array ? 1 / 255 : t === Uint16Array ? 1 / 65535 : t === Int8Array ? 1 / 127 : t === Int16Array ? 1 / 32767 : 1; };
+            const out = [];
+            lots.forEach(L => {
+                const hub = L.grp === 'body' ? null : hubs[+L.grp.slice(-1)];
+                let nv = 0, ni = 0, hasC = false, hasU2 = false;
+                L.parts.forEach(P => { const g = P.g, n = g.attributes.position.count; nv += n; ni += P.group ? P.group.count : g.index ? g.index.count : n; hasC = hasC || !!g.attributes.color; hasU2 = hasU2 || !!g.attributes.uv2; });
+                const pos = new Float32Array(nv * 3), nor = new Float32Array(nv * 3), uv = new Float32Array(nv * 2), uv2 = hasU2 ? new Float32Array(nv * 2) : null, col = hasC ? new Float32Array(nv * 3).fill(1) : null, idx = new Uint32Array(ni);
+                let vo = 0, io = 0;
+                L.parts.forEach(P => {
+                    const g = P.g, A = g.attributes, n = A.position.count, flip = P.W.determinant() < 0;
+                    nm.getNormalMatrix(P.W);
+                    const kp = nk(A.position);
+                    for(let i = 0; i < n; i++) {
+                        tmp.set(A.position.getX(i) * kp, A.position.getY(i) * kp, A.position.getZ(i) * kp).applyMatrix4(P.W);
+                        if(hub) tmp.sub(hub);
+                        pos[(vo + i) * 3] = tmp.x; pos[(vo + i) * 3 + 1] = tmp.y; pos[(vo + i) * 3 + 2] = tmp.z;
+                    }
+                    if(A.normal) { const k = nk(A.normal); for(let i = 0; i < n; i++) { tmp.set(A.normal.getX(i) * k, A.normal.getY(i) * k, A.normal.getZ(i) * k).applyMatrix3(nm).normalize(); nor[(vo + i) * 3] = tmp.x; nor[(vo + i) * 3 + 1] = tmp.y; nor[(vo + i) * 3 + 2] = tmp.z; } }
+                    if(A.uv) { const k = nk(A.uv); for(let i = 0; i < n; i++) { uv[(vo + i) * 2] = A.uv.getX(i) * k; uv[(vo + i) * 2 + 1] = A.uv.getY(i) * k; } }
+                    if(uv2) { const s = A.uv2 || A.uv; if(s) { const k = nk(s); for(let i = 0; i < n; i++) { uv2[(vo + i) * 2] = s.getX(i) * k; uv2[(vo + i) * 2 + 1] = s.getY(i) * k; } } }
+                    if(col && A.color) { const k = nk(A.color); for(let i = 0; i < n; i++) { col[(vo + i) * 3] = A.color.getX(i) * k; col[(vo + i) * 3 + 1] = A.color.getY(i) * k; col[(vo + i) * 3 + 2] = A.color.getZ(i) * k; } }
+                    const s0 = P.group ? P.group.start : 0, cnt = P.group ? P.group.count : g.index ? g.index.count : n;
+                    for(let t = 0; t < cnt; t += 3) for(let c = 0; c < 3; c++) { const src = s0 + t + (flip ? 2 - c : c); idx[io + t + c] = vo + (g.index ? g.index.getX(src) : src); }
+                    vo += n; io += cnt;
+                });
+                const geo = new THREE.BufferGeometry();
+                geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+                if(uv2) geo.setAttribute('uv2', new THREE.BufferAttribute(uv2, 2));
+                if(col) geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+                geo.setIndex(new THREE.BufferAttribute(idx, 1));
+                geo.computeBoundingSphere();
+                out.push({ grp: L.grp, mat: L.mat, geo, vc: hasC });
+            });
+            const all = new THREE.Box3(); out.forEach(o => { if(o.grp === 'body') { o.geo.computeBoundingBox(); all.union(o.geo.boundingBox); } });
+            return { parts: out, hubs, box: all, r: hubs.reduce((s, h) => s + h.y, 0) / 4 };
+        }
+        // Habille une voiture du jeu (joueur, garage, reflet du garage) avec la Ferrari ; linear = rendu sans conversion sRGB (garage)
+        function dressFerrari(car, F, opt) {
+            car.children.forEach(o => { if((o.isMesh || o.type === 'Group') && !o.userData.keep) o.visible = false; });
+            const fg = new THREE.Group();
+            fg.scale.setScalar(opt.scale || 1);
+            const mats = new Map(), wheels = [];
+            const texFix = (t) => { if(!t || !opt.linear) return t; const c = t.clone(); c.encoding = THREE.LinearEncoding; c.needsUpdate = true; return c; };
+            const matFor = (src, vc) => {
+                if(mats.has(src)) return mats.get(src);
+                const name = src.name || '';
+                let m, own = true;   // own : matière refaite ici (couleurs en hexadécimal sRGB, comme le reste du jeu)
+                if(/Paint_Material/.test(name)) {   // peinture : vernis, couleur choisie au garage
+                    m = new THREE.MeshPhysicalMaterial({ color: carColor, metalness: 0.55, roughness: 0.28, clearcoat: 1, clearcoatRoughness: 0.04, emissive: carColor, emissiveIntensity: 0.04 });
+                    car.bodyMat = m;
+                } else if(/RED_GLASS/.test(name)) {   // feux arrière : s'allument au freinage
+                    m = new THREE.MeshStandardMaterial({ color: 0x5a0000, emissive: 0xff1010, emissiveIntensity: 2.4, roughness: 0.1, transparent: true, opacity: 0.88 });
+                    car.tailMat = m;
+                } else if(/Window/.test(name)) {   // vitres teintées
+                    m = new THREE.MeshPhysicalMaterial({ color: 0x0a0d12, metalness: 0.1, roughness: 0.04, clearcoat: 1, transparent: true, opacity: 0.55, depthWrite: false });
+                } else {
+                    own = false;
+                    m = src.clone();
+                    ['map', 'emissiveMap'].forEach(k => { if(m[k]) m[k] = texFix(m[k]); });
+                    m.vertexColors = vc;
+                    m.vertexTangents = false;
+                    if(m.normalScale) m.normalScale.y = -Math.abs(m.normalScale.y);   // sans tangentes, l'axe v de la carte de relief est inversé
+                    if(m.transparent && m.opacity < 0.3) m.opacity = 0.3;
+                }
+                // Garage : rendu sans conversion sRGB, les facteurs glTF (linéaires) sont repassés en sRGB.
+                // Monde : rendu linéaire, les couleurs hexadécimales des matières refaites sont converties.
+                if(opt.linear && !own) { if(m.color) m.color.convertLinearToSRGB(); if(m.emissive) m.emissive.convertLinearToSRGB(); }
+                if(!opt.linear && own) { m.color.convertSRGBToLinear(); if(m.emissive) m.emissive.convertSRGBToLinear(); }
+                if(opt.mirror) { m.transparent = true; m.opacity = 0.28; m.depthWrite = false; }
+                mats.set(src, m);
+                return m;
+            };
+            const piv = F.hubs.map((h, k) => { const g = new THREE.Group(), s = new THREE.Group(); g.position.copy(h); g.rotation.order = 'YXZ'; g.add(s); fg.add(g); wheels.push({ g, s, front: h.z < 0 }); return { g, s }; });
+            F.parts.forEach(P => {
+                const mesh = new THREE.Mesh(P.geo, matFor(P.mat, P.vc));
+                mesh.castShadow = !opt.mirror; mesh.receiveShadow = true;
+                if(opt.mirror) mesh.renderOrder = 5;
+                if(P.grp === 'body') fg.add(mesh);
+                else piv[+P.grp.slice(-1)][P.grp.startsWith('wheel') ? 's' : 'g'].add(mesh);
+            });
+            car.add(fg);
+            car.wheels = wheels;
+            car.ferrari = fg;
+            return fg;
+        }
+        if(THREE.GLTFLoader) new THREE.GLTFLoader().load(FERRARI_URL, (gltf) => {
+            let F;
+            try { F = prepFerrari(gltf); } catch (e) { console.warn('Ferrari : ', e); return; }
+            const pv = 6.0 / FERRARI_LEN;   // au garage, la voiture garde la taille de cadrage de l'ancienne
+            dressFerrari(previewCar, F, { linear: true, scale: pv });
+            dressFerrari(previewMirror, F, { linear: true, scale: pv, mirror: true });
+            dressFerrari(player, F, {});
+            player.scale.setScalar(1);
+            player.wheelR = F.r;
+            // Phares, flammes de nitro : replacés sur la Ferrari (double échappement central, haut sur le bouclier arrière)
+            let si = 0;
+            player.children.forEach(o => { if(o.isSpotLight) { const sd = si++ ? 1 : -1; o.position.set(sd * 0.62, 0.62, F.box.min.z + 0.1); o.target.position.set(sd * 0.6, 0, F.box.min.z - 33); } });
+            flames.forEach((s, k) => s.position.set((k ? 1 : -1) * 0.16, 0.56, F.box.max.z + 0.12));
+            applyColor(carColor);
+            console.log('Ferrari chargée : ' + F.parts.length + ' lots, rayon de roue ' + F.r.toFixed(3) + ' m');
+        }, undefined, (e) => console.warn('ferrari.glb non chargé, voiture dessinée conservée', e));
+
         // ====== Speedlistes, points SP, améliorations ======
         // Suivi de la sortie en cours (remis à zéro à chaque sortie : la page se recharge en revenant au garage)
         const mt = { fast: 0, near: 0, dist: 0, drift: 0, maxMult: 1, bestChain: 0, radarMax: 0, wrong: 0, raceSP: 0 };
@@ -1336,10 +1479,10 @@
             let h = '';
             for(let i = 0; i < 5; i++) {
                 const own = i === 0;
-                h += '<button type="button" class="gx-tile' + (own ? '' : ' locked') + (i === carSel ? ' sel' : '') + '" data-i="' + i + '" aria-label="' + (own ? 'Saqr X1' : 'Emplacement verrouillé') + '">'
+                h += '<button type="button" class="gx-tile' + (own ? '' : ' locked') + (i === carSel ? ' sel' : '') + '" data-i="' + i + '" aria-label="' + (own ? 'Ferrari SF90 Spider' : 'Emplacement verrouillé') + '">'
                    + '<svg viewBox="0 0 124 40" aria-hidden="true" style="height:48%"><g' + (own ? ' fill="' + hex6(carColor) + '" fill-opacity="0.85"' : '') + '>' + CAR_SIL + '</g></svg>'
                    + (own ? '' : '<svg class="gx-lock" viewBox="0 0 24 24" aria-hidden="true">' + ICONS.lock + '</svg>')
-                   + '<span class="gx-tag">' + (own ? 'Saqr X1' : 'Bientôt') + '</span></button>';
+                   + '<span class="gx-tag">' + (own ? 'Ferrari SF90' : 'Bientôt') + '</span></button>';
             }
             $('car-tiles').innerHTML = h;
             renderInfo();
@@ -1376,7 +1519,7 @@
             const box = $('gx-info');
             let h = '';
             if(screen === 'cars') {
-                h = carSel === 0 ? '<b>Saqr X1<span>Sélectionnée</span></b><p class="gx-desc">Hypercar à moteur central</p>' : '<b>Emplacement verrouillé</b><p class="gx-desc">De nouvelles voitures arriveront bientôt</p>';
+                h = carSel === 0 ? '<b>Ferrari SF90 Spider<span>Sélectionnée</span></b><p class="gx-desc">Hypercar hybride à moteur V8 central. Modèle 3D « 2021 Ferrari SF90 Spider », licence CC BY-NC.</p>' : '<b>Emplacement verrouillé</b><p class="gx-desc">De nouvelles voitures arriveront bientôt</p>';
             } else if(screen === 'perf') {
                 const u = UPGRADES[upSel], lv = upLv[u.id], cost = u.cost[lv];
                 h = '<b>' + u.name + '<span>' + lv + ' de 3</span></b><p class="gx-desc">' + (buyMsg || u.what + ' par niveau') + '</p>';
@@ -3918,11 +4061,11 @@
             SUS.gp += (pitch - SUS.gp) * Math.min(1, dt * 14); SUS.gr += (roll - SUS.gr) * Math.min(1, dt * 14);
             player.rotation.x = SUS.gp + SUS.p + Math.sin(time * 31) * 0.012 * bumpy;
             player.rotation.z = SUS.gr + SUS.r + Math.sin(time * 23) * 0.015 * bumpy;
-            PL.spin -= PL.vf * dt / 0.34;
+            PL.spin -= PL.vf * dt / (player.wheelR || 0.34);
             if(player.wheels) player.wheels.forEach(wh => { wh.s.rotation.x = PL.spin; if(wh.front) wh.g.rotation.y = PL.steer * 0.42; });   // l'étrier reste fixe
             if(player.tailMat) player.tailMat.emissiveIntensity = (keys.ArrowDown || keys.s || PAD.brk > 0.04) ? 6 : 2.4;
             const fl = PL.boost ? 1 : 0;
-            flames.forEach(s => { s.material.opacity += (fl - s.material.opacity) * Math.min(1, dt * 12); const sc = 0.5 + s.material.opacity * (0.9 + Math.random() * 0.5); s.scale.set(sc, sc, 1); });
+            flames.forEach(s => { s.material.opacity += (fl - s.material.opacity) * Math.min(1, dt * 12); const sc = (0.5 + s.material.opacity * (0.9 + Math.random() * 0.5)) * player.scale.x * 0.62; s.scale.set(sc, sc, 1); });   // taille réglée pour la Ferrari (échelle 1)
             // Fumée quand les pneus glissent
             slideAmt += ((Math.abs(PL.vl) > 2.5 && Math.hypot(PL.vx, PL.vz) > 8 ? Math.min(1, Math.abs(PL.vl) / 9) : 0) - slideAmt) * Math.min(1, dt * 8);
             smokeT -= dt;
@@ -3960,7 +4103,8 @@
             fovBoost += ((PL.boost ? 9 : 0) - fovBoost) * Math.min(1, dt * 5);
             if(camMode === 1) {
                 // Vue capot
-                camera.position.set(PL.x - sinY * 0.4, PL.y + 1.02, PL.z - cosY * 0.4);
+                const hf = player.ferrari ? 1.05 : 0.4, hy = player.ferrari ? 1.08 : 1.02;   // Ferrari : au-dessus du capot, devant le pare-brise
+                camera.position.set(PL.x - sinY * hf, PL.y + hy, PL.z - cosY * hf);
                 camera.lookAt(PL.x - sinY * 40, PL.y + 0.9 + (groundY(PL.x - sinY * 12, PL.z - cosY * 12) - PL.y) * 0.8, PL.z - cosY * 40);
                 camera.rotation.z += (SUS.gr + SUS.r) * 0.35;   // la tête du pilote compense : l'horizon reste presque droit
                 camYaw = PL.yaw;
