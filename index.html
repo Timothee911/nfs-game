@@ -1443,10 +1443,10 @@
         };
         const svg = (k, vb) => '<svg viewBox="' + (vb || '0 0 24 24') + '" aria-hidden="true">' + ICONS[k] + '</svg>';
         const UPGRADES = [
-            { id: 'moteur', name: 'Moteur', stat: 0, what: 'Vitesse de pointe +4 %', cost: [400, 800, 1400] },
-            { id: 'turbo', name: 'Turbo', stat: 1, what: 'Accélération +12 %', cost: [300, 600, 1100] },
-            { id: 'pneus', name: 'Pneus', stat: 2, what: 'Adhérence en virage +7 %', cost: [400, 800, 1400] },
-            { id: 'nitro', name: 'Nitro', stat: 3, what: 'Recharge du nitro +30 %', cost: [300, 600, 1100] }
+            { id: 'moteur', name: 'Moteur', stat: 0, what: 'Vitesse de pointe +4 %', cost: [400, 800, 1400, 2200, 3200] },
+            { id: 'turbo', name: 'Turbo', stat: 1, what: 'Accélération +12 %', cost: [300, 600, 1100, 1700, 2500] },
+            { id: 'pneus', name: 'Pneus', stat: 2, what: 'Adhérence en virage +7 %', cost: [400, 800, 1400, 2200, 3200] },
+            { id: 'nitro', name: 'Nitro', stat: 3, what: 'Recharge du nitro +30 %', cost: [300, 600, 1100, 1700, 2500] }
         ];
         let sp = 0;
         try { sp = Math.max(0, parseInt(localStorage.getItem('nfsSP'), 10) || 0); } catch (e) {}
@@ -1456,7 +1456,7 @@
         if(!slState.bonus || typeof slState.bonus !== 'object') slState.bonus = {};
         const upLv = { moteur: 0, turbo: 0, pneus: 0, nitro: 0 };
         const savedUp = loadJSON('nfsUpgrades', {});
-        Object.keys(upLv).forEach(k => { upLv[k] = Math.min(3, Math.max(0, parseInt(savedUp[k], 10) || 0)); });
+        Object.keys(upLv).forEach(k => { upLv[k] = Math.min(5, Math.max(0, parseInt(savedUp[k], 10) || 0)); });
         // Effets réels des améliorations sur la conduite
         const perfOf = () => ({ top: 1 + 0.04 * upLv.moteur, accel: 1 + 0.12 * upLv.turbo, grip: 1 + 0.07 * upLv.pneus, recharge: 1 + 0.3 * upLv.nitro });
         let PERF = perfOf();
@@ -1464,8 +1464,8 @@
         const isDone = (l, m) => !!slState.done[l.id + ':' + m.id];
         const doneCount = (l) => l.missions.filter(m => isDone(l, m)).length;
         // Caractéristiques affichées, sur 10 (base + gain par niveau)
-        const STATS = [['Vitesse de pointe', 7.6, 0.6, 'moteur'], ['Accélération', 7.2, 0.7, 'turbo'], ['Contrôle', 7.0, 0.8, 'pneus'], ['Nitro', 6.4, 0.9, 'nitro']];
-        const heat = () => 1 + Math.floor((upLv.moteur + upLv.turbo + upLv.pneus + upLv.nitro) / 3);
+        const STATS = [['Vitesse de pointe', 7.6, 0.48, 'moteur'], ['Accélération', 7.2, 0.56, 'turbo'], ['Contrôle', 7.0, 0.64, 'pneus'], ['Nitro', 6.4, 0.72, 'nitro']];
+        const heat = () => 1 + Math.floor((upLv.moteur + upLv.turbo + upLv.pneus + upLv.nitro) / 4);
         const fr1 = (x) => x.toFixed(1).replace('.', ',');
 
         // ====== Interface du garage ======
@@ -1492,7 +1492,7 @@
             let h = '<div class="gx-car"><div><b>Ferrari</b><span>SF90 Spider</span></div><span class="gx-heat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-3 2-4 2-7 2 1 3 3 3 5 1-1 1-3 0-8z"/></svg>' + heat() + '</span></div>';
             STATS.forEach(([label, base, step, key]) => {
                 const v = base + step * upLv[key];
-                const next = previewKey === key && upLv[key] < 3;
+                const next = previewKey === key && upLv[key] < 5;
                 h += '<div class="gx-stat"><span>' + label + '</span><em' + (next ? ' class="up"' : '') + '>' + fr1(next ? v + step : v) + '</em><i class="gx-bar"><b style="width:' + (v * 10) + '%"></b>'
                    + (next ? '<s style="left:' + (v * 10) + '%;width:' + (step * 10) + '%"></s>' : '') + '</i></div>';
             });
@@ -1537,7 +1537,7 @@
             PERF = perfOf();
             $('perf-stats').innerHTML = statsHTML(UPGRADES[upSel].id);
             $('perf-tiles').innerHTML = UPGRADES.map((u, i) => '<button type="button" class="gx-tile' + (i === upSel ? ' sel' : '') + '" data-i="' + i + '" aria-label="' + u.name + '">' + svg(u.id, '0 0 64 40')
-                + '<span class="gx-pips">' + [0, 1, 2].map(k => '<i class="' + (k < upLv[u.id] ? 'on' : '') + '"></i>').join('') + '</span></button>').join('');
+                + '<span class="gx-pips">' + [0, 1, 2, 3, 4].map(k => '<i class="' + (k < upLv[u.id] ? 'on' : '') + '"></i>').join('') + '</span></button>').join('');
             renderInfo();
         }
         function renderPaint() {
@@ -1568,7 +1568,7 @@
                 h = carSel === 0 ? '<b>Ferrari SF90 Spider<span>Sélectionnée</span></b><p class="gx-desc">Hypercar hybride à moteur V8 central. Modèle 3D « 2021 Ferrari SF90 Spider » par Outlaw Games (Sketchfab), licence CC BY-NC.</p>' : '<b>Emplacement verrouillé</b><p class="gx-desc">De nouvelles voitures arriveront bientôt</p>';
             } else if(screen === 'perf') {
                 const u = UPGRADES[upSel], lv = upLv[u.id], cost = u.cost[lv];
-                h = '<b>' + u.name + '<span>' + lv + ' de 3</span></b><p class="gx-desc">' + (buyMsg || u.what + ' par niveau') + '</p>';
+                h = '<b>' + u.name + '<span>' + lv + ' de 5</span></b><p class="gx-desc">' + (buyMsg || u.what + ' par niveau') + '</p>';
                 if(cost === undefined) h += '<p>Niveau maximum atteint</p>';
                 else h += '<button type="button" class="gx-act" data-act="buy"' + (sp < cost ? ' disabled' : '') + '>Améliorer : ' + fmtSP(cost) + ' SP' + (sp < cost ? ' (il te manque ' + fmtSP(cost - sp) + ')' : '') + '</button>';
             } else if(screen === 'lists') {
