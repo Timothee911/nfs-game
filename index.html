@@ -247,6 +247,7 @@
         #lobby .gx-tile.sel { border: 2px solid #f4f4f4; color: #fff; background: rgba(28,26,24,0.8); }
         #lobby .gx-tiles.focus .gx-tile.sel::after { content: ''; position: absolute; left: 50%; bottom: calc(-2.4vh - 1px); width: 14px; height: 14px; transform: translateX(-50%) rotate(45deg); background: rgba(5,5,6,0.92); border-left: 1.5px solid rgba(255,255,255,0.75); border-top: 1.5px solid rgba(255,255,255,0.75); }
         #lobby .gx-tile.locked { color: #5d5a55; }
+        #lobby .gx-tile img.gx-shot { position: absolute; left: 4%; top: 6%; width: 92%; height: calc(94% - clamp(10.7px, 1.6vh, 14.8px) - 9px); object-fit: contain; pointer-events: none; filter: drop-shadow(0 6px 8px rgba(0,0,0,0.6)); }
         #lobby .gx-tile .gx-lock { position: absolute; right: 8px; top: 8px; width: 18px; height: 18px; }
         #lobby .gx-tile .gx-tag { position: absolute; left: 10px; bottom: 7px; font: 500 clamp(10.7px, 1.6vh, 14.8px)/1 var(--gx-cond); text-transform: uppercase; color: inherit; }
         #lobby .gx-pips { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); display: flex; gap: 5px; }
@@ -1172,6 +1173,8 @@
         player.scale.setScalar(0.78);
         (() => { const seen = new Set(); player.traverse(o => { const m = o.material; if(m && !seen.has(m)) { seen.add(m); if(m.color) m.color.convertSRGBToLinear(); if(m.emissive) m.emissive.convertSRGBToLinear(); } }); })();
         scene.add(player);
+        player.heads = player.children.filter(o => o.isSpotLight);   // phares : éteints jusqu'au contact
+        player.heads.forEach(o => { o.userData.i0 = o.intensity; o.intensity = 0; });
         
         // ====== GARAGE : réglages mémorisés (peinture, circuit, météo, adversaire) ======
         const loadJSON = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v && typeof v === 'object' ? v : d; } catch (e) { return d; } };
@@ -1207,12 +1210,48 @@
             const sc = parseInt(localStorage.getItem('nfsDubaiColor'), 10);
             if(CAR_COLORS.some(o => o.c === sc)) carColor = sc;
         } catch (e) {}
+        let carShot = '', carShotReady = false;   // photo de la voiture pour le garage (voir snapCar)
         function setCarColor(car, hex) { car.bodyMat.color.setHex(hex); car.bodyMat.emissive.setHex(hex); }
         function applyColor(hex) {
             carColor = hex;
             setCarColor(previewCar, hex); setCarColor(previewMirror, hex); setCarColor(player, hex);
             player.bodyMat.color.convertSRGBToLinear(); player.bodyMat.emissive.convertSRGBToLinear();   // le monde est rendu en lumière linéaire
             store('nfsDubaiColor', String(hex));
+            if(carShotReady) { clearTimeout(snapCar.t); snapCar.t = setTimeout(snapCar, 150); }
+        }
+        // Photo de la voiture actuelle (vraie Ferrari, peinture choisie) pour la vignette « Changer de voiture » :
+        // la voiture du garage est rendue une fois, de trois-quarts avant, sans le sol ni son reflet, sur fond transparent
+        function snapCar() {
+            let r = null;
+            const ry = previewCar.rotation.y, hid = [floor, previewMirror].filter(o => o.visible);
+            try {
+                const W = 1200, H = 640;
+                r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+                r.setPixelRatio(1); r.setSize(W, H);
+                r.toneMapping = previewRenderer.toneMapping; r.toneMappingExposure = previewRenderer.toneMappingExposure; r.outputEncoding = previewRenderer.outputEncoding;
+                const cam = new THREE.PerspectiveCamera(24, W / H, 0.1, 100);
+                cam.position.set(0, 1.9, 13); cam.lookAt(0, 0.5, 0);
+                hid.forEach(o => { o.visible = false; });
+                previewCar.rotation.y = Math.PI - 0.62;
+                r.render(previewScene, cam);
+                // recadrage serré sur la voiture (pixels non transparents), puis export en PNG
+                const c2 = document.createElement('canvas'); c2.width = W; c2.height = H;
+                const g = c2.getContext('2d'); g.drawImage(r.domElement, 0, 0);
+                const px = g.getImageData(0, 0, W, H).data;
+                let x0 = W, y0 = H, x1 = 0, y1 = 0;
+                for(let y = 0; y < H; y++) for(let x = 0; x < W; x++) if(px[(y * W + x) * 4 + 3] > 24) { if(x < x0) x0 = x; if(x > x1) x1 = x; if(y < y0) y0 = y; if(y > y1) y1 = y; }
+                if(x1 > x0 && y1 > y0) {
+                    const m = 6, cw = x1 - x0 + 2 * m, chh = y1 - y0 + 2 * m, c3 = document.createElement('canvas');
+                    c3.width = cw; c3.height = chh;
+                    c3.getContext('2d').drawImage(c2, x0 - m, y0 - m, cw, chh, 0, 0, cw, chh);
+                    carShot = c3.toDataURL('image/png');
+                }
+            } catch (e) { console.warn('photo de la voiture', e); }
+            hid.forEach(o => { o.visible = true; });
+            previewCar.rotation.y = ry;
+            if(r) { r.dispose(); r.forceContextLoss(); }
+            document.querySelectorAll('#car-tiles img.gx-shot').forEach(im => { im.src = carShot; });
+            if(carShot && $('car-tiles') && $('car-tiles').children.length && !document.querySelector('#car-tiles img.gx-shot')) renderCars();
         }
         applyColor(carColor);
 
@@ -1324,6 +1363,10 @@
                 // Monde : rendu linéaire, les couleurs hexadécimales des matières refaites sont converties.
                 if(opt.linear && !own) { if(m.color) m.color.convertLinearToSRGB(); if(m.emissive) m.emissive.convertLinearToSRGB(); }
                 if(!opt.linear && own) { m.color.convertSRGBToLinear(); if(m.emissive) m.emissive.convertSRGBToLinear(); }
+                if(/LightA_Material/.test(name) && m.map) {   // optiques (phares, feux de jour) : s'allument au contact dans le monde, allumées au garage
+                    m.emissive.setRGB(1, 1, 1); m.emissiveMap = m.map; m.emissiveIntensity = opt.linear && !opt.mirror ? 0.8 : 0;
+                    if(!opt.linear) car.lightMat = m;
+                }
                 if(opt.mirror) { m.transparent = true; m.opacity = 0.28; m.depthWrite = false; }
                 mats.set(src, m);
                 return m;
@@ -1354,7 +1397,9 @@
             let si = 0;
             player.children.forEach(o => { if(o.isSpotLight) { const sd = si++ ? 1 : -1; o.position.set(sd * 0.62, 0.62, F.box.min.z + 0.1); o.target.position.set(sd * 0.6, 0, F.box.min.z - 33); } });
             flames.forEach((s, k) => s.position.set((k ? 1 : -1) * 0.16, 0.56, F.box.max.z + 0.12));
+            player.exhZ = F.box.max.z + 0.12;
             applyColor(carColor);
+            carShotReady = true; snapCar();
             console.log('Ferrari chargée : ' + F.parts.length + ' lots, rayon de roue ' + F.r.toFixed(3) + ' m');
         }, undefined, (e) => console.warn('ferrari.glb non chargé, voiture dessinée conservée', e));
 
@@ -1444,7 +1489,7 @@
         function addSP(n) { sp += n; mt.raceSP += n; store('nfsSP', String(sp)); renderSP(); }
 
         function statsHTML(previewKey) {
-            let h = '<div class="gx-car"><div><b>Saqr</b><span>X1 Hypercar</span></div><span class="gx-heat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-3 2-4 2-7 2 1 3 3 3 5 1-1 1-3 0-8z"/></svg>' + heat() + '</span></div>';
+            let h = '<div class="gx-car"><div><b>Ferrari</b><span>SF90 Spider</span></div><span class="gx-heat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-3 2-4 2-7 2 1 3 3 3 5 1-1 1-3 0-8z"/></svg>' + heat() + '</span></div>';
             STATS.forEach(([label, base, step, key]) => {
                 const v = base + step * upLv[key];
                 const next = previewKey === key && upLv[key] < 3;
@@ -1480,7 +1525,8 @@
             for(let i = 0; i < 5; i++) {
                 const own = i === 0;
                 h += '<button type="button" class="gx-tile' + (own ? '' : ' locked') + (i === carSel ? ' sel' : '') + '" data-i="' + i + '" aria-label="' + (own ? 'Ferrari SF90 Spider' : 'Emplacement verrouillé') + '">'
-                   + '<svg viewBox="0 0 124 40" aria-hidden="true" style="height:48%"><g' + (own ? ' fill="' + hex6(carColor) + '" fill-opacity="0.85"' : '') + '>' + CAR_SIL + '</g></svg>'
+                   + (own && carShot ? '<img class="gx-shot" src="' + carShot + '" alt="" draggable="false">'   // photo de la voiture actuelle
+                      : '<svg viewBox="0 0 124 40" aria-hidden="true" style="height:48%"><g' + (own ? ' fill="' + hex6(carColor) + '" fill-opacity="0.85"' : '') + '>' + CAR_SIL + '</g></svg>')
                    + (own ? '' : '<svg class="gx-lock" viewBox="0 0 24 24" aria-hidden="true">' + ICONS.lock + '</svg>')
                    + '<span class="gx-tag">' + (own ? 'Ferrari SF90' : 'Bientôt') + '</span></button>';
             }
@@ -4094,7 +4140,10 @@
 
         // ====== CONDUITE ======
         // État de la voiture, en mètres et en secondes. yaw = cap (0 : vers -z, positif : vers la gauche)
-        const ENG = { on: false, crank: 0, flare: 1, intro: 1 };   // moteur éteint au départ : Z lance le démarreur, il tourne 1 s plus tard
+        // Moteur éteint au départ. Z = bouton « Engine Start » : contact (phares, feux, compteur qui balaie), le moteur électrique
+        // avant lance le V8 pendant CRANK secondes, puis il prend : coup de gaz vers 4 300 tr/min, retombée au ralenti, petit nuage aux échappements
+        const CRANK = 0.72;
+        const ENG = { on: false, crank: 0, flare: 9, intro: 1, t0: 0, puff: 0, kick: 0 };
         let startHide = null, curCity = null;                  // planque de départ : ignorée tant qu'on ne s'en est pas éloigné
         const PL = { x: 0, y: 0, z: 0, yaw: 0, vx: 0, vz: 0, vf: 0, vl: 0, w: 0, steer: 0, kmh: 0, gear: 1, rpm: 900, nitro: 100, hp: 100,
             onRoad: true, inside: true, drift: false, boost: false, latA: 0, accA: 0, wreck: 0, spin: 0 };
@@ -4451,13 +4500,17 @@
             const lo = gear ? G_TOP[gear - 1] : 0, hi = G_TOP[gear] > 1 ? 1.04 : G_TOP[gear];
             const rpmT = PL.vf < -0.5 ? 1500 + Math.min(1, -PL.vf / 16) * 4500 : (gear ? 4300 : 1000) + clamp((fr - lo) / (hi - lo), 0, 1.05) * (gear ? 4400 : 7700);
             PL.rpm += (rpmT - PL.rpm) * Math.min(1, dt * 9);
-            if(ENG.on && ENG.flare < 0.3) { ENG.flare += dt; PL.rpm = Math.max(PL.rpm, 450 + 3600 * Math.pow(Math.min(1, ENG.flare / 0.3), 0.6)); }
+            if(ENG.on && ENG.flare < 2.5) {   // coup de gaz du démarrage : 4 300 tr/min en 0,17 s, puis retombée amortie, ralenti un peu haut (moteur froid)
+                ENG.flare += dt;
+                const f = ENG.flare, fl = f < 0.17 ? 700 + 3600 * Math.pow(f / 0.17, 0.7) : 1000 + 3300 * Math.exp(-(f - 0.17) / 0.24) + 260 * Math.exp(-(f - 0.17) / 1.4);
+                PL.rpm = Math.max(PL.rpm, fl);
+            }
             if(!ENG.on) {
                 if(ENG.crank > 0) {
-                    ENG.crank = Math.max(0.001, (ENG.crankEnd - performance.now()) / 1000);   // 1 s réelle, calée sur le bruit du démarreur
-                    if(performance.now() >= ENG.crankEnd) ENG.crank = 0;
-                    PL.rpm = 230 + 70 * Math.sin(time * 60);
-                    if(ENG.crank <= 0) { ENG.on = true; ENG.flare = 0; PL.rpm = 450; engineCatch(); }   // le moteur prend : coup de gaz puis ralenti
+                    const e = (performance.now() - ENG.t0) / 1000;   // temps réel, calé sur le son du lancement
+                    ENG.crank = Math.max(0.001, CRANK - e);
+                    PL.rpm = Math.min(420, Math.max(0, e - 0.1) * 800);   // le moteur électrique entraîne le V8 jusqu'à ~420 tr/min
+                    if(e >= CRANK) { ENG.crank = 0; ENG.on = true; ENG.flare = 0; PL.rpm = 700; ENG.puff = 0.45; ENG.kick = 1; engineCatch(); }   // il prend
                 } else PL.rpm = 0;
             }
             $('ui-layer').classList.toggle('intro', !ENG.on && ENG.crank <= 0);
@@ -4487,12 +4540,20 @@
             const tgP = clamp(PL.accA * 0.0028, -0.04, 0.025), tgR = clamp(-PL.latA * 0.0032, -0.045, 0.045), st = Math.min(dt, 0.033);
             SUS.pv += ((tgP - SUS.p) * 81 - SUS.pv * 12.6) * st; SUS.p += SUS.pv * st;
             SUS.rv += ((tgR - SUS.r) * 81 - SUS.rv * 12.6) * st; SUS.r += SUS.rv * st;
+            if(ENG.kick) { ENG.kick = 0; SUS.rv += 0.3; SUS.pv -= 0.1; }   // le V8 prend : la caisse bascule sous le couple, puis se recale
             SUS.gp += (pitch - SUS.gp) * Math.min(1, dt * 14); SUS.gr += (roll - SUS.gr) * Math.min(1, dt * 14);
+            // Vibrations du moteur : à-coups des compressions au lancement, frémissement au ralenti (plus fort pendant le coup de gaz)
+            const still = Math.max(0, 1 - Math.abs(PL.vf) / 3), ec = ENG.crank > 0 ? (performance.now() - ENG.t0) / 1000 : 0;
+            const vib = ENG.crank > 0 && ec > 0.1 ? Math.sin(ec * ec * 40) * 0.0035 : ENG.on ? Math.sin(time * 53) * (0.0007 + Math.max(0, PL.rpm - 1100) * 0.0000006) * still : 0;
             player.rotation.x = SUS.gp + SUS.p + Math.sin(time * 31) * 0.012 * bumpy;
-            player.rotation.z = SUS.gr + SUS.r + Math.sin(time * 23) * 0.015 * bumpy;
+            player.rotation.z = SUS.gr + SUS.r + Math.sin(time * 23) * 0.015 * bumpy + vib;
             PL.spin -= PL.vf * dt / (player.wheelR || 0.34);
             if(player.wheels) player.wheels.forEach(wh => { wh.s.rotation.x = PL.spin; if(wh.front) wh.g.rotation.y = PL.steer * 0.42; });   // l'étrier reste fixe
-            if(player.tailMat) player.tailMat.emissiveIntensity = (keys.ArrowDown || keys.s || PAD.brk > 0.04) ? 6 : 2.4;
+            // Contact : phares, feux de jour et feux arrière s'allument en 0,35 s dès qu'on appuie sur Engine Start (éteints avant)
+            const ign = ENG.t0 ? clamp((performance.now() - ENG.t0) / 350, 0, 1) : 0;
+            if(player.tailMat) player.tailMat.emissiveIntensity = ign * ((keys.ArrowDown || keys.s || PAD.brk > 0.04) ? 6 : 2.4);
+            if(player.lightMat) player.lightMat.emissiveIntensity = ign * 1.1;
+            if(player.heads) player.heads.forEach(o => { o.intensity = o.userData.i0 * ign; });
             const fl = PL.boost ? 1 : 0;
             flames.forEach(s => { s.material.opacity += (fl - s.material.opacity) * Math.min(1, dt * 12); const sc = (0.5 + s.material.opacity * (0.9 + Math.random() * 0.5)) * player.scale.x * 0.62; s.scale.set(sc, sc, 1); });   // taille réglée pour la Ferrari (échelle 1)
             // Fumée quand les pneus glissent
@@ -4502,13 +4563,24 @@
                 smokeT = 0.035;
                 const sd = smokeI % 2 ? 1 : -1, s = smokes[smokeI++ % smokes.length];
                 s.position.set(PL.x - fx * 1.5 + rx * sd * 0.8, PL.y + 0.3, PL.z - fz * 1.5 + rz * sd * 0.8);
-                s.userData.t = 0; s.visible = true;
+                s.userData.t = 0; s.userData.ex = 0; s.visible = true;
+            }
+            // Démarrage à froid : petit nuage aux deux sorties d'échappement quand le V8 prend
+            if(ENG.puff > 0) {
+                ENG.puff -= dt; smokeT -= dt;
+                if(smokeT <= -0.04) {
+                    smokeT = 0;
+                    const sd = smokeI % 2 ? 1 : -1, s = smokes[smokeI++ % smokes.length], ez = (player.exhZ || 2.3) + 0.15;
+                    s.position.set(PL.x + rx * sd * 0.16 - fx * ez, PL.y + 0.58, PL.z + rz * sd * 0.16 - fz * ez);
+                    s.userData.t = 0; s.userData.ex = 1; s.visible = true;
+                }
             }
             for(const s of smokes) {
                 if(!s.visible) continue;
                 s.userData.t += dt;
-                const k = s.userData.t / 0.9;
+                const ex = s.userData.ex, k = s.userData.t / (ex ? 1.6 : 0.9);
                 if(k >= 1) { s.visible = false; continue; }
+                if(ex) { const sc = 0.35 + k * 2.6; s.scale.set(sc, sc, 1); s.position.y += dt * 0.5; s.position.x -= fx * dt * 0.8 * (1 - k); s.position.z -= fz * dt * 0.8 * (1 - k); s.material.opacity = 0.32 * (1 - k) * Math.min(1, k * 8); continue; }
                 const sc = 1.2 + k * 5; s.scale.set(sc, sc, 1); s.position.y += dt * 1.2; s.material.opacity = 0.42 * (1 - k);
             }
             // Le ciel et l'ombre du soleil suivent la voiture ; les dalles de forêt lointaines sont masquées
@@ -4865,7 +4937,9 @@
         function updateHud(dt) {
             setT('d-speed', String(Math.round(PL.kmh)));
             setT('d-gear', '✲ ' + (PL.vf < -0.5 ? 'R' : PL.gear));
-            $('d-needle').setAttribute('transform', 'rotate(' + (135 + clamp(PL.rpm / 10000, 0, 1) * 270).toFixed(1) + ' 178 112)');
+            // Au contact, l'aiguille du compte-tours balaie tout le cadran puis revient (contrôle du tableau de bord)
+            const se = ENG.t0 ? (performance.now() - ENG.t0) / 1000 : 9, sw = se < 0.4 ? se / 0.4 : se < 0.8 ? 1 - (se - 0.4) / 0.4 : 0, sws = sw * sw * (3 - 2 * sw) * 10000;
+            $('d-needle').setAttribute('transform', 'rotate(' + (135 + clamp(Math.max(PL.rpm, sws) / 10000, 0, 1) * 270).toFixed(1) + ' 178 112)');
             $('d-n2o').setAttribute('transform', 'rotate(' + (135 + PL.nitro * 2.7).toFixed(1) + ' 46 166)');
             const hp = clamp(PL.hp / 100, 0, 1);
             $('d-hp').setAttribute('stroke-dashoffset', (HP_LEN * (1 - hp)).toFixed(1));
@@ -4904,16 +4978,16 @@
         let audio = null, audioOut = null, engSrc = null, engDrive = null, engLp = null, screamOsc = null, screamGain = null, inductGain = null, popBuf = null;
         let engineGain = null, windGain = null, scrapeGain = null, squealGain = null, prevThr = false;
         const ENG_REF = 6000;   // régime auquel la boucle d'échappement est enregistrée
-        // Boucle d'échappement d'un V12 : 12 explosions par cycle de 720°, alternées entre les deux bancs (gauche/droite),
-        // chacune avec sa propre force : c'est cette irrégularité qui donne le grondement rauque.
-        function buildV12Buffer() {
+        // Boucle d'échappement du V8 biturbo de la SF90 (vilebrequin à plat) : 8 explosions par cycle de 720°, régulières et
+        // alternées d'un banc à l'autre, chacune avec sa propre force : c'est ce qui donne le cri rauque d'un V8 Ferrari.
+        function buildV8Buffer() {
             const sr = audio.sampleRate, cyc = Math.round(sr * 120 / ENG_REF), NC = 8, len = cyc * NC;
             const buf = audio.createBuffer(2, len, sr), L = buf.getChannelData(0), Rr = buf.getChannelData(1);
             let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-            const cylAmp = []; for(let k = 0; k < 12; k++) cylAmp.push(0.78 + rnd() * 0.32);
+            const cylAmp = []; for(let k = 0; k < 8; k++) cylAmp.push(0.8 + rnd() * 0.28);
             const plen = Math.round(sr * 0.006);
-            for(let c = 0; c < NC; c++) for(let k = 0; k < 12; k++) {
-                const t0 = c * cyc + Math.round(k * cyc / 12 + (rnd() - 0.5) * cyc * 0.006);
+            for(let c = 0; c < NC; c++) for(let k = 0; k < 8; k++) {
+                const t0 = c * cyc + Math.round(k * cyc / 8 + (rnd() - 0.5) * cyc * 0.006);
                 const A = cylAmp[k] * (0.9 + rnd() * 0.2), bank = k % 2, ph = rnd() * 0.6;
                 for(let n = 0; n < plen; n++) {
                     const t = n / sr;
@@ -4938,14 +5012,14 @@
                 const comp = audio.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4;
                 engineGain.connect(comp); comp.connect(audioOut);
                 // Échappement
-                engSrc = audio.createBufferSource(); engSrc.buffer = buildV12Buffer(); engSrc.loop = true;
+                engSrc = audio.createBufferSource(); engSrc.buffer = buildV8Buffer(); engSrc.loop = true;
                 engDrive = audio.createWaveShaper();
                 const curve = new Float32Array(1024); for(let i = 0; i < 1024; i++) { const x = i / 512 - 1; curve[i] = Math.tanh(x * 1.8) * 0.9 + 0.1 * Math.tanh(x * 6); }
                 engDrive.curve = curve;
                 engLp = audio.createBiquadFilter(); engLp.type = 'lowpass'; engLp.Q.value = 0.9;
                 const body = audio.createBiquadFilter(); body.type = 'lowshelf'; body.frequency.value = 220; body.gain.value = 6;
                 engSrc.connect(engDrive); engDrive.connect(engLp); engLp.connect(body); body.connect(engineGain); engSrc.start();
-                // Hurlement aigu du V12 à haut régime (2e harmonique de l'allumage)
+                // Hurlement aigu du V8 à haut régime (2e harmonique de l'allumage)
                 screamOsc = audio.createOscillator(); screamOsc.type = 'sawtooth';
                 const sbp = audio.createBiquadFilter(); sbp.type = 'bandpass'; sbp.Q.value = 2.5;
                 screamGain = audio.createGain(); screamGain.gain.value = 0;
@@ -4971,37 +5045,59 @@
                 for(let i = 0; i < pd.length; i++) { const t = i / audio.sampleRate; pd[i] = ((Math.random() * 2 - 1) * 0.8 + Math.sin(2 * Math.PI * 140 * t)) * Math.exp(-t / 0.008); }
             } catch (e) { audio = null; }
         }
-        // Démarreur, enregistré une fois en mémoire : claquement du solénoïde, sifflement du lanceur,
-        // compressions des cylindres qui freinent le vilebrequin (« rr-rr-rr »), puis deux ratés juste avant que le moteur prenne
-        let starterBuf = null;
+        // Lancement, enregistré une fois en mémoire. La SF90 n'a pas de démarreur classique : au bouton Engine Start, petit clic,
+        // relais haute tension, carillon du tableau de bord, puis le moteur électrique placé entre V8 et boîte fait tourner le
+        // vilebrequin (sifflement d'onduleur qui monte, compressions de plus en plus rapprochées) jusqu'à ce que le V8 prenne.
+        let starterBuf = null, catchBuf = null;
         function buildStarterBuffer() {
-            const sr = audio.sampleRate, n = Math.round(sr * 1.05), buf = audio.createBuffer(2, n, sr), L = buf.getChannelData(0), Rc = buf.getChannelData(1);
+            const sr = audio.sampleRate, n = Math.round(sr * (CRANK + 0.05)), buf = audio.createBuffer(2, n, sr), L = buf.getChannelData(0), Rc = buf.getChannelData(1);
             let seed = 3; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-            const thump = (i0, amp, f, tau, nz, pan) => {   // coup sourd amorti + petit claquement
+            const thump = (i0, amp, f, tau, nz, pan) => {   // coup amorti + petit claquement
                 const m = Math.round(sr * tau * 6);
                 for(let k = 0; k < m && i0 + k < n; k++) {
-                    const t = k / sr, v = amp * (Math.exp(-t / tau) * Math.sin(2 * Math.PI * f * t) + nz * (rnd() * 2 - 1) * Math.exp(-t / 0.004));
+                    const t = k / sr, v = amp * (Math.exp(-t / tau) * Math.sin(2 * Math.PI * f * t) + nz * (rnd() * 2 - 1) * Math.exp(-t / 0.003));
                     L[i0 + k] += v * (1 - pan * 0.3); Rc[i0 + k] += v * (1 + pan * 0.3);
                 }
             };
-            thump(0, 0.9, 140, 0.012, 0.9, 0);   // solénoïde : « clac »
+            thump(0, 0.25, 1800, 0.0012, 0.5, 0);                  // clic du bouton
+            thump(Math.round(sr * 0.018), 0.45, 150, 0.007, 0.6, 0);   // relais de la batterie haute tension
+            [[0.05, 1568], [0.17, 1175]].forEach(([t, f]) => {      // carillon de mise sous tension
+                const i0 = Math.round(sr * t);
+                for(let k = 0; k < sr * 0.4 && i0 + k < n; k++) { const tt = k / sr, v = 0.06 * Math.min(1, tt / 0.004) * Math.exp(-tt / 0.1) * (Math.sin(2 * Math.PI * f * tt) + 0.3 * Math.sin(4 * Math.PI * f * tt)); L[i0 + k] += v; Rc[i0 + k] += v; }
+            });
             let ph = 0, wph = 0, lastC = -1;
-            const t0 = 0.05;
+            const t0 = 0.1, span = CRANK - t0;
             for(let i = Math.round(sr * t0); i < n; i++) {
-                const t = i / sr - t0, rpm = 90 + 170 * Math.min(1, t / 0.22) + 50 * t;   // le vilebrequin prend de la vitesse
+                const t = i / sr - t0, u = Math.min(1, t / span), rpm = 60 + 360 * Math.pow(u, 0.8);
                 ph += rpm / 60 / sr;
-                const c = Math.floor(ph * 6);   // 6 compressions par tour (V12, 4 temps)
-                const load = Math.pow(0.5 + 0.5 * Math.cos(2 * Math.PI * ph * 6), 3);   // la compression freine : le sifflement plonge
-                if(c !== lastC) { lastC = c; thump(i, 0.32 + rnd() * 0.12, 62 + rnd() * 18, 0.03, 0.25, c % 2 ? 1 : -1); }
-                wph += rpm / 60 * 48 * (1 - 0.12 * load) / sr;   // pignon du lanceur ≈ 48 × le vilebrequin
-                const fr = wph % 1, env = Math.min(1, t / 0.03) * (i > n - sr * 0.04 ? (n - i) / (sr * 0.04) : 1);
-                const v = env * (0.16 * (fr * 2 - 1) + 0.1 * Math.sin(2 * Math.PI * wph * 2) + 0.05 * Math.sin(2 * Math.PI * wph * 3.02)) * (1 - 0.45 * load)
-                        + env * 0.03 * (rnd() * 2 - 1);   // frottement des balais
+                const c = Math.floor(ph * 4);   // V8 4 temps : 4 compressions par tour
+                const load = Math.pow(0.5 + 0.5 * Math.cos(2 * Math.PI * ph * 4), 4);
+                if(c !== lastC) { lastC = c; thump(i, 0.2 + 0.18 * u + rnd() * 0.06, 52 + rnd() * 14, 0.035, 0.18, c % 2 ? 1 : -1); }
+                const env = Math.min(1, t / 0.06) * (i > n - sr * 0.05 ? (n - i) / (sr * 0.05) : 1);
+                wph += (260 + 2100 * Math.pow(u, 0.7)) * (1 - 0.06 * load) / sr;   // l'onduleur siffle de plus en plus aigu
+                const v = env * (0.08 * Math.sin(2 * Math.PI * wph) + 0.035 * Math.sin(2 * Math.PI * wph * 2.01) + 0.018 * Math.sin(2 * Math.PI * wph * 3))
+                        + env * 0.035 * (rnd() * 2 - 1) * (0.3 + load);   // bruit mécanique de la distribution
                 L[i] += v; Rc[i] += v;
             }
-            [0.78, 0.9].forEach(tm => thump(Math.round(sr * tm), 0.75, 95, 0.02, 0.8, 0));   // ratés : le moteur tousse
             let pk = 0; for(let i = 0; i < n; i++) pk = Math.max(pk, Math.abs(L[i]), Math.abs(Rc[i]));
-            for(let i = 0; i < n; i++) { L[i] *= 0.95 / pk; Rc[i] *= 0.95 / pk; }
+            for(let i = 0; i < n; i++) { L[i] *= 0.9 / pk; Rc[i] *= 0.9 / pk; }
+            return buf;
+        }
+        // Le V8 prend : premières explosions qui s'enchaînent de plus en plus vite, grondement grave (avant que la boucle de l'échappement prenne le relais)
+        function buildCatchBuffer() {
+            const sr = audio.sampleRate, n = Math.round(sr * 0.6), buf = audio.createBuffer(2, n, sr), L = buf.getChannelData(0), Rc = buf.getChannelData(1);
+            let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+            let t = 0, gap = 0.05, k = 0;
+            while(t < 0.42) {
+                const i0 = Math.round(sr * t), A = (k ? 0.55 : 1) * (0.85 + rnd() * 0.3) * Math.max(0.15, 1 - t / 0.45), bank = k++ % 2;
+                for(let j = 0; j < sr * 0.09 && i0 + j < n; j++) {
+                    const tt = j / sr, v = A * (Math.exp(-tt / 0.022) * Math.sin(2 * Math.PI * (62 + 30 * Math.exp(-tt / 0.01)) * tt) + 0.45 * (rnd() * 2 - 1) * Math.exp(-tt / 0.004) + 0.3 * Math.exp(-tt / 0.006) * Math.sin(2 * Math.PI * 420 * tt));
+                    L[i0 + j] += v * (bank ? 0.75 : 1); Rc[i0 + j] += v * (bank ? 1 : 0.75);
+                }
+                t += gap; gap = Math.max(0.011, gap * 0.78);
+            }
+            let pk = 0; for(let i = 0; i < n; i++) pk = Math.max(pk, Math.abs(L[i]), Math.abs(Rc[i]));
+            for(let i = 0; i < n; i++) { const fo = i > n - sr * 0.2 ? (n - i) / (sr * 0.2) : 1; L[i] *= 0.95 / pk * fo; Rc[i] *= 0.95 / pk * fo; }
             return buf;
         }
         function playStarter() {
@@ -5009,7 +5105,7 @@
             try {
                 if(!starterBuf) starterBuf = buildStarterBuffer();
                 const src = audio.createBufferSource(); src.buffer = starterBuf;
-                const f = audio.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 3800;
+                const f = audio.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 6000;
                 const body = audio.createBiquadFilter(); body.type = 'lowshelf'; body.frequency.value = 160; body.gain.value = 5;
                 const g = audio.createGain(); g.gain.value = 0.42;
                 src.connect(f); f.connect(body); body.connect(g); g.connect(audioOut); src.start();
@@ -5024,17 +5120,26 @@
         function engineCatch() {
             if(!audio || muted) return;
             const t = audio.currentTime;
-            for(let k = 0; k < 3; k++) playPop(t + 0.35 + k * 0.09 + Math.random() * 0.05, 0.12);
+            try {
+                if(!catchBuf) catchBuf = buildCatchBuffer();
+                const src = audio.createBufferSource(); src.buffer = catchBuf;
+                const f = audio.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 2600;
+                const g = audio.createGain(); g.gain.value = 0.55;
+                src.connect(f); f.connect(g); g.connect(audioOut); src.start(t);
+            } catch (e) {}
+            for(let k = 0; k < 4; k++) playPop(t + 0.42 + k * 0.08 + Math.random() * 0.06, 0.1 + Math.random() * 0.05);   // crépitements quand le régime retombe
         }
         function updateAudio(dt) {
             if(!audio) return;
-            const off = muted || paused || leaving, r = clamp(PL.rpm / 9000, 0, 1.1), thr = !!(ENG.on && (keys.ArrowUp || keys.z || keys.w || PAD.thr > 0.2 || PL.boost));
+            const flare = ENG.on && ENG.flare < 0.35;   // coup de gaz du démarrage : sonne comme une accélération
+            const off = muted || paused || leaving, r = clamp(PL.rpm / 9000, 0, 1.1), thr = !!(ENG.on && (keys.ArrowUp || keys.z || keys.w || PAD.thr > 0.2 || PL.boost)) || flare;
             const now = audio.currentTime;
-            engSrc.playbackRate.setTargetAtTime(Math.max(0.05, PL.rpm / ENG_REF), now, 0.02);
+            const lope = PL.rpm < 1500 ? 1 + 0.022 * Math.sin(now * 10.7) + 0.012 * Math.sin(now * 23.3) : 1;   // ralenti un peu irrégulier, comme un vrai moteur
+            engSrc.playbackRate.setTargetAtTime(Math.max(0.05, PL.rpm * lope / ENG_REF), now, 0.02);
             engLp.frequency.setTargetAtTime(700 + r * 3200 + (thr ? 2600 : 0), now, 0.04);
             const vol = !ENG.on || off ? 0 : 0.16 + (thr ? 0.13 : 0) + r * 0.08 + (PL.boost ? 0.04 : 0);
             engineGain.gain.setTargetAtTime(vol, now, 0.03);
-            const fire = PL.rpm / 10;   // 6 explosions par tour
+            const fire = PL.rpm / 15;   // V8 : 4 explosions par tour
             screamOsc.frequency.setTargetAtTime(Math.max(20, fire * 2), now, 0.02);
             screamOsc.bp.frequency.setTargetAtTime(Math.max(200, fire * 2), now, 0.02);
             screamGain.gain.setTargetAtTime(thr ? Math.pow(r, 2.5) * 0.09 : Math.pow(r, 2.5) * 0.025, now, 0.05);
@@ -5067,7 +5172,7 @@
         }
         function startEngine() {
             if(ENG.on || ENG.crank > 0) return;
-            ENG.crank = 1; ENG.crankEnd = performance.now() + 1000; playStarter();
+            ENG.crank = CRANK; ENG.t0 = performance.now(); playStarter();
         }
         // Touches : insensible à la casse (Verr. Maj), + W/A pour les claviers QWERTY
         const keyName = (e) => e.key.length === 1 ? e.key.toLowerCase() : e.key;
