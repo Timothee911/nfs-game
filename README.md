@@ -59,8 +59,15 @@ Dans le garage : croix ou stick pour naviguer, Croix / A pour valider, Rond / B 
 - **Planques** : 6 planques. En quittant le garage, tu pars d'une planque tirée au hasard, sur le parvis face à la route. Pour rentrer au garage, touche la ligne verte peinte au sol devant la porte d'une autre planque (ou de la même, une fois que tu t'en es éloigné de 70 m).
 - **GPS** : la mini-carte montre le relief, les forêts, les lacs, les villes et les routes, et trace en vert l'itinéraire par la route jusqu'à la planque la plus proche. Elle dézoome quand tu vas vite.
 - **Interface** : mini-carte GPS, compte-tours avec rapport et vitesse, jauge de nitro, état de la voiture, SP, série en cours et objectifs de la Speedliste.
-- **Ferrari SF90 Spider** : la voiture est le modèle 3D `ferrari.glb` (« 2021 Ferrari SF90 Spider » par Outlaw Games, Sketchfab, licence **CC BY-NC** : usage non commercial, crédit obligatoire). Au chargement, ses quelque 1 200 morceaux sont regroupés par matière pour rester fluide ; les roues tournent et braquent, les étriers restent fixes, les feux arrière s'allument au freinage et la peinture suit la couleur choisie au garage. Le fichier doit rester à côté de `index.html` et la page doit être servie par un serveur (GitHub Pages, ou « Live Server » dans VS Code) : ouverte en double-cliquant, ou si le fichier manque, le jeu garde l'ancienne voiture dessinée (SAQR X1).
-- **Garage** : menu style NFS Rivals avec la **Ferrari SF90 Spider** en 3D, la peinture (10 couleurs), les Speedlistes (objectifs à remplir en roulant) et les améliorations (moteur, turbo, pneus, nitro) à payer en SP.
+- **5 voitures** (onglet « Changer de voiture » du garage, une vignette par modèle) : la voiture survolée s'affiche en 3D, `Entrée` ou un 2e clic la choisit, et le choix est mémorisé. Modèles 3D de Sketchfab, crédit obligatoire :
+  - **Ferrari SF90 Spider** : `ferrari.glb`, « 2021 Ferrari SF90 Spider » par Outlaw Games, licence **CC BY-NC** ;
+  - **Lamborghini Aventador SVJ** : `cars/aventador.glb`, « Lamborghini Aventador SVJ - SC20 Carbon Edition » par SDC PERFORMANCE, licence **CC BY-NC** ;
+  - **Lamborghini Veneno** : `cars/veneno.glb`, « 2013 Lamborghini Veneno » par Ddiaz Design, licence **CC BY** ;
+  - **McLaren P1** : `cars/p1.glb`, « McLaren P1 » par vecarz, licence **CC BY** ;
+  - **Mercedes-AMG GT3** : `cars/amg-gt3.glb`, « amg_evo_3 » par MattDoesBlender, licence **CC BY-NC-SA**.
+
+  Seule la voiture choisie est téléchargée. Au chargement, ses morceaux sont regroupés par matière pour rester fluide ; les roues tournent et braquent, les étriers restent fixes, les feux arrière s'allument au freinage et la peinture suit la couleur choisie au garage. La page doit être servie par un serveur (GitHub Pages, ou « Live Server » dans VS Code) : ouverte en double-cliquant, ou si le fichier manque, le jeu garde l'ancienne voiture dessinée (SAQR X1).
+- **Garage** : menu style NFS Rivals avec la voiture choisie en 3D, la peinture (10 couleurs), les Speedlistes (objectifs à remplir en roulant) et les améliorations (moteur, turbo, pneus, nitro) à payer en SP.
 - **Sauvegarde** : SP, améliorations, Speedliste, radars et couleur sont mémorisés dans le navigateur (`localStorage`). Le bouton « Réinitialiser ma progression » du garage remet tout à zéro.
 
 ## Régler le jeu
