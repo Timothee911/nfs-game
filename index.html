@@ -190,6 +190,15 @@
         #lobby .gx-heat svg { width: 0.9em; height: 0.9em; fill: none; stroke: currentColor; stroke-width: 2; }
         #lobby .gx-id-sp { margin-top: 2px; color: var(--gx-gold); font: 600 clamp(15.6px, 2.5vh, 25.4px)/1.1 var(--gx-cond); }
         #lobby .gx-id-sp em { margin-left: 6px; padding: 0 4px; font: 700 0.5em/1.5 'Barlow', sans-serif; font-style: normal; vertical-align: middle; border: 1.5px solid var(--gx-gold); border-radius: 3px; }
+        #lobby .gx-lvl { margin-right: 14px; color: #f2f0ea; font: 500 0.72em/1 var(--gx-cond); text-transform: uppercase; display: inline-flex; align-items: center; gap: 6px; vertical-align: middle; }
+        #lobby .gx-lvl b { font-weight: 600; font-size: 1.25em; }
+        #lobby .gx-lvl > i { display: inline-block; width: 46px; height: 4px; background: rgba(255,255,255,0.18); }
+        #lobby .gx-lvl > i > i { display: block; height: 100%; width: 0; background: var(--gx-gold); }
+        #lobby .gx-tile .gx-price { position: absolute; left: 10px; top: 7px; font: 600 clamp(10.7px, 1.6vh, 14.8px)/1 var(--gx-cond); color: var(--gx-gold); text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+        #lobby .gx-tile .gx-price.no { color: #b9b4aa; }
+        #lobby .gx-tile.gx-pic.locked { color: #a39e96; }
+        #lobby .gx-tile.gx-pic.locked img { filter: grayscale(0.85) brightness(0.45); }
+        #lobby .gx-tile.gx-pic.locked .gx-lock { width: 22px; height: 22px; color: #f2f0ea; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.9)); }
         #lobby .gx-id-rec { font: 500 clamp(9.8px, 1.4vh, 12.3px)/1.4 'Barlow', sans-serif; color: var(--gx-mute); }
         #lobby .gx-badge { position: relative; width: clamp(37.7px, 5.2vh, 52.5px); height: clamp(37.7px, 5.2vh, 52.5px); display: grid; place-items: center; border-radius: 50%; border: 3px dotted var(--gx-heat); box-shadow: inset 0 0 0 3px #0b0a09, inset 0 0 0 5px var(--gx-heat); font: 600 clamp(14.8px, 2.3vh, 23px)/1 var(--gx-cond); }
         #lobby #wins-progress { display: none; }
@@ -385,7 +394,7 @@
                 <div class="gx-id">
                     <div>
                         <div class="gx-id-name"><span id="gx-carname">Ferrari SF90</span> <span class="gx-heat" title="Niveau de performance"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-3 2-4 2-7 2 1 3 3 3 5 1-1 1-3 0-8z"/></svg><b id="gx-heat">1</b></span></div>
-                        <div class="gx-id-sp"><span id="lobby-sp">0</span><em>SP</em></div>
+                        <div class="gx-id-sp"><span class="gx-lvl" id="lobby-lvl-box">Niv. <b id="lobby-lvl">1</b><i><i id="lvl-bar"></i></i></span><span id="lobby-sp">0</span><em>SP</em></div>
                         <div class="gx-id-rec">Record radar <span id="lobby-best">--</span></div>
                     </div>
                     <div class="gx-badge" title="Objectifs réussis"><span id="lobby-wins">0</span><i id="wins-progress"></i></div>
@@ -1231,25 +1240,29 @@
         // Si le chargement échoue (page ouverte sans serveur, fichier absent), la voiture dessinée reste en place.
         // wheel / cal : nœuds ou matières des roues (tournent) et des étriers (braquent sans tourner) ; hide : morceaux ignorés
         // paint / tail / glass : matières de la peinture (couleur du garage), des feux arrière (freinage) et des vitres ; front : sens de l'avant dans le fichier
+        // price : prix en SP, lvl : niveau pilote requis pour l'acheter (la SF90 est offerte)
         const CARS = [
-            { id: 'sf90', name: 'Ferrari SF90 Spider', tag: 'Ferrari SF90', url: 'ferrari.glb', img: 'cars/sf90.png', len: 4.71, front: '+z',
+            { id: 'sf90', price: 0, lvl: 1, name: 'Ferrari SF90 Spider', tag: 'Ferrari SF90', url: 'ferrari.glb', img: 'cars/sf90.png', len: 4.71, front: '+z',
               wheel: /Combined_Wheels|Wheel1A_3D/i, cal: /Calliper|Caliper/i, paint: /Paint_Material/, tail: /RED_GLASS/, glass: /Window/,
-              desc: 'Hypercar hybride à moteur V8 central.', credit: '« 2021 Ferrari SF90 Spider », licence CC BY-NC' },
-            { id: 'svj', name: 'Lamborghini Aventador SVJ', tag: 'Aventador SVJ', url: 'cars/aventador.glb', img: 'cars/svj.png', len: 4.94, front: '+z',
-              wheel: /^Circle\.?002/, cal: /plaquette_de_frein/, paint: /^CARROSSERIE$/, tail: /GlassRedLights/, glass: /^GLASS$/,
-              desc: 'V12 atmosphérique de 770 ch, édition carbone SC20.', credit: '« Lamborghini Aventador SVJ - SC20 Carbon Edition », licence CC BY-NC' },
-            { id: 'veneno', name: 'Lamborghini Veneno', tag: 'Veneno', url: 'cars/veneno.glb', img: 'cars/veneno.png', len: 5.02, front: '+z',
-              wheel: /Wheel1A_3D/i, cal: /Calliper|Caliper/i, paint: /Paint_Material/, tail: null, glass: /Window/,
-              desc: 'Série limitée de 2013, V12 de 750 ch.', credit: '« 2013 Lamborghini Veneno », licence CC BY' },
-            { id: 'p1', name: 'McLaren P1', tag: 'McLaren P1', url: 'cars/p1.glb', img: 'cars/p1.png', len: 4.59, front: '+z',
-              wheel: /^WHEEL_(LF|RF|LR|RR)$/, cal: /^SUSP_|^DISC_/, paint: /^Carpaint$/, tail: /Taillights/, glass: /^Windows/,
-              desc: 'Hypercar hybride, V8 biturbo et moteur électrique, 916 ch.', credit: '« McLaren P1 », licence CC BY' },
-            { id: 'gt3', name: 'Mercedes-AMG GT3', tag: 'AMG GT3', url: 'cars/amg-gt3.glb', img: 'cars/gt3.png', len: 4.75, front: '+z',
+              credit: '« 2021 Ferrari SF90 Spider », licence CC BY-NC' },
+            { id: 'gt3', price: 12000, lvl: 2, name: 'Mercedes-AMG GT3', tag: 'AMG GT3', url: 'cars/amg-gt3.glb', img: 'cars/gt3.png', len: 4.75, front: '+z',
               wheel: /^WHEEL_(LF|RF|LR|RR)$/, cal: /^Caliper_|^Disc_/, hide: /RIM_BLUR|RIM_.._BLUR/, paint: /^EXT_Carpaint_Inst/, tail: /EXT_Emissive_Light_Rear|EXT_Glass_Emissive_Rear/, glass: /^EXT_Windows$|^INT_Windows$|INT_Windshield|MI_INT_Glass/,
-              desc: 'Voiture de course GT3, V8 6,3 litres.', credit: '« amg_evo_3 », licence CC BY-NC-SA' },
+              credit: '« amg_evo_3 », licence CC BY-NC-SA' },
+            { id: 'p1', price: 25000, lvl: 4, name: 'McLaren P1', tag: 'McLaren P1', url: 'cars/p1.glb', img: 'cars/p1.png', len: 4.59, front: '+z',
+              wheel: /^WHEEL_(LF|RF|LR|RR)$/, cal: /^SUSP_|^DISC_/, paint: /^Carpaint$/, tail: /Taillights/, glass: /^Windows/,
+              credit: '« McLaren P1 », licence CC BY' },
+            { id: 'svj', price: 40000, lvl: 6, name: 'Lamborghini Aventador SVJ', tag: 'Aventador SVJ', url: 'cars/aventador.glb', img: 'cars/svj.png', len: 4.94, front: '+z',
+              wheel: /^Circle\.?002/, cal: /plaquette_de_frein/, paint: /^CARROSSERIE$/, tail: /GlassRedLights/, glass: /^GLASS$/,
+              credit: '« Lamborghini Aventador SVJ - SC20 Carbon Edition », licence CC BY-NC' },
+            { id: 'veneno', price: 60000, lvl: 8, name: 'Lamborghini Veneno', tag: 'Veneno', url: 'cars/veneno.glb', img: 'cars/veneno.png', len: 5.02, front: '+z',
+              wheel: /Wheel1A_3D/i, cal: /Calliper|Caliper/i, paint: /Paint_Material/, tail: null, glass: /Window/,
+              credit: '« 2013 Lamborghini Veneno », licence CC BY' },
         ];
+        // Voitures achetées (la SF90 est toujours possédée)
+        const carsOwned = new Set(['sf90']);
+        { const o = loadJSON('nfsCarsOwned', []); if(Array.isArray(o)) o.forEach(id => { if(CARS.some(c => c.id === id)) carsOwned.add(id); }); }
         let carId = 'sf90';
-        try { const s = localStorage.getItem('nfsCar'); if(CARS.some(c => c.id === s)) carId = s; } catch (e) {}
+        try { const s = localStorage.getItem('nfsCar'); if(carsOwned.has(s)) carId = s; } catch (e) {}
         const carDef = (id) => CARS.find(c => c.id === id) || CARS[0];
         function prepCar(gltf, D) {
             const root = gltf.scene;
@@ -1493,8 +1506,12 @@
             { id: 'pneus', name: 'Pneus', stat: 2, what: 'Adhérence en virage +7 %', cost: [400, 800, 1400, 2200, 3200] },
             { id: 'nitro', name: 'Nitro', stat: 3, what: 'Recharge du nitro +30 %', cost: [300, 600, 1100, 1700, 2500] }
         ];
-        let sp = 0;
-        try { sp = Math.max(0, parseInt(localStorage.getItem('nfsSP'), 10) || 0); } catch (e) {}
+        let sp = 0, xp = 0;
+        try { sp = Math.max(0, parseInt(localStorage.getItem('nfsSP'), 10) || 0); xp = Math.max(sp, parseInt(localStorage.getItem('nfsXP'), 10) || 0); } catch (e) {}
+        // Niveau pilote : monte avec tous les SP gagnés depuis le début (dépenser des SP ne le fait pas baisser).
+        // Niveau L atteint à 1 250 × L × (L − 1) SP : 2 = 2 500, 3 = 7 500, 4 = 15 000, 6 = 37 500, 8 = 70 000…
+        const lvlXP = (L) => 1250 * L * (L - 1);
+        const pilotLvl = () => { let L = 1; while(xp >= lvlXP(L + 1)) L++; return L; };
         const slState = loadJSON('nfsSpeedliste', {});
         if(!SPEEDLISTS.some(l => l.id === slState.cur)) slState.cur = SPEEDLISTS[0].id;
         if(!slState.done || typeof slState.done !== 'object') slState.done = {};
@@ -1530,8 +1547,22 @@
         let screen = 'home', menuSel = 0, listSel = 0, carSel = 0, upSel = 0, paintSel = 0, buyMsg = '';
         const $ = (id) => document.getElementById(id);
 
-        function renderSP() { $('lobby-sp').textContent = fmtSP(sp); $('gx-heat').textContent = heat(); if(screen === 'perf') renderPerf(); }
-        function addSP(n) { sp += n; mt.raceSP += n; store('nfsSP', String(sp)); renderSP(); }
+        function renderSP() {
+            $('lobby-sp').textContent = fmtSP(sp); $('gx-heat').textContent = heat();
+            const L = pilotLvl(), a = lvlXP(L), b = lvlXP(L + 1);
+            $('lobby-lvl').textContent = L; $('lvl-bar').style.width = (100 * (xp - a) / (b - a)).toFixed(1) + '%';
+            $('lobby-lvl-box').title = 'Niveau pilote ' + L + ' : ' + fmtSP(xp) + ' / ' + fmtSP(b) + ' SP gagnés';
+            if(screen === 'perf') renderPerf();
+            if(screen === 'cars') renderCars();
+        }
+        function addSP(n) {
+            const L0 = pilotLvl();
+            sp += n; mt.raceSP += n; store('nfsSP', String(sp));
+            if(n > 0) { xp += n; store('nfsXP', String(xp)); }
+            const L = pilotLvl();
+            if(L > L0) { const nc = CARS.filter(c => c.lvl > L0 && c.lvl <= L); toast('Niveau pilote ' + L, nc.length ? 'À acheter au garage : ' + nc.map(c => c.name).join(', ') : 'Nouveau niveau atteint'); }
+            renderSP();
+        }
 
         function statsHTML(previewKey) {
             const D = carDef(screen === 'cars' ? CARS[carSel].id : carId), sp1 = D.name.indexOf(' ');
@@ -1576,6 +1607,12 @@
         }
         function chooseCar() {
             const D = CARS[carSel];
+            if(!carsOwned.has(D.id)) {   // achat
+                if(pilotLvl() < D.lvl || sp < D.price) return;
+                sp -= D.price; store('nfsSP', String(sp));
+                carsOwned.add(D.id); store('nfsCarsOwned', [...carsOwned]);
+                $('lobby-sp').textContent = fmtSP(sp);
+            }
             carId = D.id; store('nfsCar', D.id);
             $('gx-carname').textContent = D.tag;
             loadCar(D.id).then(setPlayerCar).catch(() => {});
@@ -1583,9 +1620,13 @@
         }
         function renderCars() {
             $('car-stats').innerHTML = statsHTML();
-            $('car-tiles').innerHTML = CARS.map((D, i) => '<button type="button" class="gx-tile gx-pic' + (i === carSel ? ' sel' : '') + '" data-i="' + i + '" aria-label="' + D.name + '">'
+            const L = pilotLvl();
+            $('car-tiles').innerHTML = CARS.map((D, i) => { const own = carsOwned.has(D.id);
+                return '<button type="button" class="gx-tile gx-pic' + (own ? '' : ' locked') + (i === carSel ? ' sel' : '') + '" data-i="' + i + '" aria-label="' + D.name + (own ? '' : ', verrouillée') + '">'
                 + '<img src="' + D.img + '" alt="" draggable="false">'
-                + '<span class="gx-tag">' + D.tag + (D.id === carId ? ' ✓' : '') + '</span></button>').join('');
+                + (own ? '' : '<svg class="gx-lock" viewBox="0 0 24 24" aria-hidden="true">' + ICONS.lock + '</svg>'
+                    + '<span class="gx-price' + (L < D.lvl ? ' no' : '') + '">' + fmtSP(D.price) + ' SP · Niv. ' + D.lvl + '</span>')
+                + '<span class="gx-tag">' + D.tag + (D.id === carId ? ' ✓' : '') + '</span></button>'; }).join('');
             previewSel();
             renderInfo();
         }
@@ -1621,9 +1662,11 @@
             const box = $('gx-info');
             let h = '';
             if(screen === 'cars') {
-                const D = CARS[carSel], cur = D.id === carId;
-                h = '<b>' + D.name + '<span>' + (cur ? 'Sélectionnée' : carLoading === D.id ? 'Chargement…' : carLoading === 'err' ? 'Fichier introuvable' : '') + '</span></b><p class="gx-desc">' + D.desc + ' Modèle 3D ' + D.credit + '.</p>';
-                if(!cur && carLoading !== 'err') h += '<button type="button" class="gx-act" data-act="car">Choisir cette voiture</button>';
+                const D = CARS[carSel], cur = D.id === carId, own = carsOwned.has(D.id), L = pilotLvl();
+                h = '<b>' + D.name + '<span>' + (cur ? 'Sélectionnée' : carLoading === D.id ? 'Chargement…' : carLoading === 'err' ? 'Fichier introuvable' : own ? 'Possédée' : fmtSP(D.price) + ' SP') + '</span></b>';
+                if(own) { if(!cur && carLoading !== 'err') h += '<button type="button" class="gx-act" data-act="car">Choisir cette voiture</button>'; }
+                else if(L < D.lvl) h += '<button type="button" class="gx-act" disabled>Niveau ' + D.lvl + ' requis (tu es niveau ' + L + ')</button>';
+                else h += '<button type="button" class="gx-act" data-act="car"' + (sp < D.price ? ' disabled' : '') + '>Acheter : ' + fmtSP(D.price) + ' SP' + (sp < D.price ? ' (il te manque ' + fmtSP(D.price - sp) + ')' : '') + '</button>';
             } else if(screen === 'perf') {
                 const u = UPGRADES[upSel], lv = upLv[u.id], cost = u.cost[lv];
                 h = '<b>' + u.name + '<span>' + lv + ' de 5</span></b><p class="gx-desc">' + (buyMsg || u.what + ' par niveau') + '</p>';
@@ -1783,8 +1826,9 @@
         resetBtn.type = 'button';
         resetBtn.textContent = 'Réinitialiser ma progression';
         resetBtn.onclick = () => {
-            try { ['nfsDubaiWins', 'nfsDubaiBest', 'nfsSP', 'nfsSpeedliste', 'nfsUpgrades', 'nfsRadars'].forEach(k => localStorage.removeItem(k)); } catch (e) {}
-            sp = 0; slState.done = {}; slState.bonus = {}; Object.keys(upLv).forEach(k => { upLv[k] = 0; });
+            try { ['nfsDubaiWins', 'nfsDubaiBest', 'nfsSP', 'nfsXP', 'nfsCarsOwned', 'nfsCar', 'nfsSpeedliste', 'nfsUpgrades', 'nfsRadars'].forEach(k => localStorage.removeItem(k)); } catch (e) {}
+            sp = 0; xp = 0; carsOwned.clear(); carsOwned.add('sf90');
+            if(carId !== 'sf90') { carId = 'sf90'; $('gx-carname').textContent = carDef('sf90').tag; loadCar('sf90').then(F => { setPlayerCar(F); if(screen !== 'cars') showPreview(F); }).catch(() => {}); } slState.done = {}; slState.bonus = {}; Object.keys(upLv).forEach(k => { upLv[k] = 0; });
             Object.keys(radarBest).forEach(k => { delete radarBest[k]; });
             PERF = perfOf();
             renderSP(); renderSpeedlist(); showBadge();
