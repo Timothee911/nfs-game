@@ -199,6 +199,29 @@
         #lobby .gx-tile.gx-pic.locked { color: #a39e96; }
         #lobby .gx-tile.gx-pic.locked img { filter: grayscale(0.85) brightness(0.45); }
         #lobby .gx-tile.gx-pic.locked .gx-lock { width: 22px; height: 22px; color: #f2f0ea; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.9)); }
+        /* Onglets Carte / Garage */
+        #lobby .gx-tabs { display: flex; gap: 6px; margin-top: 0.4vh; }
+        #lobby .gx-tabs[hidden] { display: none; }
+        #lobby .gx-tabs button { all: unset; cursor: pointer; display: flex; align-items: center; gap: 7px; padding: 4px 12px; font: 500 clamp(12px, 1.7vh, 16px)/1 var(--gx-cond); text-transform: uppercase; letter-spacing: 0.06em; color: #a9a5a0; border-bottom: 2px solid transparent; }
+        #lobby .gx-tabs button.on { color: #fff; border-bottom-color: #fff; }
+        #lobby .gx-tabs kbd { padding: 1px 6px; border-radius: 3px; background: #e9e9e9; color: #111; font: 700 11px/1.4 'Barlow', sans-serif; }
+        #lobby .gx-top, #lobby .gx-bot { z-index: 3; }
+        /* Page Carte */
+        #lobby .gx-mapscr { pointer-events: auto; z-index: 1; background: #07090b; }
+        #gmap { position: absolute; inset: 0; width: 100%; height: 100%; cursor: none; touch-action: none; }
+        #lobby .gm-help { position: absolute; left: var(--PX); bottom: calc(var(--F) + 2vh); margin: 0; font: 500 clamp(12px, 1.7vh, 16px)/1.3 'Barlow', sans-serif; color: #c9c6c0; text-shadow: 0 1px 4px #000; pointer-events: none; }
+        #lobby .gm-ask { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 3vh 3vw; text-align: center; pointer-events: auto; min-width: 300px; }
+        #lobby .gm-ask[hidden] { display: none; }
+        #lobby .gm-ask p { margin: 0 0 1vh; font: 500 clamp(14px, 2.1vh, 20px)/1 var(--gx-cond); text-transform: uppercase; letter-spacing: 0.2em; color: var(--gx-gold); }
+        #lobby .gm-ask b { display: block; margin-bottom: 2.4vh; font: 600 clamp(26px, 4.6vh, 46px)/1 var(--gx-cond); text-transform: uppercase; }
+        #lobby .gm-ask div { display: flex; gap: 12px; justify-content: center; }
+        #lobby .gm-ask .gx-act { position: static; transform: none; width: auto; padding: 1vh 2vw; }
+        #lobby .gm-ask .gm-no { background: rgba(255,255,255,0.12); color: #fff; }
+        /* Personnalisation, plaque */
+        #lobby .gx-chip { display: inline-block; width: 14px; height: 14px; margin-right: 8px; vertical-align: -2px; border: 1.5px solid rgba(255,255,255,0.7); border-radius: 3px; }
+        #lobby #plate-prev { display: block; width: calc(100% - 3.8vw); margin: 1.4vh 1.9vw 0; border-radius: 6px; }
+        #lobby .gx-row input { width: 9.5em; padding: 4px 8px; border: 1.5px solid rgba(255,255,255,0.5); border-radius: 3px; background: rgba(0,0,0,0.45); color: #fff; font: 600 clamp(14px, 2.1vh, 21px)/1.1 var(--gx-cond); text-transform: uppercase; text-align: center; letter-spacing: 0.08em; }
+        #lobby .gx-row input:focus { outline: none; border-color: var(--gx-gold); }
         /* Animations : niveau supérieur, voiture débloquée */
         #lobby .gx { transition: opacity 0.35s; }
         #lobby.cine .gx { visibility: hidden; }
@@ -446,6 +469,7 @@
             <header class="gx-top">
                 <div class="gx-title">
                     <h1 id="gx-title">Garage</h1>
+                    <nav class="gx-tabs" id="gx-tabs" aria-label="Pages"><button type="button" data-tab="map"><kbd>A</kbd>Carte</button><button type="button" data-tab="home">Garage<kbd>E</kbd></button></nav>
                 </div>
                 <div class="gx-id">
                     <div>
@@ -489,6 +513,20 @@
                         <div class="gx-paint-row gx-panel" id="paint-row" role="listbox" aria-label="Couleurs"></div>
                         <button type="button" class="gx-pa r" data-step="1" aria-label="Couleur suivante"></button>
                     </div>
+                </div>
+            </section>
+            <section class="gx-screen" data-screen="custom" hidden>
+                <div class="gx-set gx-panel"><h3>Personnaliser la voiture</h3><div id="cust-rows"></div><p class="gx-set-desc" id="cust-desc"></p></div>
+            </section>
+            <section class="gx-screen" data-screen="plate" hidden>
+                <div class="gx-set gx-panel"><h3>Plaque d’immatriculation</h3><div id="plate-rows"></div><canvas id="plate-prev" width="512" height="110"></canvas><p class="gx-set-desc" id="plate-desc"></p></div>
+            </section>
+            <section class="gx-screen gx-mapscr" data-screen="map" hidden>
+                <canvas id="gmap"></canvas>
+                <p class="gm-help">Clique sur une planque pour y apparaître · molette : zoom · glisser : déplacer la carte</p>
+                <div class="gm-ask gx-panel" id="gm-ask" hidden>
+                    <p>Apparaître ici ?</p><b id="gm-name"></b>
+                    <div><button type="button" class="gx-act" data-a="yes">Oui, partir</button><button type="button" class="gx-act gm-no" data-a="no">Non</button></div>
                 </div>
             </section>
             <section class="gx-screen" data-screen="settings" hidden>
@@ -974,7 +1012,7 @@
         previewCamera.lookAt(0, 0.6, 0);
 
         // Légère oscillation autour du trois-quarts avant ; glisser à la souris pour tourner la voiture
-        let pPrev = Date.now(), pT = 0, userYaw = 0, dragging = false, lastX = 0, cine = null;
+        let pPrev = Date.now(), pT = 0, userYaw = 0, dragging = false, lastX = 0, cine = null, yawBase = Math.PI - 0.55, yawTarget = Math.PI - 0.55;
         previewContainer.addEventListener('pointerdown', (e) => { dragging = true; lastX = e.clientX; });
         window.addEventListener('pointerup', () => { dragging = false; });
         window.addEventListener('pointermove', (e) => {
@@ -1010,7 +1048,8 @@
             previewCamera.position.set(0, 1.35, camDist);
             previewCamera.lookAt(0, 0.6, 0);
             applyViewOffset();
-            previewCar.rotation.y = previewMirror.rotation.y = Math.PI - 0.55 + userYaw + Math.sin(pT * 0.3) * 0.3;
+            yawBase += (yawTarget - yawBase) * Math.min(1, dt * 4);   // page Plaque : vue de l'arrière
+            previewCar.rotation.y = previewMirror.rotation.y = yawBase + userYaw + Math.sin(pT * 0.3) * 0.3;
             previewRenderer.render(previewScene, previewCamera);
         }
         animatePreview();
@@ -1336,6 +1375,16 @@
               wheel: /Wheel1A_3D/i, cal: /Calliper|Caliper/i, paint: /Paint_Material/, tail: null, glass: /Window/,
               credit: '« 2013 Lamborghini Veneno », licence CC BY' },
         ];
+        // Pièces à personnaliser dans chaque modèle : calp = étriers (couleur), rim = jantes (teinte),
+        // plate = plaque d'origine (remplacée par la nôtre, posée au même endroit) ; plateY = hauteur de nos plaques [arrière, avant] sinon
+        const CAR_PARTS = {
+            sf90: { calp: /CalliperA_Zone/, rim: /Wheel1C_Material/, plate: /ManufacturerPlate/ },
+            gt3: { calp: /^EXT_Calipers/, rim: /^amg_gt3_rims$/, plateY: [0.5, null] },
+            p1: { calp: /^Brake_Caliper$/, rim: /^Rim_(LF|RF|LR|RR)1_SUB0/, plateY: [0.42, 0.3] },
+            svj: { calp: /plaquette_de_frein/, rim: /^Rim_Texture$/, plateY: [0.45, null] },
+            veneno: { calp: /CalliperGloss/, rim: /Wheel1C_Material/, plate: /ManufacturerPlate/ }
+        };
+        CARS.forEach(c => Object.assign(c, CAR_PARTS[c.id]));
         // Voitures achetées (la SF90 est toujours possédée)
         const carsOwned = new Set(['sf90']);
         { const o = loadJSON('nfsCarsOwned', []); if(Array.isArray(o)) o.forEach(id => { if(CARS.some(c => c.id === id)) carsOwned.add(id); }); }
@@ -1348,6 +1397,108 @@
         const colorOf = (id) => CAR_COLORS.some(o => o.c === carColors[id]) ? carColors[id] : CAR_DEF_COLOR[id];
         carColor = colorOf(carId);
         const carDef = (id) => CARS.find(c => c.id === id) || CARS[0];
+        // ====== Personnalisation : finition, motif, étriers, jantes, vitres, néons (par voiture) ; plaque (pour toutes) ======
+        const FINISHES = [{ n: 'Brillant', m: 0.55, r: 0.28, c: 1 }, { n: 'Métallisé', m: 0.9, r: 0.3, c: 1 }, { n: 'Nacré', m: 0.65, r: 0.16, c: 1 }, { n: 'Satiné', m: 0.4, r: 0.5, c: 0.35 }, { n: 'Mat', m: 0.3, r: 0.62, c: 0 }, { n: 'Chrome', m: 1, r: 0.05, c: 1 }];
+        const STYLES = ['Aucun', 'Double bande', 'Bande centrale', 'Bandes latérales', 'Toit contrasté', 'Bas de caisse'];
+        const CAL_COLORS = [{ n: 'Origine', c: null }, { n: 'Rouge', c: 0xd8141c }, { n: 'Jaune', c: 0xf5c400 }, { n: 'Noir', c: 0x151515 }, { n: 'Argent', c: 0xb8bec6 }, { n: 'Bleu', c: 0x1f5fff }, { n: 'Vert', c: 0x19a55a }, { n: 'Orange', c: 0xf06a10 }, { n: 'Violet', c: 0x7a3cf0 }, { n: 'Or', c: 0xd4a537 }];
+        const RIM_COLORS = [{ n: 'Origine', c: null }, { n: 'Noir brillant', c: 0x2a2a2c }, { n: 'Argent', c: 0xd0d4da }, { n: 'Or', c: 0xd9a640 }, { n: 'Bronze', c: 0x9a6a3a }, { n: 'Blanc', c: 0xf2f2f2 }, { n: 'Rouge', c: 0xc8141c }, { n: 'Bleu', c: 0x2f6bff }];
+        const TINTS = [{ n: 'Claires', c: 0x2a3440, o: 0.28, m: 0.1 }, { n: 'Fumées', c: 0x0a0d12, o: 0.55, m: 0.1 }, { n: 'Noires', c: 0x030304, o: 0.86, m: 0.2 }, { n: 'Bleutées', c: 0x0b2a52, o: 0.6, m: 0.3 }, { n: 'Miroir doré', c: 0x6a4a10, o: 0.8, m: 0.95 }];
+        const NEONS = [{ n: 'Aucun', c: null }, { n: 'Bleu', c: 0x2a6cff }, { n: 'Rouge', c: 0xff2030 }, { n: 'Vert', c: 0x20ff70 }, { n: 'Violet', c: 0xa040ff }, { n: 'Cyan', c: 0x20e8ff }, { n: 'Orange', c: 0xff8a1a }, { n: 'Blanc', c: 0xffffff }];
+        const CUST_DEF = { fin: 0, sty: 0, styC: 9, cal: 0, rim: 0, tint: 1, neon: 0 };
+        const custAll = loadJSON('nfsCustom', {});
+        const custOf = (id) => Object.assign({}, CUST_DEF, custAll[id] || {});
+        // Motif peint : calculé dans le shader de la peinture d'après la position sur la caisse (repère de la voiture, en mètres)
+        const STYLE_GLSL = `
+            varying vec3 vCarPos;
+            uniform float uStyle;
+            uniform vec3 uStyleCol;
+            uniform vec3 uDim;
+            float bnd(float v, float a, float b) { return smoothstep(a - 0.012, a + 0.012, v) * (1.0 - smoothstep(b - 0.012, b + 0.012, v)); }
+            float carStyle(vec3 p) {
+                float H = uDim.x, W = uDim.y, ax = abs(p.x);
+                if(uStyle < 0.5) return 0.0;
+                if(uStyle < 1.5) return bnd(ax, 0.07, 0.25) * step(0.36 * H, p.y);                     // double bande
+                if(uStyle < 2.5) return (1.0 - smoothstep(0.25, 0.28, ax)) * step(0.36 * H, p.y);       // bande centrale
+                if(uStyle < 3.5) return bnd(p.y, 0.38 * H, 0.46 * H) * step(0.62 * W, ax);              // bandes latérales
+                if(uStyle < 4.5) return smoothstep(0.8 * H - 0.012, 0.8 * H + 0.012, p.y);              // toit contrasté
+                return 1.0 - smoothstep(0.27 * H - 0.012, 0.27 * H + 0.012, p.y);                       // bas de caisse
+            }
+        `;
+        function patchStyle(m, F) {
+            const sz = F.box.getSize(new THREE.Vector3());
+            const sty = { uStyle: { value: 0 }, uStyleCol: { value: new THREE.Color(1, 1, 1) }, uDim: { value: new THREE.Vector3(F.box.max.y, sz.x / 2, sz.z / 2) } };
+            m.userData.sty = sty;
+            m.onBeforeCompile = (sh) => {
+                Object.assign(sh.uniforms, sty);
+                sh.vertexShader = 'varying vec3 vCarPos;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvCarPos = position;');
+                sh.fragmentShader = STYLE_GLSL + sh.fragmentShader.replace('vec4 diffuseColor = vec4( diffuse, opacity );', 'vec4 diffuseColor = vec4( diffuse, opacity );\n\tdiffuseColor.rgb = mix( diffuseColor.rgb, uStyleCol, carStyle( vCarPos ) );');
+            };
+            m.customProgramCacheKey = () => 'carStyle';
+        }
+        // Halo des néons : rectangle aux bords très doux
+        const neonTex = (() => {
+            const c = document.createElement('canvas'); c.width = 128; c.height = 256;
+            const g = c.getContext('2d'), im = g.createImageData(128, 256);
+            for(let y = 0; y < 256; y++) for(let x = 0; x < 128; x++) {
+                const dx = Math.max(0, Math.abs(x - 63.5) - 30) / 34, dy = Math.max(0, Math.abs(y - 127.5) - 80) / 48, d = Math.min(1, Math.hypot(dx, dy));
+                const a = Math.pow(1 - d, 2) * (Math.abs(x - 63.5) < 30 && Math.abs(y - 127.5) < 80 ? 0.55 : 1);
+                const o = (y * 128 + x) * 4; im.data[o] = im.data[o + 1] = im.data[o + 2] = 255; im.data[o + 3] = a * 255;
+            }
+            g.putImageData(im, 0, 0);
+            return new THREE.CanvasTexture(c);
+        })();
+        // Plaque d'immatriculation : texte (8 caractères) et style, dessinés sur une texture partagée par toutes les voitures
+        const PLATE_STYLES = ['Dubaï', 'Europe', 'Américaine', 'Noire', 'Course'];
+        const plateSet = Object.assign({ text: 'NFS 2026', sty: 0 }, loadJSON('nfsPlate', {}));
+        const plateCv = document.createElement('canvas'); plateCv.width = 512; plateCv.height = 110;
+        const plateTexG = new THREE.CanvasTexture(plateCv), plateTexW = new THREE.CanvasTexture(plateCv);
+        plateTexW.encoding = THREE.sRGBEncoding; plateTexG.anisotropy = plateTexW.anisotropy = 4;
+        const plateMatG = new THREE.MeshStandardMaterial({ map: plateTexG, roughness: 0.45, metalness: 0.05, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+        const plateMatW = new THREE.MeshStandardMaterial({ map: plateTexW, roughness: 0.45, metalness: 0.05, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+        function drawPlate() {
+            const g = plateCv.getContext('2d'), W = 512, H = 110, s = plateSet.sty, t = (plateSet.text || '').toUpperCase().trim() || ' ';
+            const rr = (x, y, w, h, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); };
+            const bg = ['#f6f6f2', '#f8f8f4', '#eef0e6', '#101114', '#f5c400'][s] || '#f6f6f2', fg = ['#111', '#111', '#1d2b6b', '#d8dbe0', '#111'][s] || '#111';
+            g.clearRect(0, 0, W, H);
+            g.fillStyle = bg; rr(2, 2, W - 4, H - 4, 12); g.fill();
+            g.lineWidth = 5; g.strokeStyle = s === 3 ? '#9aa0a8' : '#1a1a1a'; rr(6, 6, W - 12, H - 12, 9); g.stroke();
+            let x0 = 22;
+            if(s === 0) { g.fillStyle = '#c8102e'; g.fillRect(16, 14, 70, H - 28); g.fillStyle = '#fff'; g.font = '700 22px "Barlow Condensed", "Arial Narrow", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('DUBAI', 51, H / 2 - 12); g.fillText('UAE', 51, H / 2 + 14); x0 = 92; }
+            if(s === 1) {
+                g.fillStyle = '#1d3fa8'; g.fillRect(12, 12, 56, H - 24);
+                g.fillStyle = '#ffd200'; for(let k = 0; k < 12; k++) { const a = k / 12 * Math.PI * 2; g.beginPath(); g.arc(40 + Math.cos(a) * 15, 38 + Math.sin(a) * 15, 2.6, 0, 7); g.fill(); }
+                g.fillStyle = '#fff'; g.font = '700 26px "Barlow Condensed", "Arial Narrow", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('F', 40, 80); x0 = 74;
+            }
+            if(s === 2) { g.fillStyle = '#c8102e'; g.font = 'italic 700 22px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'top'; g.fillText('Dubai County', W / 2, 10); }
+            g.fillStyle = fg; g.textAlign = 'center'; g.textBaseline = 'middle';
+            let fs = 84; g.font = '700 ' + fs + 'px "Barlow Condensed", "Arial Narrow", sans-serif';
+            const room = W - x0 - 24; while(g.measureText(t).width > room && fs > 30) { fs -= 2; g.font = '700 ' + fs + 'px "Barlow Condensed", "Arial Narrow", sans-serif'; }
+            g.fillText(t, x0 + room / 2 + 2, H / 2 + (s === 2 ? 10 : 4));
+            plateTexG.needsUpdate = plateTexW.needsUpdate = true;
+            const pv = document.getElementById('plate-prev'); if(pv) { const q = pv.getContext('2d'); q.clearRect(0, 0, pv.width, pv.height); q.drawImage(plateCv, 0, 0, pv.width, pv.height); }
+        }
+        drawPlate();
+        if(document.fonts && document.fonts.ready) document.fonts.ready.then(drawPlate);
+        // Applique la personnalisation d'une voiture (id) au modèle habillé ; linear = rendu du garage (couleurs sans conversion)
+        function applyCustom(car, id, linear) {
+            const c = custOf(id), col = (hex) => { const k = new THREE.Color(hex); if(!linear) k.convertSRGBToLinear(); return k; };
+            const bm = car.bodyMat;
+            if(bm && bm.userData.sty) {
+                const f = FINISHES[c.fin] || FINISHES[0];
+                bm.metalness = f.m; bm.roughness = f.r; bm.clearcoat = f.c;
+                bm.userData.sty.uStyle.value = c.sty;
+                bm.userData.sty.uStyleCol.value.copy(col((CAR_COLORS[c.styC] || CAR_COLORS[9]).c));
+            }
+            (car.calMats || []).forEach(o => { const v = CAL_COLORS[c.cal]; const map = v && v.c !== null ? null : o.map; if(o.m.map !== map) { o.m.map = map; o.m.needsUpdate = true; } o.m.color.copy(v && v.c !== null ? col(v.c) : o.c); });
+            (car.rimMats || []).forEach(o => { const v = RIM_COLORS[c.rim]; o.m.color.copy(v && v.c !== null ? col(v.c) : o.c); });
+            (car.glassMats || []).forEach(m => { const t = TINTS[c.tint] || TINTS[1]; m.color.copy(col(t.c)); m.metalness = t.m; if(!m.userData.mir) m.opacity = t.o; });
+            if(car.neon) {
+                const v = NEONS[c.neon], on = !!(v && v.c !== null);
+                car.neon.visible = on;
+                if(on) car.neon.material.color.copy(col(v.c));
+                if(car.neonLight) { car.neonLight.intensity = on ? 2.2 : 0; if(on) car.neonLight.color.copy(col(v.c)); }
+            }
+        }
         function prepCar(gltf, D) {
             const root = gltf.scene;
             root.updateMatrixWorld(true);
@@ -1355,14 +1506,15 @@
             const names = (o) => { const a = []; for(let p = o; p; p = p.parent) a.push(p.name || ''); return a; };
             const hit = (re, o, mat) => !!re && (names(o).some(n => re.test(n)) || re.test(mat.name || ''));
             // 1. Morceaux gardés et leur rôle (par matière : un maillage peut mêler roue et étrier)
-            const parts = [];
+            const parts = [], plateParts = [];
             root.traverse(o => {
                 if(!o.isMesh || (D.hide && names(o).some(n => D.hide.test(n)))) return;
                 const mats = Array.isArray(o.material) ? o.material : [o.material];
                 mats.forEach((mat, mi) => {
                     const grp = hit(D.cal, o, mat) ? 'cal' : hit(D.wheel, o, mat) ? 'wheel' : 'body';
+                    const tag = hit(D.calp, o, mat) ? 'C' : hit(D.rim, o, mat) ? 'R' : '';   // étrier / jante à teinter
                     const group = Array.isArray(o.material) ? o.geometry.groups.find(g => g.materialIndex === mi) : null;
-                    parts.push({ o, g: o.geometry, mat, grp, group, W: o.matrixWorld });
+                    (hit(D.plate, o, mat) ? plateParts : parts).push({ o, g: o.geometry, mat, grp, tag, group, W: o.matrixWorld });
                 });
             });
             // Parcourt les triangles d'un morceau (positions dans le repère du fichier)
@@ -1393,14 +1545,14 @@
             const lots = new Map();
             parts.forEach(P => {
                 const key0 = P.mat.name || P.mat.uuid, cnt = triCount(P);
-                if(P.grp === 'body') { const k = 'body|' + key0; let L = lots.get(k); if(!L) lots.set(k, L = { grp: 'body', mat: P.mat, items: [] }); L.items.push({ P, tris: null }); return; }
+                if(P.grp === 'body') { const k = 'body' + P.tag + '|' + key0; let L = lots.get(k); if(!L) lots.set(k, L = { grp: 'body', tag: P.tag, mat: P.mat, items: [] }); L.items.push({ P, tris: null }); return; }
                 const per = [[], [], [], []];
                 for(let t = 0; t < cnt; t += 3) {
                     const [a, b, c] = triIdx(P, t);
                     vtx(P, a, A); vtx(P, b, B); vtx(P, c, C);
                     per[corner(A.add(B).add(C).multiplyScalar(1 / 3))].push(t);
                 }
-                per.forEach((tris, k) => { if(!tris.length) return; const key = P.grp + k + '|' + key0; let L = lots.get(key); if(!L) lots.set(key, L = { grp: P.grp + k, mat: P.mat, items: [] }); L.items.push({ P, tris }); });
+                per.forEach((tris, k) => { if(!tris.length) return; const key = P.grp + k + P.tag + '|' + key0; let L = lots.get(key); if(!L) lots.set(key, L = { grp: P.grp + k, tag: P.tag, mat: P.mat, items: [] }); L.items.push({ P, tris }); });
             });
             // 5. Fusion : positions et normales dans le repère du jeu (moyeu à l'origine pour les roues), uv, uv2, couleurs
             const out = [], W = new THREE.Matrix4();
@@ -1437,11 +1589,28 @@
                 if(hasC) geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
                 geo.setIndex(pos.length / 3 > 65535 ? new THREE.Uint32BufferAttribute(idx, 1) : new THREE.Uint16BufferAttribute(idx, 1));
                 geo.computeBoundingSphere();
-                out.push({ grp: L.grp, mat: L.mat, geo, vc: hasC });
+                out.push({ grp: L.grp, tag: L.tag, mat: L.mat, geo, vc: hasC });
             });
             const box = new THREE.Box3(); out.forEach(o => { if(o.grp === 'body') { o.geo.computeBoundingBox(); box.union(o.geo.boundingBox); } });
             const r = hb.reduce((s, b) => s + (b.max.y - b.min.y), 0) / 8 * sc;   // rayon moyen des pneus
-            return { parts: out, hubs, box, r, D };
+            // Plaques d'immatriculation : à la place de celles du modèle, sinon contre le bouclier (rayon lancé à la hauteur donnée)
+            const plates = [];
+            if(plateParts.length) {
+                const pb = [new THREE.Box3(), new THREE.Box3()];
+                plateParts.forEach(P => { const n = P.g.attributes.position.count; for(let i = 0; i < n; i++) { vtx(P, i, tmp).applyMatrix4(M); pb[tmp.z > 0 ? 0 : 1].expandByPoint(tmp); } });
+                pb.forEach((b, k) => { if(b.isEmpty()) return; const c = b.getCenter(new THREE.Vector3()); plates.push({ x: c.x, y: c.y, z: k ? b.min.z - 0.004 : b.max.z + 0.004, rear: !k, w: clamp(b.max.x - b.min.x, 0.3, 0.52) }); });
+            } else if(D.plateY) {
+                const rc = new THREE.Raycaster(), dm = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide });
+                const meshes = out.filter(o => o.grp === 'body' && !(D.glass && D.glass.test(o.mat.name || ''))).map(o => new THREE.Mesh(o.geo, dm));
+                D.plateY.forEach((y, k) => {
+                    if(y === null) return;
+                    const rear = k === 0;
+                    rc.set(new THREE.Vector3(0, y, rear ? box.max.z + 1 : box.min.z - 1), new THREE.Vector3(0, 0, rear ? -1 : 1));
+                    const h = rc.intersectObjects(meshes, false)[0];
+                    if(h) plates.push({ x: 0, y, z: h.point.z + (rear ? 0.008 : -0.008), rear, w: 0.52 });
+                });
+            }
+            return { parts: out, hubs, box, r, plates, D };
         }
         // Retire le modèle 3D d'une voiture du jeu (avant d'en mettre un autre)
         function undressCar(car) {
@@ -1457,20 +1626,23 @@
             const D = F.D, fg = new THREE.Group();
             fg.scale.setScalar(opt.scale || 1);
             const mats = new Map(), wheels = [];
-            car.tailMat = null;
+            car.tailMat = null; car.calMats = []; car.rimMats = []; car.glassMats = []; car.neon = null; car.neonLight = null;
             const texFix = (t) => { if(!t || !opt.linear) return t; const c = t.clone(); c.encoding = THREE.LinearEncoding; c.needsUpdate = true; return c; };
-            const matFor = (src, vc) => {
-                if(mats.has(src)) return mats.get(src);
+            const matFor = (src, vc, tag) => {
+                const mk = src.uuid + (tag || '');
+                if(mats.has(mk)) return mats.get(mk);
                 const name = src.name || '';
                 let m, own = true;   // own : matière refaite ici (couleurs en hexadécimal sRGB, comme le reste du jeu)
                 if(D.paint && D.paint.test(name)) {   // peinture : vernis, couleur choisie au garage
                     m = new THREE.MeshPhysicalMaterial({ color: carColor, metalness: 0.55, roughness: 0.28, clearcoat: 1, clearcoatRoughness: 0.04, emissive: carColor, emissiveIntensity: 0.04 });
                     car.bodyMat = m;
+                    patchStyle(m, F);
                 } else if(D.tail && D.tail.test(name)) {   // feux arrière : s'allument au freinage
                     m = new THREE.MeshStandardMaterial({ color: 0x5a0000, emissive: 0xff1010, emissiveIntensity: 2.4, roughness: 0.1, transparent: true, opacity: 0.88 });
                     car.tailMat = m;
                 } else if(D.glass && D.glass.test(name)) {   // vitres teintées
                     m = new THREE.MeshPhysicalMaterial({ color: 0x0a0d12, metalness: 0.1, roughness: 0.04, clearcoat: 1, transparent: true, opacity: 0.55, depthWrite: false });
+                    car.glassMats.push(m);
                 } else {
                     own = false;
                     m = src.clone();
@@ -1488,18 +1660,34 @@
                     m.emissive.setRGB(1, 1, 1); m.emissiveMap = m.map; m.emissiveIntensity = opt.linear && !opt.mirror ? 0.8 : 0;
                     if(!opt.linear) car.lightMat = m;
                 }
-                if(opt.mirror) { m.transparent = true; m.opacity = 0.28; m.depthWrite = false; }
-                mats.set(src, m);
+                if(opt.mirror) { m.transparent = true; m.opacity = 0.28; m.depthWrite = false; m.userData.mir = true; }
+                if(tag === 'C') car.calMats.push({ m, c: m.color.clone(), map: m.map });   // couleur d'origine gardée (option « Origine »)
+                if(tag === 'R') car.rimMats.push({ m, c: m.color.clone() });
+                mats.set(mk, m);
                 return m;
             };
             const piv = F.hubs.map((h) => { const g = new THREE.Group(), s = new THREE.Group(); g.position.copy(h); g.rotation.order = 'YXZ'; g.add(s); fg.add(g); wheels.push({ g, s, front: h.z < 0 }); return { g, s }; });
             F.parts.forEach(P => {
-                const mesh = new THREE.Mesh(P.geo, matFor(P.mat, P.vc));
+                const mesh = new THREE.Mesh(P.geo, matFor(P.mat, P.vc, P.tag));
                 mesh.castShadow = !opt.mirror; mesh.receiveShadow = true;
                 if(opt.mirror) mesh.renderOrder = 5;
                 if(P.grp === 'body') fg.add(mesh);
                 else piv[+P.grp.slice(-1)][P.grp.startsWith('wheel') ? 's' : 'g'].add(mesh);
             });
+            if(!opt.mirror) {
+                // Plaques d'immatriculation (texte et style choisis au garage)
+                (F.plates || []).forEach(pl => {
+                    const m = new THREE.Mesh(new THREE.PlaneGeometry(pl.w, pl.w * 0.215), opt.linear ? plateMatG : plateMatW);
+                    m.position.set(pl.x, pl.y, pl.z); if(!pl.rear) m.rotation.y = Math.PI;
+                    fg.add(m);
+                });
+                // Néons sous la caisse : halo au sol (et une petite lumière dans le monde)
+                const W = F.box.max.x - F.box.min.x, L = F.box.max.z - F.box.min.z;
+                const ne = new THREE.Mesh(new THREE.PlaneGeometry(W + 1.1, L * 0.95), new THREE.MeshBasicMaterial({ map: neonTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+                ne.rotation.x = -Math.PI / 2; ne.position.y = 0.03; ne.renderOrder = 11; ne.visible = false;
+                fg.add(ne); car.neon = ne;
+                if(!opt.linear) { const pl = new THREE.PointLight(0xffffff, 0, 6, 2); pl.position.y = 0.12; fg.add(pl); car.neonLight = pl; }
+            }
             car.add(fg);
             car.wheels = wheels;
             car.ferrari = fg;
@@ -1526,6 +1714,7 @@
             dressCar(previewMirror, F, { linear: true, scale: pv, mirror: true });
             previewId = F.D.id;
             paintPreview(colorOf(F.D.id));
+            applyCustom(previewCar, F.D.id, true); applyCustom(previewMirror, F.D.id, true);
         }
         // Voiture du joueur dans le monde
         function setPlayerCar(F) {
@@ -1540,6 +1729,7 @@
             flames.forEach((s, k) => s.position.set((k ? 1 : -1) * 0.16, H * 0.47, F.box.max.z + 0.12));
             player.exhZ = F.box.max.z + 0.12;
             paintPlayer(colorOf(F.D.id));
+            applyCustom(player, F.D.id, false);
             console.log(F.D.name + ' chargée : ' + F.parts.length + ' lots, rayon de roue ' + F.r.toFixed(3) + ' m');
         }
         { const e = document.getElementById('gx-carname'); if(e) e.textContent = carDef(carId).tag; }
@@ -1581,7 +1771,8 @@
             turbo: '<circle cx="32" cy="20" r="15"/><circle cx="32" cy="20" r="4"/><path d="M32 5c5 4 5 9 0 11M47 20c-4 5-9 5-11 0M32 35c-5-4-5-9 0-11M17 20c4-5 9-5 11 0"/>',
             pneus: '<circle cx="32" cy="20" r="16"/><circle cx="32" cy="20" r="8"/><circle cx="32" cy="20" r="2"/><path d="M32 4v4M32 32v4M16 20h4M44 20h4M20.7 8.7l2.8 2.8M40.5 28.5l2.8 2.8M20.7 31.3l2.8-2.8M40.5 11.5l2.8-2.8"/>',
             nitro: '<path d="M28 4h8M30 4v4h4V4M25 8h14v28H25zM25 14h14M30 19l-3 7h6l-3 7"/>',
-            lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'
+            lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+            plate: '<rect x="2" y="7" width="20" height="10" rx="2"/><path d="M6 12h3M11 12h7"/>'
         };
         const svg = (k, vb) => '<svg viewBox="' + (vb || '0 0 24 24') + '" aria-hidden="true">' + ICONS[k] + '</svg>';
         const UPGRADES = [
@@ -1613,16 +1804,17 @@
         const fr1 = (x) => x.toFixed(1).replace('.', ',');
 
         // ====== Interface du garage ======
-        const TITLES = { home: 'Garage', lists: 'Choisir une Speedliste', cars: 'Garage / Changer de voiture', perf: 'Garage / Améliorer performance', paint: 'Personnaliser la voiture / Peinture', settings: 'Garage / Réglages' };
-        const SHIFT = { home: 0.05, lists: 0, cars: 0.08, perf: 0.08, paint: 0, settings: 0.02 };
+        const TITLES = { map: 'Carte', custom: 'Personnaliser la voiture', plate: 'Garage / Plaque d’immatriculation', home: 'Garage', lists: 'Choisir une Speedliste', cars: 'Garage / Changer de voiture', perf: 'Garage / Améliorer performance', paint: 'Personnaliser la voiture / Peinture', settings: 'Garage / Réglages' };
+        const SHIFT = { map: 0, custom: 0.14, plate: 0.14, home: 0.05, lists: 0, cars: 0.08, perf: 0.08, paint: 0, settings: 0.02 };
         // Distance de la caméra : voiture très grosse dans le garage (comme dans NFS Rivals), plus petite quand des cartes occupent le bas
-        const DIST = { home: 7.2, lists: 10.8, cars: 9.4, perf: 9.4, paint: 8.2, settings: 10.4 };
+        const DIST = { map: 10, custom: 9.2, plate: 9.6, home: 7.2, lists: 10.8, cars: 9.4, perf: 9.4, paint: 8.2, settings: 10.4 };
         const MENU = [
             { label: 'Quitter le garage', icon: 'exit', go: 'start' },
             { label: 'Changer de Speedliste', icon: 'list', go: 'lists' },
             { label: 'Changer de voiture', icon: 'car', go: 'cars' },
             { label: 'Améliorer performance', icon: 'wrench', go: 'perf' },
-            { label: 'Personnaliser la voiture', icon: 'brush', go: 'paint' },
+            { label: 'Personnaliser la voiture', icon: 'brush', go: 'custom' },
+            { label: 'Plaque d’immatriculation', icon: 'plate', go: 'plate' },
             { label: 'Réglages', icon: 'sliders', go: 'settings' }
         ];
         let setSel = 0;
@@ -1733,6 +1925,177 @@
             else SET[r.k] = clamp(SET[r.k] + step, r.min, r.max);
             store('nfsSettings', SET); applySettings(); renderSettings();
         }
+        // --- Personnaliser la voiture (voiture actuelle) ---
+        let custSel = 0, plateSel = 0;
+        const CUST_ROWS = [
+            { k: 'paint', label: 'Peinture', list: CAR_COLORS, chip: true, desc: 'Couleur de la carrosserie.' },
+            { k: 'fin', label: 'Finition', list: FINISHES, desc: 'Brillant, métallisé, nacré, satiné, mat ou chrome.' },
+            { k: 'sty', label: 'Motif', list: STYLES.map(n => ({ n })), desc: 'Bandes et zones de couleur peintes sur la carrosserie.' },
+            { k: 'styC', label: 'Couleur du motif', list: CAR_COLORS, chip: true, desc: 'Couleur des bandes et des zones du motif.' },
+            { k: 'cal', label: 'Étriers de frein', list: CAL_COLORS, chip: true, desc: 'Couleur des étriers, visibles à travers les jantes.' },
+            { k: 'rim', label: 'Jantes', list: RIM_COLORS, chip: true, desc: 'Teinte des jantes.' },
+            { k: 'tint', label: 'Vitres', list: TINTS, desc: 'Teinte des vitres.' },
+            { k: 'neon', label: 'Néons sous caisse', list: NEONS, chip: true, desc: 'Halo lumineux sous la voiture, bien visible la nuit.' },
+            { k: 'reset', label: 'Tout remettre d’origine', action: true, desc: 'Peinture, finition, motif, étriers, jantes, vitres et néons de cette voiture.' }
+        ];
+        const custVal = (r) => r.k === 'paint' ? Math.max(0, CAR_COLORS.findIndex(o => o.c === colorOf(carId))) : custOf(carId)[r.k];
+        const chooserHTML = (inner) => '<span class="gx-chooser"><button type="button" class="l" data-step="-1" aria-label="Précédent"></button>' + inner + '<button type="button" class="r" data-step="1" aria-label="Suivant"></button></span>';
+        function renderCust() {
+            $('cust-rows').innerHTML = CUST_ROWS.map((r, i) => {
+                let inner = '';
+                if(!r.action) { const v = r.list[custVal(r)] || r.list[0]; inner = '<b>' + (r.chip && v.c !== null && v.c !== undefined ? '<i class="gx-chip" style="background:' + hex6(v.c) + '"></i>' : '') + v.n + '</b>'; }
+                return '<div class="gx-row' + (i === custSel ? ' sel' : '') + (r.action ? ' act' : '') + '" data-i="' + i + '"><span>' + r.label + '</span>' + (r.action ? '' : chooserHTML(inner)) + '</div>';
+            }).join('');
+            $('cust-desc').textContent = CUST_ROWS[custSel].desc;
+        }
+        function refreshCustom() {
+            if(previewId === carId) { applyCustom(previewCar, carId, true); applyCustom(previewMirror, carId, true); }
+            applyCustom(player, carId, false);
+        }
+        function changeCust(step) {
+            const r = CUST_ROWS[custSel];
+            if(r.action) { if(step === 0) { delete custAll[carId]; store('nfsCustom', custAll); applyColor(CAR_DEF_COLOR[carId]); refreshCustom(); } renderCust(); return; }
+            if(!step) step = 1;
+            const n = r.list.length, v = (custVal(r) + step + n) % n;
+            if(r.k === 'paint') applyColor(CAR_COLORS[v].c);
+            else { const c = custAll[carId] || (custAll[carId] = {}); c[r.k] = v; store('nfsCustom', custAll); refreshCustom(); }
+            renderCust();
+        }
+        // --- Plaque d'immatriculation ---
+        const PLATE_ROWS = [
+            { k: 'text', label: 'Texte', desc: 'Jusqu’à 8 caractères (lettres, chiffres, espaces, tirets). Clique dans la case ou appuie sur Entrée pour écrire.' },
+            { k: 'sty', label: 'Style', desc: 'Dubaï, européenne, américaine, noire ou jaune de course.' }
+        ];
+        function renderPlate() {
+            const ae = document.activeElement, editing = ae && ae.id === 'plate-text';
+            if(!editing) $('plate-rows').innerHTML = PLATE_ROWS.map((r, i) => '<div class="gx-row' + (i === plateSel ? ' sel' : '') + '" data-i="' + i + '"><span>' + r.label + '</span>'
+                + (r.k === 'text' ? '<input id="plate-text" maxlength="8" spellcheck="false" autocomplete="off" value="' + (plateSet.text || '').replace(/[^A-Za-z0-9 \-]/g, '') + '">' : chooserHTML('<b>' + PLATE_STYLES[plateSet.sty] + '</b>')) + '</div>').join('');
+            else document.querySelectorAll('#plate-rows .gx-row').forEach((el, i) => el.classList.toggle('sel', i === plateSel));
+            $('plate-desc').textContent = PLATE_ROWS[plateSel].desc;
+            drawPlate();
+        }
+        function changePlate(step) {
+            const r = PLATE_ROWS[plateSel];
+            if(r.k === 'text') { const inp = $('plate-text'); if(inp && step === 0) { inp.focus(); inp.select(); } return; }
+            plateSet.sty = (plateSet.sty + (step || 1) + PLATE_STYLES.length) % PLATE_STYLES.length;
+            store('nfsPlate', plateSet); renderPlate();
+        }
+        $('plate-rows').addEventListener('input', (e) => {
+            if(e.target.id !== 'plate-text') return;
+            const v = e.target.value.toUpperCase().replace(/[^A-Z0-9 \-]/g, '').slice(0, 8);
+            if(v !== e.target.value) e.target.value = v;
+            plateSet.text = v; store('nfsPlate', plateSet); drawPlate();
+        });
+        $('plate-rows').onclick = (e) => { const r = closest(e, '[data-i]'); if(!r) return; plateSel = +r.dataset.i; const b = closest(e, '[data-step]'); if(b) changePlate(+b.dataset.step); else if(e.target.id !== 'plate-text') renderPlate(); else { document.querySelectorAll('#plate-rows .gx-row').forEach((el, i) => el.classList.toggle('sel', i === plateSel)); $('plate-desc').textContent = PLATE_ROWS[plateSel].desc; } };
+        $('gx-tabs').onclick = (e) => { const b = closest(e, '[data-tab]'); if(b && !fx) go(b.dataset.tab); };
+        $('cust-rows').onclick = (e) => { const r = closest(e, '[data-i]'); if(!r) return; custSel = +r.dataset.i; const b = closest(e, '[data-step]'); if(b) changeCust(+b.dataset.step); else if(CUST_ROWS[custSel].action) changeCust(0); else renderCust(); };
+        // --- Carte : choisir sa planque de départ ---
+        const gm = { zoom: 1, cx: 0, cz: 0, mx: -1, my: -1, hover: -1, drag: null, ask: -1, img: null, roads: null };
+        let spawnPick = -1;   // planque choisie sur la carte : départ de la prochaine sortie
+        function gmImage() {
+            const MN = 1024, HN = 256, c = document.createElement('canvas'); c.width = c.height = MN;
+            const g = c.getContext('2d'), im = g.createImageData(MN, MN), d = im.data, hc = 2 * MAP_HALF / HN, mc = 2 * MAP_HALF / MN;
+            const hs = new Float32Array((HN + 1) * (HN + 1));
+            for(let j = 0; j <= HN; j++) for(let i = 0; i <= HN; i++) hs[j * (HN + 1) + i] = hAt(i * hc - MAP_HALF, j * hc - MAP_HALF);
+            const hI = (x, z) => { const u = clamp((x + MAP_HALF) / hc, 0, HN - 0.001), v = clamp((z + MAP_HALF) / hc, 0, HN - 0.001), i = Math.floor(u), j = Math.floor(v), fu = u - i, fv = v - j, o = j * (HN + 1) + i; return (hs[o] * (1 - fu) + hs[o + 1] * fu) * (1 - fv) + (hs[o + HN + 1] * (1 - fu) + hs[o + HN + 2] * fu) * fv; };
+            const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+            for(let j = 0; j < MN; j++) for(let i = 0; i < MN; i++) {
+                const x = (i + 0.5) * mc - MAP_HALF, z = (j + 0.5) * mc - MAP_HALF, h = hI(x, z), e = mc * 1.5;
+                const gx = (hI(x + e, z) - hI(x - e, z)) / (2 * e), gz = (hI(x, z + e) - hI(x, z - e)) / (2 * e);
+                const nx = -gx * 3, nz = -gz * 3, nl = Math.hypot(nx, 1, nz), sh = clamp(0.62 + 0.5 * (nx * -0.55 + 0.7 + nz * -0.45) / nl, 0.45, 1.25);
+                let col = mix([96, 120, 74], [140, 140, 94], clamp(sstep(0.38, 0.72, vnoise(x / 900 + 5, z / 900)) * 0.7, 0, 1));
+                const ub = urbanAt(x, z); if(ub > 0) col = mix(col, [200, 194, 182], ub * 0.9);
+                const f = forestAt(x, z) * (1 - ub); if(f > 0.02) col = mix(col, [70, 96, 62], sstep(0.3, 0.7, f) * 0.75);
+                if(h > 80) col = mix(col, [150, 142, 130], sstep(80, 420, h));
+                col = mix(col, [240, 243, 247], sstep(840, 1000, h));
+                let r = col[0] * sh, g2 = col[1] * sh, b = col[2] * sh;
+                for(const L of lakes) { if(Math.hypot(L.x - x, L.z - z) < L.r && h < L.level) { r = 52; g2 = 110; b = 150; } }
+                const out = sstep(WORLD_R + 150, WORLD_R + 900, Math.hypot(x, z)) * 0.45;
+                const o = (j * MN + i) * 4; d[o] = r * (1 - out) * 0.78; d[o + 1] = g2 * (1 - out) * 0.78; d[o + 2] = (b * (1 - out) + out * 20) * 0.8; d[o + 3] = 255;
+            }
+            g.putImageData(im, 0, 0);
+            return c;
+        }
+        function gmView() {
+            const c = $('gmap'), dpr = Math.min(window.devicePixelRatio || 1, 2), W = Math.floor(c.clientWidth * dpr) || 1, H = Math.floor(c.clientHeight * dpr) || 1;
+            if(c.width !== W) c.width = W;
+            if(c.height !== H) c.height = H;
+            const sc0 = Math.min(W * 0.96, H * 0.8) / (2 * WORLD_R * 1.04);
+            return { c, W, H, dpr, sc: sc0 * gm.zoom, ox: W / 2, oy: H * 0.52 };
+        }
+        const gmClamp = () => { gm.zoom = clamp(gm.zoom, 1, 8); const lim = WORLD_R * (1 - 1 / gm.zoom); gm.cx = clamp(gm.cx, -lim, lim); gm.cz = clamp(gm.cz, -lim, lim); };
+        function drawGMap() {
+            if(screen !== 'map') return;
+            const v = gmView(), g = v.c.getContext('2d'), { W, H, dpr, sc, ox, oy } = v, u = dpr;
+            const tr = (x, z) => [ox + (x - gm.cx) * sc, oy + (z - gm.cz) * sc];
+            if(!gm.img) gm.img = gmImage();
+            if(!gm.roads) gm.roads = [0, 1].map(c => { const p = new Path2D(); roads.forEach(R => { if((R.cls === 0) !== (c === 0)) return; p.moveTo(R.px[0], R.pz[0]); for(let i = 2; i < R.n; i += 2) p.lineTo(R.px[i], R.pz[i]); if(R.closed) p.closePath(); else p.lineTo(R.px[R.n - 1], R.pz[R.n - 1]); }); return p; });
+            g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = '#07090b'; g.fillRect(0, 0, W, H);
+            g.save(); g.translate(ox, oy); g.scale(sc, sc); g.translate(-gm.cx, -gm.cz);
+            g.imageSmoothingEnabled = true; g.drawImage(gm.img, -MAP_HALF, -MAP_HALF, 2 * MAP_HALF, 2 * MAP_HALF);
+            g.lineCap = g.lineJoin = 'round';
+            g.strokeStyle = 'rgba(20,16,10,0.85)'; g.lineWidth = 5.5 * u / sc; g.stroke(gm.roads[1]); g.lineWidth = 7.5 * u / sc; g.stroke(gm.roads[0]);
+            g.strokeStyle = '#e9e4d8'; g.lineWidth = 2.6 * u / sc; g.stroke(gm.roads[1]);
+            g.strokeStyle = '#f2c14e'; g.lineWidth = 4 * u / sc; g.stroke(gm.roads[0]);
+            g.strokeStyle = 'rgba(255,255,255,0.35)'; g.lineWidth = 1.4 * u / sc; g.setLineDash([10 * u / sc, 8 * u / sc]); g.beginPath(); g.arc(0, 0, WORLD_R, 0, 7); g.stroke(); g.setLineDash([]);
+            g.restore();
+            g.textAlign = 'center'; g.textBaseline = 'middle';
+            cities.forEach(C => { const q = tr(C.x, C.z); g.font = FONT(700, (C.metro ? 20 : 16) * u); g.lineWidth = 4 * u; g.strokeStyle = 'rgba(8,10,12,0.85)'; g.strokeText(C.name.toUpperCase(), q[0], q[1]); g.fillStyle = '#fff'; g.fillText(C.name.toUpperCase(), q[0], q[1]); });
+            hides.forEach((h, k) => {
+                const q = tr(h.x, h.z), hov = k === gm.hover, pick = k === spawnPick, s = (hov ? 9.5 : 7.5) * u;
+                if(pick) { g.strokeStyle = '#e8b33c'; g.lineWidth = 2.5 * u; g.beginPath(); g.arc(q[0], q[1], 17 * u, 0, 7); g.stroke(); }
+                g.shadowColor = 'rgba(0,0,0,0.6)'; g.shadowBlur = 6 * u; pinIcon(g, q[0], q[1], s, hov ? '#8dff9f' : '#52e06c'); g.shadowBlur = 0;
+                g.font = FONT(600, (hov ? 16 : 13) * u);
+                const tw = g.measureText(h.name).width + 16 * u, ty = q[1] - s * 2.1 - 14 * u;
+                g.fillStyle = hov ? 'rgba(18,60,30,0.95)' : 'rgba(10,14,12,0.8)'; roundRect(g, q[0] - tw / 2, ty - 10 * u, tw, 20 * u, 10 * u); g.fill();
+                g.strokeStyle = hov ? '#8dff9f' : 'rgba(120,230,140,0.5)'; g.lineWidth = 1.2 * u; g.stroke();
+                g.fillStyle = '#eafaee'; g.fillText(h.name, q[0], ty + 1 * u);
+            });
+            // Curseur : réticule rond (aimanté sur la planque survolée)
+            if(gm.mx >= 0) {
+                let cx = gm.mx, cy = gm.my;
+                if(gm.hover >= 0) { const q = tr(hides[gm.hover].x, hides[gm.hover].z); cx = q[0]; cy = q[1]; }
+                g.strokeStyle = '#fff'; g.lineWidth = 2 * u; g.shadowColor = 'rgba(0,0,0,0.8)'; g.shadowBlur = 5 * u;
+                g.beginPath(); g.arc(cx, cy, 22 * u, 0, 7); g.stroke();
+                g.lineWidth = 1.4 * u; g.beginPath(); g.arc(cx, cy, 30 * u, -0.5, 0.5); g.stroke(); g.beginPath(); g.arc(cx, cy, 30 * u, Math.PI - 0.5, Math.PI + 0.5); g.stroke();
+                [[0, -1], [0, 1], [-1, 0], [1, 0]].forEach(([a, b]) => { g.beginPath(); g.moveTo(cx + a * 14 * u, cy + b * 14 * u); g.lineTo(cx + a * 26 * u, cy + b * 26 * u); g.stroke(); });
+                g.fillStyle = '#fff'; g.beginPath(); g.arc(cx, cy, 2.6 * u, 0, 7); g.fill(); g.shadowBlur = 0;
+                if(gm.hover >= 0) { g.font = FONT(600, 15 * u); g.textAlign = 'left'; g.fillStyle = '#fff'; g.fillText('Clic : apparaître ici', cx + 34 * u, cy + 30 * u); g.textAlign = 'center'; }
+            }
+        }
+        function gmHover() {
+            const v = gmView(); let best = -1, bd = 30 * v.dpr;
+            hides.forEach((h, k) => { const d = Math.hypot(v.ox + (h.x - gm.cx) * v.sc - gm.mx, v.oy + (h.z - gm.cz) * v.sc - gm.my); if(d < bd) { bd = d; best = k; } });
+            gm.hover = gm.mx >= 0 ? best : -1;
+        }
+        function gmAsk(k) { gm.ask = k; $('gm-name').textContent = hides[k].name; $('gm-ask').hidden = false; }
+        function gmClose() { gm.ask = -1; $('gm-ask').hidden = true; drawGMap(); }
+        function gmYes() { const k = gm.ask; gmClose(); if(k < 0) return; spawnPick = k; window.startGame(); }
+        $('gm-ask').onclick = (e) => { const b = closest(e, '[data-a]'); if(!b) return; if(b.dataset.a === 'yes') gmYes(); else gmClose(); };
+        (function () {
+            const c = $('gmap'), pos = (e) => { const r = c.getBoundingClientRect(), dpr = c.width / Math.max(1, r.width); return [(e.clientX - r.left) * dpr, (e.clientY - r.top) * dpr]; };
+            c.addEventListener('pointermove', (e) => {
+                const [x, y] = pos(e);
+                if(gm.drag) { const v = gmView(); if(Math.hypot(x - gm.drag[0], y - gm.drag[1]) > 5) gm.drag[4] = true; if(gm.drag[4]) { gm.cx = gm.drag[2] - (x - gm.drag[0]) / v.sc; gm.cz = gm.drag[3] - (y - gm.drag[1]) / v.sc; gmClamp(); } }
+                gm.mx = x; gm.my = y; gmHover(); drawGMap();
+            });
+            c.addEventListener('pointerdown', (e) => { if(gm.ask >= 0) return; const [x, y] = pos(e); gm.drag = [x, y, gm.cx, gm.cz, false]; c.setPointerCapture(e.pointerId); });
+            c.addEventListener('pointerup', () => { const d = gm.drag; gm.drag = null; if(d && !d[4] && gm.hover >= 0 && gm.ask < 0) gmAsk(gm.hover); });
+            c.addEventListener('pointerleave', () => { if(!gm.drag) { gm.mx = -1; gm.hover = -1; drawGMap(); } });
+            c.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const [x, y] = pos(e), v = gmView(), wx = gm.cx + (x - v.ox) / v.sc, wz = gm.cz + (y - v.oy) / v.sc;
+                gm.zoom = clamp(gm.zoom * Math.exp(-e.deltaY * 0.0016), 1, 8);
+                const s2 = gmView().sc; gm.cx = wx - (x - v.ox) / s2; gm.cz = wz - (y - v.oy) / s2; gmClamp(); gmHover(); drawGMap();
+            }, { passive: false });
+            window.addEventListener('resize', drawGMap);
+        })();
+        function gmKey(kn, dx, dy) {
+            if(gm.ask >= 0) { if(kn === 'Enter') gmYes(); else if(kn === 'Escape' || kn === 'Backspace') gmClose(); return true; }
+            if(kn === 'Enter') { if(gm.hover >= 0) gmAsk(gm.hover); return true; }
+            if(dx || dy) { const v = gmView(); if(gm.mx < 0) { gm.mx = v.ox; gm.my = v.oy; } gm.mx = clamp(gm.mx + dx * 22 * v.dpr, 0, v.W); gm.my = clamp(gm.my + dy * 22 * v.dpr, 0, v.H); gmHover(); drawGMap(); return true; }
+            return false;
+        }
         function pickPaint(i) { paintSel = (i + CAR_COLORS.length) % CAR_COLORS.length; applyColor(CAR_COLORS[paintSel].c); renderPaint(); }
         function renderInfo() {
             const box = $('gx-info');
@@ -1758,7 +2121,7 @@
         }
         function renderFooter() {
             const key = (k, label, act) => '<button type="button" class="gx-hint" data-act="' + act + '"><span class="gx-key">' + k + '</span>' + label + '</button>';
-            $('gx-bot-left').innerHTML = screen === 'settings' ? key('← →', 'Modifier', 'none') : '';
+            $('gx-bot-left').innerHTML = ['settings', 'custom', 'plate'].includes(screen) ? key('← →', 'Modifier', 'none') : screen === 'map' ? key('Clic', 'Choisir une planque', 'none') : '';
             $('gx-bot-right').innerHTML = (screen === 'perf' ? '' : key('Entrée', 'Sélectionner', 'select')) + (screen === 'home' ? '' : key('Échap', 'Retour', 'back'));
         }
         function go(next) {
@@ -1771,8 +2134,11 @@
             document.querySelectorAll('#lobby .gx-screen').forEach(sec => { sec.hidden = sec.dataset.screen !== next; });
             $('gx-title').textContent = TITLES[next];
             camShiftTarget = SHIFT[next]; camDistTarget = DIST[next];
-            ({ home: () => { renderMenu(); renderSpeedlist(); }, lists: renderLists, cars: renderCars, perf: renderPerf, paint: renderPaint, settings: renderSettings })[next]();
-            if(next === 'home' || next === 'paint') renderInfo();
+            ({ home: () => { renderMenu(); renderSpeedlist(); }, lists: renderLists, cars: renderCars, perf: renderPerf, paint: renderPaint, settings: renderSettings, custom: renderCust, plate: renderPlate, map: () => { gmClose(); drawGMap(); } })[next]();
+            if(!['cars', 'perf', 'lists'].includes(next)) renderInfo();
+            $('gx-tabs').hidden = next !== 'home' && next !== 'map';
+            yawTarget = next === 'plate' ? 0.5 : Math.PI - 0.55;
+            document.querySelectorAll('#gx-tabs [data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === next));
             renderFooter();
         }
         function buy() {
@@ -1796,6 +2162,8 @@
             else if(screen === 'cars') { if(CARS[carSel].id === carId) go('home'); else chooseCar(); }
             else if(screen === 'paint') go('home');
             else if(screen === 'settings') changeSetting(0);
+            else if(screen === 'custom') changeCust(0);
+            else if(screen === 'plate') changePlate(0);
         }
         // ====== Animations du garage : niveau supérieur, puis une présentation par voiture débloquée ======
         let fx = null;
@@ -1873,6 +2241,14 @@
         // Clavier du garage : flèches ou ZQSD, Entrée, Échap, A / E pour changer de page
         function garageKey(kn) {
             if(fx) { if(kn === 'Enter' || kn === 'Escape' || kn === ' ' || kn === 'Backspace') fxNext(); return true; }
+            const ae = document.activeElement;
+            if(ae && ae.tagName === 'INPUT') { if(kn === 'Enter' || kn === 'Escape') { ae.blur(); renderPlate(); return true; } return false; }   // saisie de la plaque
+            if(kn === 'a' && screen === 'home') { go('map'); return true; }
+            if(kn === 'e' && screen === 'map' && gm.ask < 0) { go('home'); return true; }
+            if(screen === 'map') {
+                const dx = (kn === 'ArrowLeft' || kn === 'q') ? -1 : (kn === 'ArrowRight' || kn === 'd') ? 1 : 0, dy = (kn === 'ArrowUp' || kn === 'z') ? -1 : (kn === 'ArrowDown' || kn === 's') ? 1 : 0;
+                if(gmKey(kn, dx, dy)) return true;
+            }
             const up = kn === 'ArrowUp' || kn === 'z', down = kn === 'ArrowDown' || kn === 's';
             const left = kn === 'ArrowLeft' || kn === 'q', right = kn === 'ArrowRight' || kn === 'd';
             const step = left ? -1 : right ? 1 : 0;
@@ -1880,6 +2256,10 @@
             if(kn === 'Escape' || kn === 'Backspace') { if(screen !== 'home') go('home'); return true; }
             if(screen === 'settings' && (up || down)) { setSel = (setSel + (down ? 1 : -1) + SET_ROWS.length) % SET_ROWS.length; renderSettings(); return true; }
             if(screen === 'settings' && step) { changeSetting(step); return true; }
+            if(screen === 'custom' && (up || down)) { custSel = (custSel + (down ? 1 : -1) + CUST_ROWS.length) % CUST_ROWS.length; renderCust(); return true; }
+            if(screen === 'custom' && step) { changeCust(step); return true; }
+            if(screen === 'plate' && (up || down)) { plateSel = (plateSel + (down ? 1 : -1) + PLATE_ROWS.length) % PLATE_ROWS.length; renderPlate(); return true; }
+            if(screen === 'plate' && step) { changePlate(step); return true; }
             if(screen === 'home' && (up || down)) { menuSel = (menuSel + (down ? 1 : -1) + MENU.length) % MENU.length; renderMenu(); return true; }
             if(screen === 'lists' && step) { listSel = (listSel + step + SPEEDLISTS.length) % SPEEDLISTS.length; renderLists(); return true; }
             if(screen === 'cars' && step) { carSel = (carSel + step + CARS.length) % CARS.length; renderCars(); return true; }
@@ -5502,6 +5882,8 @@
                 });
                 if(edge(0)) garageKey('Enter');
                 if(edge(1)) garageKey('Escape');
+                if(edge(4)) garageKey('a');
+                if(edge(5)) garageKey('e');
                 PAD.used = true;
             }
         }
@@ -5531,6 +5913,7 @@
                     try { last = parseInt(localStorage.getItem('nfsStartHide'), 10); } catch (e) {}
                     let hk = Math.floor(Math.random() * hides.length);
                     if(hk === last && hides.length > 1) hk = (hk + 1 + Math.floor(Math.random() * (hides.length - 1))) % hides.length;
+                    if(spawnPick >= 0) hk = spawnPick;   // planque choisie sur la carte du garage
                     try { localStorage.setItem('nfsStartHide', String(hk)); } catch (e) {}
                     const H = hides[hk];
                     placeAtHide(H);
