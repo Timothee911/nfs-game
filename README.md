@@ -67,7 +67,10 @@ Dans le garage : croix ou stick pour naviguer, Croix / A pour valider, Rond / B 
   - **Mercedes-AMG GT3** : `cars/amg-gt3.glb`, « amg_evo_3 », licence **CC BY-NC-SA**.
 
   Seule la voiture choisie est téléchargée. Au chargement, ses morceaux sont regroupés par matière pour rester fluide ; les roues tournent et braquent, les étriers restent fixes, les feux arrière s'allument au freinage et la peinture suit la couleur choisie au garage. La page doit être servie par un serveur (GitHub Pages, ou « Live Server » dans VS Code) : ouverte en double-cliquant, ou si le fichier manque, le jeu garde l'ancienne voiture dessinée (SAQR X1).
-- **Garage** : menu style NFS Rivals avec la voiture choisie en 3D, la peinture (10 couleurs), les Speedlistes (objectifs à remplir en roulant) et les améliorations (moteur, turbo, pneus, nitro) à payer en SP.
+- **Garage** : menu style NFS Rivals avec la voiture choisie en 3D, les Speedlistes (objectifs à remplir en roulant), les améliorations (moteur, turbo, pneus, nitro) à payer en SP, et deux pages : **Carte** (touche `A` ou L1) et **Garage** (touche `E` ou R1).
+  - **Carte** : carte du comté avec un curseur en réticule ; clique sur une planque (ou vise-la au clavier et appuie sur Entrée), le jeu demande « Apparaître ici ? » et la sortie démarre dans cette planque. Molette pour zoomer, glisser pour déplacer.
+  - **Personnaliser la voiture** (réglages propres à chaque voiture) : peinture (10 couleurs), finition (brillant, métallisé, nacré, satiné, mat, chrome), motif peint (double bande, bande centrale, bandes latérales, toit contrasté, bas de caisse) et sa couleur, couleur des étriers de frein, teinte des jantes, teinte des vitres, néons sous caisse (7 couleurs), et retour à l'origine.
+  - **Plaque d'immatriculation** : texte de 8 caractères et style (Dubaï, européenne, américaine, noire, jaune de course), posée à l'arrière de toutes les voitures (et à l'avant de la McLaren).
 - **Sauvegarde** : SP, améliorations, Speedliste, radars et couleur sont mémorisés dans le navigateur (`localStorage`). Le bouton « Réinitialiser ma progression » du garage remet tout à zéro.
 
 ## Régler le jeu
