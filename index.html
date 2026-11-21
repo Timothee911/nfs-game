@@ -1012,7 +1012,7 @@
         previewCamera.lookAt(0, 0.6, 0);
 
         // Légère oscillation autour du trois-quarts avant ; glisser à la souris pour tourner la voiture
-        let pPrev = Date.now(), pT = 0, userYaw = 0, dragging = false, lastX = 0, cine = null, yawBase = Math.PI - 0.55, yawTarget = Math.PI - 0.55;
+        let pPrev = Date.now(), pT = 0, userYaw = 0, dragging = false, lastX = 0, cine = null, yawBase = Math.PI - 0.55, yawTarget = Math.PI - 0.55, spinOn = true, spinAmp = 1;
         previewContainer.addEventListener('pointerdown', (e) => { dragging = true; lastX = e.clientX; });
         window.addEventListener('pointerup', () => { dragging = false; });
         window.addEventListener('pointermove', (e) => {
@@ -1025,7 +1025,7 @@
             requestAnimationFrame(animatePreview);
             const now = Date.now(), dt = Math.min(0.05, (now - pPrev) / 1000);
             pPrev = now;
-            if(!dragging) pT += dt;
+            if(!dragging && spinOn) pT += dt;   // la voiture ne se balance qu'à l'accueil du garage
             camShift += (camShiftTarget - camShift) * Math.min(1, dt * 5);
             camDist += (camDistTarget - camDist) * Math.min(1, dt * 5);
             if(cine) {   // animation de déblocage : plans de caméra autour de la voiture (avant de la voiture vers -z)
@@ -1049,7 +1049,8 @@
             previewCamera.lookAt(0, 0.6, 0);
             applyViewOffset();
             yawBase += (yawTarget - yawBase) * Math.min(1, dt * 4);   // page Plaque : vue de l'arrière
-            previewCar.rotation.y = previewMirror.rotation.y = yawBase + userYaw + Math.sin(pT * 0.3) * 0.3;
+            spinAmp += ((spinOn ? 1 : 0) - spinAmp) * Math.min(1, dt * 4);   // dans les onglets : angle fixe
+            previewCar.rotation.y = previewMirror.rotation.y = yawBase + userYaw + Math.sin(pT * 0.3) * 0.3 * spinAmp;
             previewRenderer.render(previewScene, previewCamera);
         }
         animatePreview();
@@ -2138,6 +2139,7 @@
             if(!['cars', 'perf', 'lists'].includes(next)) renderInfo();
             $('gx-tabs').hidden = next !== 'home' && next !== 'map';
             yawTarget = next === 'plate' ? 0.5 : Math.PI - 0.55;
+            spinOn = next === 'home';
             document.querySelectorAll('#gx-tabs [data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === next));
             renderFooter();
         }
