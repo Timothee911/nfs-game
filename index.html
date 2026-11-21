@@ -247,7 +247,8 @@
         #lobby .gx-tile.sel { border: 2px solid #f4f4f4; color: #fff; background: rgba(28,26,24,0.8); }
         #lobby .gx-tiles.focus .gx-tile.sel::after { content: ''; position: absolute; left: 50%; bottom: calc(-2.4vh - 1px); width: 14px; height: 14px; transform: translateX(-50%) rotate(45deg); background: rgba(5,5,6,0.92); border-left: 1.5px solid rgba(255,255,255,0.75); border-top: 1.5px solid rgba(255,255,255,0.75); }
         #lobby .gx-tile.locked { color: #5d5a55; }
-        #lobby .gx-tile img.gx-shot { position: absolute; left: 4%; top: 6%; width: 92%; height: calc(94% - clamp(10.7px, 1.6vh, 14.8px) - 9px); object-fit: contain; pointer-events: none; filter: drop-shadow(0 6px 8px rgba(0,0,0,0.6)); }
+        #lobby .gx-tile.gx-pic { overflow: hidden; }
+        #lobby .gx-tile.gx-pic img { position: absolute; left: 6%; top: 5%; width: 88%; height: 66%; object-fit: contain; pointer-events: none; filter: drop-shadow(0 6px 6px rgba(0,0,0,0.5)); }
         #lobby .gx-tile .gx-lock { position: absolute; right: 8px; top: 8px; width: 18px; height: 18px; }
         #lobby .gx-tile .gx-tag { position: absolute; left: 10px; bottom: 7px; font: 500 clamp(10.7px, 1.6vh, 14.8px)/1 var(--gx-cond); text-transform: uppercase; color: inherit; }
         #lobby .gx-pips { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); display: flex; gap: 5px; }
@@ -383,7 +384,7 @@
                 </div>
                 <div class="gx-id">
                     <div>
-                        <div class="gx-id-name">Ferrari SF90 <span class="gx-heat" title="Niveau de performance"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-3 2-4 2-7 2 1 3 3 3 5 1-1 1-3 0-8z"/></svg><b id="gx-heat">1</b></span></div>
+                        <div class="gx-id-name"><span id="gx-carname">Ferrari SF90</span> <span class="gx-heat" title="Niveau de performance"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-3 2-4 2-7 2 1 3 3 3 5 1-1 1-3 0-8z"/></svg><b id="gx-heat">1</b></span></div>
                         <div class="gx-id-sp"><span id="lobby-sp">0</span><em>SP</em></div>
                         <div class="gx-id-rec">Record radar <span id="lobby-best">--</span></div>
                     </div>
@@ -1210,145 +1211,164 @@
             const sc = parseInt(localStorage.getItem('nfsDubaiColor'), 10);
             if(CAR_COLORS.some(o => o.c === sc)) carColor = sc;
         } catch (e) {}
-        let carShot = '', carShotReady = false;   // photo de la voiture pour le garage (voir snapCar)
-        function setCarColor(car, hex) { car.bodyMat.color.setHex(hex); car.bodyMat.emissive.setHex(hex); }
+        function setCarColor(car, hex) { if(car.bodyMat) { car.bodyMat.color.setHex(hex); car.bodyMat.emissive.setHex(hex); } }
         function applyColor(hex) {
             carColor = hex;
             setCarColor(previewCar, hex); setCarColor(previewMirror, hex); setCarColor(player, hex);
             player.bodyMat.color.convertSRGBToLinear(); player.bodyMat.emissive.convertSRGBToLinear();   // le monde est rendu en lumière linéaire
             store('nfsDubaiColor', String(hex));
-            if(carShotReady) { clearTimeout(snapCar.t); snapCar.t = setTimeout(snapCar, 150); }
-        }
-        // Photo de la voiture actuelle (vraie Ferrari, peinture choisie) pour la vignette « Changer de voiture » :
-        // la voiture du garage est rendue une fois, de trois-quarts avant, sans le sol ni son reflet, sur fond transparent
-        function snapCar() {
-            let r = null;
-            const ry = previewCar.rotation.y, hid = [floor, previewMirror].filter(o => o.visible);
-            try {
-                const W = 1200, H = 640;
-                r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
-                r.setPixelRatio(1); r.setSize(W, H);
-                r.toneMapping = previewRenderer.toneMapping; r.toneMappingExposure = previewRenderer.toneMappingExposure; r.outputEncoding = previewRenderer.outputEncoding;
-                const cam = new THREE.PerspectiveCamera(24, W / H, 0.1, 100);
-                cam.position.set(0, 1.9, 13); cam.lookAt(0, 0.5, 0);
-                hid.forEach(o => { o.visible = false; });
-                previewCar.rotation.y = Math.PI - 0.62;
-                r.render(previewScene, cam);
-                // recadrage serré sur la voiture (pixels non transparents), puis export en PNG
-                const c2 = document.createElement('canvas'); c2.width = W; c2.height = H;
-                const g = c2.getContext('2d'); g.drawImage(r.domElement, 0, 0);
-                const px = g.getImageData(0, 0, W, H).data;
-                let x0 = W, y0 = H, x1 = 0, y1 = 0;
-                for(let y = 0; y < H; y++) for(let x = 0; x < W; x++) if(px[(y * W + x) * 4 + 3] > 24) { if(x < x0) x0 = x; if(x > x1) x1 = x; if(y < y0) y0 = y; if(y > y1) y1 = y; }
-                if(x1 > x0 && y1 > y0) {
-                    const m = 6, cw = x1 - x0 + 2 * m, chh = y1 - y0 + 2 * m, c3 = document.createElement('canvas');
-                    c3.width = cw; c3.height = chh;
-                    c3.getContext('2d').drawImage(c2, x0 - m, y0 - m, cw, chh, 0, 0, cw, chh);
-                    carShot = c3.toDataURL('image/png');
-                }
-            } catch (e) { console.warn('photo de la voiture', e); }
-            hid.forEach(o => { o.visible = true; });
-            previewCar.rotation.y = ry;
-            if(r) { r.dispose(); r.forceContextLoss(); }
-            document.querySelectorAll('#car-tiles img.gx-shot').forEach(im => { im.src = carShot; });
-            if(carShot && $('car-tiles') && $('car-tiles').children.length && !document.querySelector('#car-tiles img.gx-shot')) renderCars();
         }
         applyColor(carColor);
 
-        // ====== FERRARI SF90 SPIDER : modèle 3D ferrari.glb, qui remplace la voiture dessinée dès qu'il est chargé ======
-        // Modèle « 2021 Ferrari SF90 Spider », licence CC BY-NC.
-        // Le fichier compte plus de 1 200 morceaux : on les fusionne par matière (caisse, roues, étriers) pour garder peu d'appels de dessin.
+        // ====== VOITURES : modèles 3D (.glb) qui remplacent la voiture dessinée dès qu'ils sont chargés ======
+        // Chaque fichier compte des centaines de morceaux : on les fusionne par matière (caisse, roues, étriers) pour garder peu d'appels de dessin.
+        // Les roues sont retrouvées par leur nom (nœud ou matière), puis réparties entre les 4 coins d'après leur position :
+        // ça marche aussi quand les 4 roues forment un seul maillage. Seule la voiture choisie est téléchargée.
         // Si le chargement échoue (page ouverte sans serveur, fichier absent), la voiture dessinée reste en place.
-        const FERRARI_URL = 'ferrari.glb', FERRARI_LEN = 4.71;   // longueur réelle de la SF90 (m)
-        function prepFerrari(gltf) {
+        // wheel / cal : nœuds ou matières des roues (tournent) et des étriers (braquent sans tourner) ; hide : morceaux ignorés
+        // paint / tail / glass : matières de la peinture (couleur du garage), des feux arrière (freinage) et des vitres ; front : sens de l'avant dans le fichier
+        const CARS = [
+            { id: 'sf90', name: 'Ferrari SF90 Spider', tag: 'Ferrari SF90', url: 'ferrari.glb', img: 'cars/sf90.png', len: 4.71, front: '+z',
+              wheel: /Combined_Wheels|Wheel1A_3D/i, cal: /Calliper|Caliper/i, paint: /Paint_Material/, tail: /RED_GLASS/, glass: /Window/,
+              desc: 'Hypercar hybride à moteur V8 central.', credit: '« 2021 Ferrari SF90 Spider », licence CC BY-NC' },
+            { id: 'svj', name: 'Lamborghini Aventador SVJ', tag: 'Aventador SVJ', url: 'cars/aventador.glb', img: 'cars/svj.png', len: 4.94, front: '+z',
+              wheel: /^Circle\.?002/, cal: /plaquette_de_frein/, paint: /^CARROSSERIE$/, tail: /GlassRedLights/, glass: /^GLASS$/,
+              desc: 'V12 atmosphérique de 770 ch, édition carbone SC20.', credit: '« Lamborghini Aventador SVJ - SC20 Carbon Edition », licence CC BY-NC' },
+            { id: 'veneno', name: 'Lamborghini Veneno', tag: 'Veneno', url: 'cars/veneno.glb', img: 'cars/veneno.png', len: 5.02, front: '+z',
+              wheel: /Wheel1A_3D/i, cal: /Calliper|Caliper/i, paint: /Paint_Material/, tail: null, glass: /Window/,
+              desc: 'Série limitée de 2013, V12 de 750 ch.', credit: '« 2013 Lamborghini Veneno », licence CC BY' },
+            { id: 'p1', name: 'McLaren P1', tag: 'McLaren P1', url: 'cars/p1.glb', img: 'cars/p1.png', len: 4.59, front: '+z',
+              wheel: /^WHEEL_(LF|RF|LR|RR)$/, cal: /^SUSP_|^DISC_/, paint: /^Carpaint$/, tail: /Taillights/, glass: /^Windows/,
+              desc: 'Hypercar hybride, V8 biturbo et moteur électrique, 916 ch.', credit: '« McLaren P1 », licence CC BY' },
+            { id: 'gt3', name: 'Mercedes-AMG GT3', tag: 'AMG GT3', url: 'cars/amg-gt3.glb', img: 'cars/gt3.png', len: 4.75, front: '+z',
+              wheel: /^WHEEL_(LF|RF|LR|RR)$/, cal: /^Caliper_|^Disc_/, hide: /RIM_BLUR|RIM_.._BLUR/, paint: /^EXT_Carpaint_Inst/, tail: /EXT_Emissive_Light_Rear|EXT_Glass_Emissive_Rear/, glass: /^EXT_Windows$|^INT_Windows$|INT_Windshield|MI_INT_Glass/,
+              desc: 'Voiture de course GT3, V8 6,3 litres.', credit: '« amg_evo_3 », licence CC BY-NC-SA' },
+        ];
+        let carId = 'sf90';
+        try { const s = localStorage.getItem('nfsCar'); if(CARS.some(c => c.id === s)) carId = s; } catch (e) {}
+        const carDef = (id) => CARS.find(c => c.id === id) || CARS[0];
+        function prepCar(gltf, D) {
             const root = gltf.scene;
             root.updateMatrixWorld(true);
-            const wheelNode = (re) => { let f = null; root.traverse(o => { if(!f && re.test(o.name)) f = o; }); return f; };
-            const wn = [/3DWheel_?Front_?L$/, /3DWheel_?Front_?R$/, /3DWheel_?Rear_?L$/, /3DWheel_?Rear_?R$/].map(wheelNode);
-            if(wn.some(n => !n)) throw new Error('roues introuvables dans ferrari.glb');
-            const hubs = wn.map(n => new THREE.Vector3().setFromMatrixPosition(n.matrixWorld));
-            // Repère du jeu : avant vers -z, posée sur le sol, centrée, longueur réelle
-            const box = new THREE.Box3().setFromObject(root), ctr = box.getCenter(new THREE.Vector3());
-            const fwd = hubs[0].clone().add(hubs[1]).sub(hubs[2]).sub(hubs[3]);
-            const rot = new THREE.Matrix4().makeRotationY(Math.PI - Math.atan2(fwd.x, fwd.z));
-            const tb = box.clone().translate(new THREE.Vector3(-ctr.x, -box.min.y, -ctr.z)).applyMatrix4(rot);
-            const sc = FERRARI_LEN / (tb.max.z - tb.min.z);
-            const M = new THREE.Matrix4().makeScale(sc, sc, sc).multiply(rot).multiply(new THREE.Matrix4().makeTranslation(-ctr.x, -box.min.y, -ctr.z));
-            hubs.forEach(h => h.applyMatrix4(M));
-            // Chaque maillage va dans un lot : caisse, roue k (tourne) ou étrier k (braque sans tourner)
-            const lots = new Map(), tmp = new THREE.Vector3(), nm = new THREE.Matrix3(), W = new THREE.Matrix4();
+            const tmp = new THREE.Vector3(), nm = new THREE.Matrix3(), A = new THREE.Vector3(), B = new THREE.Vector3(), C = new THREE.Vector3();
+            const names = (o) => { const a = []; for(let p = o; p; p = p.parent) a.push(p.name || ''); return a; };
+            const hit = (re, o, mat) => !!re && (names(o).some(n => re.test(n)) || re.test(mat.name || ''));
+            // 1. Morceaux gardés et leur rôle (par matière : un maillage peut mêler roue et étrier)
+            const parts = [];
             root.traverse(o => {
-                if(!o.isMesh) return;
-                let grp = 'body';
-                for(let p = o; p; p = p.parent) { if(/Calliper|Caliper/i.test(p.name)) { grp = 'cal'; break; } if(/Combined_Wheels|Wheel1A_3D/i.test(p.name)) { grp = 'wheel'; break; } }
-                W.multiplyMatrices(M, o.matrixWorld);
-                if(grp !== 'body') {   // roue la plus proche du centre du morceau
-                    o.geometry.computeBoundingBox(); o.geometry.boundingBox.getCenter(tmp).applyMatrix4(W);
-                    let k = 0; hubs.forEach((h, q) => { if(h.distanceTo(tmp) < hubs[k].distanceTo(tmp)) k = q; });
-                    grp += k;
-                }
-                (Array.isArray(o.material) ? o.material : [o.material]).forEach((mat, mi) => {
-                    const key = grp + '|' + (mat.name || mat.uuid);
-                    let L = lots.get(key);
-                    if(!L) lots.set(key, L = { grp, mat, parts: [] });
-                    L.parts.push({ g: o.geometry, W: W.clone(), group: Array.isArray(o.material) ? o.geometry.groups.find(g => g.materialIndex === mi) : null });
+                if(!o.isMesh || (D.hide && names(o).some(n => D.hide.test(n)))) return;
+                const mats = Array.isArray(o.material) ? o.material : [o.material];
+                mats.forEach((mat, mi) => {
+                    const grp = hit(D.cal, o, mat) ? 'cal' : hit(D.wheel, o, mat) ? 'wheel' : 'body';
+                    const group = Array.isArray(o.material) ? o.geometry.groups.find(g => g.materialIndex === mi) : null;
+                    parts.push({ o, g: o.geometry, mat, grp, group, W: o.matrixWorld });
                 });
             });
-            // Fusion : positions et normales dans le repère du jeu (moyeu à l'origine pour les roues), uv, uv2, couleurs
+            // Parcourt les triangles d'un morceau (positions dans le repère du fichier)
             const nk = (a) => { if(!a.normalized) return 1; const t = (a.array || a.data.array).constructor; return t === Uint8Array ? 1 / 255 : t === Uint16Array ? 1 / 65535 : t === Int8Array ? 1 / 127 : t === Int16Array ? 1 / 32767 : 1; };
-            const out = [];
+            const vtx = (P, i, v) => { const a = P.g.attributes.position, k = nk(a); return v.set(a.getX(i) * k, a.getY(i) * k, a.getZ(i) * k).applyMatrix4(P.W); };
+            const triIdx = (P, t) => { const s0 = P.group ? P.group.start : 0, ix = P.g.index; const f = (c) => ix ? ix.getX(s0 + t + c) : s0 + t + c; return [f(0), f(1), f(2)]; };
+            const triCount = (P) => P.group ? P.group.count : P.g.index ? P.g.index.count : P.g.attributes.position.count;
+            // 2. Boîte des roues : axe long, centre, sol (bas des pneus)
+            const wb = new THREE.Box3(), all = new THREE.Box3();
+            parts.forEach(P => { const n = P.g.attributes.position.count; for(let i = 0; i < n; i++) { vtx(P, i, tmp); all.expandByPoint(tmp); if(P.grp === 'wheel') wb.expandByPoint(tmp); } });
+            if(wb.isEmpty()) throw new Error('roues introuvables dans ' + D.url);
+            const wc = wb.getCenter(new THREE.Vector3()), ws = wb.getSize(new THREE.Vector3());
+            const ax = D.front[1];   // axe de l'avant dans le fichier : x ou z
+            const lat = ax === 'z' ? 'x' : 'z', fs = D.front[0] === '+' ? 1 : -1;
+            // Coin d'un point : 0 avant gauche, 1 avant droit, 2 arrière gauche, 3 arrière droit (gauche vue du conducteur)
+            const corner = (p) => { const f = (p[ax] - wc[ax]) * fs > 0, l = p[lat] - wc[lat]; const left = ax === 'z' ? l * fs > 0 : l * fs < 0; return (f ? 0 : 2) + (left ? 0 : 1); };
+            const hb = [0, 1, 2, 3].map(() => new THREE.Box3());
+            parts.forEach(P => { if(P.grp !== 'wheel') return; const n = P.g.attributes.position.count; for(let i = 0; i < n; i++) { vtx(P, i, tmp); hb[corner(tmp)].expandByPoint(tmp); } });
+            if(hb.some(b => b.isEmpty())) throw new Error('les 4 roues ne sont pas toutes trouvées dans ' + D.url);
+            // 3. Repère du jeu : avant vers -z, posée sur le sol (bas des pneus), centrée, longueur réelle
+            const yaw = { '+z': Math.PI, '-z': 0, '+x': Math.PI / 2, '-x': -Math.PI / 2 }[D.front];
+            const rot = new THREE.Matrix4().makeRotationY(yaw);
+            const ctr = all.getCenter(new THREE.Vector3());
+            const sc = D.len / (all.max[ax] - all.min[ax]);
+            const M = new THREE.Matrix4().makeScale(sc, sc, sc).multiply(rot).multiply(new THREE.Matrix4().makeTranslation(-ctr.x, -wb.min.y, -ctr.z));
+            const hubs = hb.map(b => b.getCenter(new THREE.Vector3()).applyMatrix4(M));
+            // 4. Lots : caisse, roue k, étrier k ; chaque triangle de roue ou d'étrier va au coin le plus proche
+            const lots = new Map();
+            parts.forEach(P => {
+                const key0 = P.mat.name || P.mat.uuid, cnt = triCount(P);
+                if(P.grp === 'body') { const k = 'body|' + key0; let L = lots.get(k); if(!L) lots.set(k, L = { grp: 'body', mat: P.mat, items: [] }); L.items.push({ P, tris: null }); return; }
+                const per = [[], [], [], []];
+                for(let t = 0; t < cnt; t += 3) {
+                    const [a, b, c] = triIdx(P, t);
+                    vtx(P, a, A); vtx(P, b, B); vtx(P, c, C);
+                    per[corner(A.add(B).add(C).multiplyScalar(1 / 3))].push(t);
+                }
+                per.forEach((tris, k) => { if(!tris.length) return; const key = P.grp + k + '|' + key0; let L = lots.get(key); if(!L) lots.set(key, L = { grp: P.grp + k, mat: P.mat, items: [] }); L.items.push({ P, tris }); });
+            });
+            // 5. Fusion : positions et normales dans le repère du jeu (moyeu à l'origine pour les roues), uv, uv2, couleurs
+            const out = [], W = new THREE.Matrix4();
             lots.forEach(L => {
                 const hub = L.grp === 'body' ? null : hubs[+L.grp.slice(-1)];
-                let nv = 0, ni = 0, hasC = false, hasU2 = false;
-                L.parts.forEach(P => { const g = P.g, n = g.attributes.position.count; nv += n; ni += P.group ? P.group.count : g.index ? g.index.count : n; hasC = hasC || !!g.attributes.color; hasU2 = hasU2 || !!g.attributes.uv2; });
-                const pos = new Float32Array(nv * 3), nor = new Float32Array(nv * 3), uv = new Float32Array(nv * 2), uv2 = hasU2 ? new Float32Array(nv * 2) : null, col = hasC ? new Float32Array(nv * 3).fill(1) : null, idx = new Uint32Array(ni);
-                let vo = 0, io = 0;
-                L.parts.forEach(P => {
-                    const g = P.g, A = g.attributes, n = A.position.count, flip = P.W.determinant() < 0;
-                    nm.getNormalMatrix(P.W);
-                    const kp = nk(A.position);
-                    for(let i = 0; i < n; i++) {
-                        tmp.set(A.position.getX(i) * kp, A.position.getY(i) * kp, A.position.getZ(i) * kp).applyMatrix4(P.W);
+                const pos = [], nor = [], uv = [], uv2 = [], col = [], idx = [];
+                let hasC = false, hasU2 = false;
+                L.items.forEach(({ P }) => { hasC = hasC || !!P.g.attributes.color; hasU2 = hasU2 || !!P.g.attributes.uv2; });
+                L.items.forEach(({ P, tris }) => {
+                    const G = P.g.attributes, map = new Map();
+                    W.multiplyMatrices(M, P.W); nm.getNormalMatrix(W);
+                    const flip = W.determinant() < 0, kp = nk(G.position);
+                    const kN = G.normal ? nk(G.normal) : 0, kU = G.uv ? nk(G.uv) : 0, s2 = G.uv2 || G.uv, kU2 = s2 ? nk(s2) : 0, kC = G.color ? nk(G.color) : 0;
+                    const add = (i) => {
+                        let o = map.get(i);
+                        if(o !== undefined) return o;
+                        o = pos.length / 3; map.set(i, o);
+                        tmp.set(G.position.getX(i) * kp, G.position.getY(i) * kp, G.position.getZ(i) * kp).applyMatrix4(W);
                         if(hub) tmp.sub(hub);
-                        pos[(vo + i) * 3] = tmp.x; pos[(vo + i) * 3 + 1] = tmp.y; pos[(vo + i) * 3 + 2] = tmp.z;
-                    }
-                    if(A.normal) { const k = nk(A.normal); for(let i = 0; i < n; i++) { tmp.set(A.normal.getX(i) * k, A.normal.getY(i) * k, A.normal.getZ(i) * k).applyMatrix3(nm).normalize(); nor[(vo + i) * 3] = tmp.x; nor[(vo + i) * 3 + 1] = tmp.y; nor[(vo + i) * 3 + 2] = tmp.z; } }
-                    if(A.uv) { const k = nk(A.uv); for(let i = 0; i < n; i++) { uv[(vo + i) * 2] = A.uv.getX(i) * k; uv[(vo + i) * 2 + 1] = A.uv.getY(i) * k; } }
-                    if(uv2) { const s = A.uv2 || A.uv; if(s) { const k = nk(s); for(let i = 0; i < n; i++) { uv2[(vo + i) * 2] = s.getX(i) * k; uv2[(vo + i) * 2 + 1] = s.getY(i) * k; } } }
-                    if(col && A.color) { const k = nk(A.color); for(let i = 0; i < n; i++) { col[(vo + i) * 3] = A.color.getX(i) * k; col[(vo + i) * 3 + 1] = A.color.getY(i) * k; col[(vo + i) * 3 + 2] = A.color.getZ(i) * k; } }
-                    const s0 = P.group ? P.group.start : 0, cnt = P.group ? P.group.count : g.index ? g.index.count : n;
-                    for(let t = 0; t < cnt; t += 3) for(let c = 0; c < 3; c++) { const src = s0 + t + (flip ? 2 - c : c); idx[io + t + c] = vo + (g.index ? g.index.getX(src) : src); }
-                    vo += n; io += cnt;
+                        pos.push(tmp.x, tmp.y, tmp.z);
+                        if(G.normal) { tmp.set(G.normal.getX(i) * kN, G.normal.getY(i) * kN, G.normal.getZ(i) * kN).applyMatrix3(nm).normalize(); nor.push(tmp.x, tmp.y, tmp.z); } else nor.push(0, 1, 0);
+                        if(G.uv) uv.push(G.uv.getX(i) * kU, G.uv.getY(i) * kU); else uv.push(0, 0);
+                        if(hasU2) { if(s2) uv2.push(s2.getX(i) * kU2, s2.getY(i) * kU2); else uv2.push(0, 0); }
+                        if(hasC) { if(G.color) col.push(G.color.getX(i) * kC, G.color.getY(i) * kC, G.color.getZ(i) * kC); else col.push(1, 1, 1); }
+                        return o;
+                    };
+                    const cnt = triCount(P);
+                    const each = (t) => { const v = triIdx(P, t); if(flip) idx.push(add(v[2]), add(v[1]), add(v[0])); else idx.push(add(v[0]), add(v[1]), add(v[2])); };
+                    if(tris) tris.forEach(each); else for(let t = 0; t < cnt; t += 3) each(t);
                 });
                 const geo = new THREE.BufferGeometry();
-                geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
-                if(uv2) geo.setAttribute('uv2', new THREE.BufferAttribute(uv2, 2));
-                if(col) geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-                geo.setIndex(new THREE.BufferAttribute(idx, 1));
+                geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+                if(hasU2) geo.setAttribute('uv2', new THREE.Float32BufferAttribute(uv2, 2));
+                if(hasC) geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+                geo.setIndex(pos.length / 3 > 65535 ? new THREE.Uint32BufferAttribute(idx, 1) : new THREE.Uint16BufferAttribute(idx, 1));
                 geo.computeBoundingSphere();
                 out.push({ grp: L.grp, mat: L.mat, geo, vc: hasC });
             });
-            const all = new THREE.Box3(); out.forEach(o => { if(o.grp === 'body') { o.geo.computeBoundingBox(); all.union(o.geo.boundingBox); } });
-            return { parts: out, hubs, box: all, r: hubs.reduce((s, h) => s + h.y, 0) / 4 };
+            const box = new THREE.Box3(); out.forEach(o => { if(o.grp === 'body') { o.geo.computeBoundingBox(); box.union(o.geo.boundingBox); } });
+            const r = hb.reduce((s, b) => s + (b.max.y - b.min.y), 0) / 8 * sc;   // rayon moyen des pneus
+            return { parts: out, hubs, box, r, D };
         }
-        // Habille une voiture du jeu (joueur, garage, reflet du garage) avec la Ferrari ; linear = rendu sans conversion sRGB (garage)
-        function dressFerrari(car, F, opt) {
+        // Retire le modèle 3D d'une voiture du jeu (avant d'en mettre un autre)
+        function undressCar(car) {
+            if(!car.ferrari) return;
+            car.remove(car.ferrari);
+            car.ferrari.traverse(o => { if(o.isMesh) o.material.dispose(); });
+            car.ferrari = null; car.wheels = null;
+        }
+        // Habille une voiture du jeu (joueur, garage, reflet du garage) avec un modèle ; linear = rendu sans conversion sRGB (garage)
+        function dressCar(car, F, opt) {
+            undressCar(car);
             car.children.forEach(o => { if((o.isMesh || o.type === 'Group') && !o.userData.keep) o.visible = false; });
-            const fg = new THREE.Group();
+            const D = F.D, fg = new THREE.Group();
             fg.scale.setScalar(opt.scale || 1);
             const mats = new Map(), wheels = [];
+            car.tailMat = null;
             const texFix = (t) => { if(!t || !opt.linear) return t; const c = t.clone(); c.encoding = THREE.LinearEncoding; c.needsUpdate = true; return c; };
             const matFor = (src, vc) => {
                 if(mats.has(src)) return mats.get(src);
                 const name = src.name || '';
                 let m, own = true;   // own : matière refaite ici (couleurs en hexadécimal sRGB, comme le reste du jeu)
-                if(/Paint_Material/.test(name)) {   // peinture : vernis, couleur choisie au garage
+                if(D.paint && D.paint.test(name)) {   // peinture : vernis, couleur choisie au garage
                     m = new THREE.MeshPhysicalMaterial({ color: carColor, metalness: 0.55, roughness: 0.28, clearcoat: 1, clearcoatRoughness: 0.04, emissive: carColor, emissiveIntensity: 0.04 });
                     car.bodyMat = m;
-                } else if(/RED_GLASS/.test(name)) {   // feux arrière : s'allument au freinage
+                } else if(D.tail && D.tail.test(name)) {   // feux arrière : s'allument au freinage
                     m = new THREE.MeshStandardMaterial({ color: 0x5a0000, emissive: 0xff1010, emissiveIntensity: 2.4, roughness: 0.1, transparent: true, opacity: 0.88 });
                     car.tailMat = m;
-                } else if(/Window/.test(name)) {   // vitres teintées
+                } else if(D.glass && D.glass.test(name)) {   // vitres teintées
                     m = new THREE.MeshPhysicalMaterial({ color: 0x0a0d12, metalness: 0.1, roughness: 0.04, clearcoat: 1, transparent: true, opacity: 0.55, depthWrite: false });
                 } else {
                     own = false;
@@ -1371,7 +1391,7 @@
                 mats.set(src, m);
                 return m;
             };
-            const piv = F.hubs.map((h, k) => { const g = new THREE.Group(), s = new THREE.Group(); g.position.copy(h); g.rotation.order = 'YXZ'; g.add(s); fg.add(g); wheels.push({ g, s, front: h.z < 0 }); return { g, s }; });
+            const piv = F.hubs.map((h) => { const g = new THREE.Group(), s = new THREE.Group(); g.position.copy(h); g.rotation.order = 'YXZ'; g.add(s); fg.add(g); wheels.push({ g, s, front: h.z < 0 }); return { g, s }; });
             F.parts.forEach(P => {
                 const mesh = new THREE.Mesh(P.geo, matFor(P.mat, P.vc));
                 mesh.castShadow = !opt.mirror; mesh.receiveShadow = true;
@@ -1384,24 +1404,45 @@
             car.ferrari = fg;
             return fg;
         }
-        if(THREE.GLTFLoader) new THREE.GLTFLoader().load(FERRARI_URL, (gltf) => {
-            let F;
-            try { F = prepFerrari(gltf); } catch (e) { console.warn('Ferrari : ', e); return; }
-            const pv = 6.0 / FERRARI_LEN;   // au garage, la voiture garde la taille de cadrage de l'ancienne
-            dressFerrari(previewCar, F, { linear: true, scale: pv });
-            dressFerrari(previewMirror, F, { linear: true, scale: pv, mirror: true });
-            dressFerrari(player, F, {});
+        // Téléchargement d'un modèle (une seule fois, gardé en mémoire)
+        const carCache = new Map();
+        function loadCar(id) {
+            if(carCache.has(id)) return carCache.get(id);
+            const D = carDef(id);
+            const p = new Promise((ok, ko) => {
+                if(!THREE.GLTFLoader) return ko(new Error('GLTFLoader absent'));
+                new THREE.GLTFLoader().load(D.url, (gltf) => { try { ok(prepCar(gltf, D)); } catch (e) { ko(e); } }, undefined, ko);
+            });
+            p.catch(e => { carCache.delete(id); console.warn(D.url + ' non chargé : ', e); });
+            carCache.set(id, p);
+            return p;
+        }
+        // Voiture montrée au garage (celle qu'on regarde dans « Changer de voiture »)
+        let previewId = null;
+        function showPreview(F) {
+            const pv = 6.0 / 4.71;   // au garage, la SF90 garde la taille de cadrage de l'ancienne voiture ; les autres à la même échelle
+            dressCar(previewCar, F, { linear: true, scale: pv });
+            dressCar(previewMirror, F, { linear: true, scale: pv, mirror: true });
+            previewId = F.D.id;
+            applyColor(carColor);
+        }
+        // Voiture du joueur dans le monde
+        function setPlayerCar(F) {
+            dressCar(player, F, {});
             player.scale.setScalar(1);
             player.wheelR = F.r;
-            // Phares, flammes de nitro : replacés sur la Ferrari (double échappement central, haut sur le bouclier arrière)
+            const L = F.box.max.z - F.box.min.z, H = F.box.max.y;
+            player.hood = [1.05 * L / 4.71, H * 0.91];   // vue capot : au-dessus du capot, devant le pare-brise
+            // Phares, flammes de nitro : replacés sur la voiture
             let si = 0;
-            player.children.forEach(o => { if(o.isSpotLight) { const sd = si++ ? 1 : -1; o.position.set(sd * 0.62, 0.62, F.box.min.z + 0.1); o.target.position.set(sd * 0.6, 0, F.box.min.z - 33); } });
-            flames.forEach((s, k) => s.position.set((k ? 1 : -1) * 0.16, 0.56, F.box.max.z + 0.12));
+            player.children.forEach(o => { if(o.isSpotLight) { const sd = si++ ? 1 : -1; o.position.set(sd * 0.62, H * 0.52, F.box.min.z + 0.1); o.target.position.set(sd * 0.6, 0, F.box.min.z - 33); } });
+            flames.forEach((s, k) => s.position.set((k ? 1 : -1) * 0.16, H * 0.47, F.box.max.z + 0.12));
             player.exhZ = F.box.max.z + 0.12;
             applyColor(carColor);
-            carShotReady = true; snapCar();
-            console.log('Ferrari chargée : ' + F.parts.length + ' lots, rayon de roue ' + F.r.toFixed(3) + ' m');
-        }, undefined, (e) => console.warn('ferrari.glb non chargé, voiture dessinée conservée', e));
+            console.log(F.D.name + ' chargée : ' + F.parts.length + ' lots, rayon de roue ' + F.r.toFixed(3) + ' m');
+        }
+        { const e = document.getElementById('gx-carname'); if(e) e.textContent = carDef(carId).tag; }
+        loadCar(carId).then(F => { if(previewId === null || previewId === carId) showPreview(F); setPlayerCar(F); }).catch(() => {});
 
         // ====== Speedlistes, points SP, améliorations ======
         // Suivi de la sortie en cours (remis à zéro à chaque sortie : la page se recharge en revenant au garage)
@@ -1489,7 +1530,8 @@
         function addSP(n) { sp += n; mt.raceSP += n; store('nfsSP', String(sp)); renderSP(); }
 
         function statsHTML(previewKey) {
-            let h = '<div class="gx-car"><div><b>Ferrari</b><span>SF90 Spider</span></div><span class="gx-heat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-3 2-4 2-7 2 1 3 3 3 5 1-1 1-3 0-8z"/></svg>' + heat() + '</span></div>';
+            const D = carDef(screen === 'cars' ? CARS[carSel].id : carId), sp1 = D.name.indexOf(' ');
+            let h = '<div class="gx-car"><div><b>' + D.name.slice(0, sp1) + '</b><span>' + D.name.slice(sp1 + 1) + '</span></div><span class="gx-heat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-3 2-4 2-7 2 1 3 3 3 5 1-1 1-3 0-8z"/></svg>' + heat() + '</span></div>';
             STATS.forEach(([label, base, step, key]) => {
                 const v = base + step * upLv[key];
                 const next = previewKey === key && upLv[key] < 5;
@@ -1519,18 +1561,28 @@
             renderInfo();
         }
         const CAR_SIL = '<path d="M6 30l4-6q12-4 30-6l16-8q10-2 22 0l18 8q12 2 18 6l2 6z"/><path d="M58 12h18l14 7H50z"/><circle cx="30" cy="30" r="7"/><circle cx="94" cy="30" r="7"/>';
+        // Changer de voiture : une vignette par modèle ; la voiture survolée s'affiche en 3D, Entrée (ou un 2e clic) la choisit
+        let carLoading = null;
+        function previewSel() {
+            const D = CARS[carSel];
+            if(previewId === D.id) { carLoading = null; return; }
+            carLoading = D.id;
+            loadCar(D.id).then(F => { if(screen === 'cars' && CARS[carSel].id === D.id) showPreview(F); if(carLoading === D.id) carLoading = null; if(screen === 'cars') renderInfo(); })
+                .catch(() => { if(carLoading === D.id) carLoading = 'err'; if(screen === 'cars') renderInfo(); });
+        }
+        function chooseCar() {
+            const D = CARS[carSel];
+            carId = D.id; store('nfsCar', D.id);
+            $('gx-carname').textContent = D.tag;
+            loadCar(D.id).then(setPlayerCar).catch(() => {});
+            go('home');
+        }
         function renderCars() {
             $('car-stats').innerHTML = statsHTML();
-            let h = '';
-            for(let i = 0; i < 5; i++) {
-                const own = i === 0;
-                h += '<button type="button" class="gx-tile' + (own ? '' : ' locked') + (i === carSel ? ' sel' : '') + '" data-i="' + i + '" aria-label="' + (own ? 'Ferrari SF90 Spider' : 'Emplacement verrouillé') + '">'
-                   + (own && carShot ? '<img class="gx-shot" src="' + carShot + '" alt="" draggable="false">'   // photo de la voiture actuelle
-                      : '<svg viewBox="0 0 124 40" aria-hidden="true" style="height:48%"><g' + (own ? ' fill="' + hex6(carColor) + '" fill-opacity="0.85"' : '') + '>' + CAR_SIL + '</g></svg>')
-                   + (own ? '' : '<svg class="gx-lock" viewBox="0 0 24 24" aria-hidden="true">' + ICONS.lock + '</svg>')
-                   + '<span class="gx-tag">' + (own ? 'Ferrari SF90' : 'Bientôt') + '</span></button>';
-            }
-            $('car-tiles').innerHTML = h;
+            $('car-tiles').innerHTML = CARS.map((D, i) => '<button type="button" class="gx-tile gx-pic' + (i === carSel ? ' sel' : '') + '" data-i="' + i + '" aria-label="' + D.name + '">'
+                + '<img src="' + D.img + '" alt="" draggable="false">'
+                + '<span class="gx-tag">' + D.tag + (D.id === carId ? ' ✓' : '') + '</span></button>').join('');
+            previewSel();
             renderInfo();
         }
         function renderPerf() {
@@ -1565,7 +1617,9 @@
             const box = $('gx-info');
             let h = '';
             if(screen === 'cars') {
-                h = carSel === 0 ? '<b>Ferrari SF90 Spider<span>Sélectionnée</span></b><p class="gx-desc">Hypercar hybride à moteur V8 central. Modèle 3D « 2021 Ferrari SF90 Spider », licence CC BY-NC.</p>' : '<b>Emplacement verrouillé</b><p class="gx-desc">De nouvelles voitures arriveront bientôt</p>';
+                const D = CARS[carSel], cur = D.id === carId;
+                h = '<b>' + D.name + '<span>' + (cur ? 'Sélectionnée' : carLoading === D.id ? 'Chargement…' : carLoading === 'err' ? 'Fichier introuvable' : '') + '</span></b><p class="gx-desc">' + D.desc + ' Modèle 3D ' + D.credit + '.</p>';
+                if(!cur && carLoading !== 'err') h += '<button type="button" class="gx-act" data-act="car">Choisir cette voiture</button>';
             } else if(screen === 'perf') {
                 const u = UPGRADES[upSel], lv = upLv[u.id], cost = u.cost[lv];
                 h = '<b>' + u.name + '<span>' + lv + ' de 5</span></b><p class="gx-desc">' + (buyMsg || u.what + ' par niveau') + '</p>';
@@ -1589,6 +1643,8 @@
             screen = next; buyMsg = '';
             if(next === 'lists') listSel = SPEEDLISTS.findIndex(l => l.id === slState.cur);
             if(next === 'paint') paintSel = Math.max(0, CAR_COLORS.findIndex(o => o.c === carColor));
+            if(next === 'cars') carSel = Math.max(0, CARS.findIndex(c => c.id === carId));
+            else if(previewId !== carId) loadCar(carId).then(F => { if(screen !== 'cars') showPreview(F); }).catch(() => {});
             document.querySelectorAll('#lobby .gx-screen').forEach(sec => { sec.hidden = sec.dataset.screen !== next; });
             $('gx-title').textContent = TITLES[next];
             camShiftTarget = SHIFT[next]; camDistTarget = DIST[next];
@@ -1614,7 +1670,7 @@
         function activate() {
             if(screen === 'home') go(MENU[menuSel].go);
             else if(screen === 'lists') chooseList();
-            else if(screen === 'cars') { if(carSel === 0) go('home'); }
+            else if(screen === 'cars') { if(CARS[carSel].id === carId) go('home'); else chooseCar(); }
             else if(screen === 'paint') go('home');
             else if(screen === 'settings') changeSetting(0);
         }
@@ -1629,7 +1685,7 @@
             if(screen === 'settings' && step) { changeSetting(step); return true; }
             if(screen === 'home' && (up || down)) { menuSel = (menuSel + (down ? 1 : -1) + MENU.length) % MENU.length; renderMenu(); return true; }
             if(screen === 'lists' && step) { listSel = (listSel + step + SPEEDLISTS.length) % SPEEDLISTS.length; renderLists(); return true; }
-            if(screen === 'cars' && step) { carSel = (carSel + step + 5) % 5; renderCars(); return true; }
+            if(screen === 'cars' && step) { carSel = (carSel + step + CARS.length) % CARS.length; renderCars(); return true; }
             if(screen === 'perf' && step) { upSel = (upSel + step + UPGRADES.length) % UPGRADES.length; buyMsg = ''; renderPerf(); return true; }
             if(screen === 'paint' && step) { pickPaint(paintSel + step); return true; }
             return false;
@@ -1640,11 +1696,11 @@
         $('gx-menu').onmouseover = (e) => { const b = closest(e, '[data-i]'); if(b && +b.dataset.i !== menuSel) { menuSel = +b.dataset.i; renderMenu(); } };
         $('lists-cols').onclick = (e) => { const c = closest(e, '[data-i]'); if(!c) return; const i = +c.dataset.i; if(i === listSel) chooseList(); else { listSel = i; renderLists(); } };
         document.querySelectorAll('#lobby .gx-arrow').forEach(b => { b.onclick = () => garageKey(+b.dataset.step < 0 ? 'ArrowLeft' : 'ArrowRight'); });
-        $('car-tiles').onclick = (e) => { const t = closest(e, '[data-i]'); if(t) { carSel = +t.dataset.i; renderCars(); } };
+        $('car-tiles').onclick = (e) => { const t = closest(e, '[data-i]'); if(!t) return; const i = +t.dataset.i; if(i === carSel) activate(); else { carSel = i; renderCars(); } };
         $('perf-tiles').onclick = (e) => { const t = closest(e, '[data-i]'); if(!t) return; const i = +t.dataset.i; if(i === upSel) buy(); else { upSel = i; buyMsg = ''; renderPerf(); } };
         $('paint-row').onclick = (e) => { const b = closest(e, '[data-i]'); if(b) pickPaint(+b.dataset.i); };
         document.querySelectorAll('#lobby .gx-pa').forEach(b => { b.onclick = () => pickPaint(paintSel + +b.dataset.step); });
-        $('gx-info').onclick = (e) => { const b = closest(e, '[data-act]'); if(!b) return; if(b.dataset.act === 'buy') buy(); if(b.dataset.act === 'choose') chooseList(); };
+        $('gx-info').onclick = (e) => { const b = closest(e, '[data-act]'); if(!b) return; if(b.dataset.act === 'buy') buy(); if(b.dataset.act === 'choose') chooseList(); if(b.dataset.act === 'car') chooseCar(); };
         $('set-rows').onclick = (e) => { const r = closest(e, '[data-i]'); if(!r) return; setSel = +r.dataset.i; const b = closest(e, '[data-step]'); if(b) changeSetting(+b.dataset.step); else if(SET_ROWS[setSel].action) changeSetting(0); else renderSettings(); };
         document.querySelector('#lobby .gx-bot').onclick = (e) => {
             const b = closest(e, '[data-act]'); if(!b) return;
@@ -4221,7 +4277,7 @@
             // et l'appui aérodynamique. Transmission intégrale (40 % avant / 60 % arrière), puissance limitée, contrôle de traction et ABS.
             // Frein à main : roues arrière bloquées, l'arrière décroche. Tout est calculé par masse (forces en m/s²).
             const av = Math.abs(PL.vf), target = clamp((left ? 1 : 0) - (right ? 1 : 0) - (dead ? 0 : PAD.steer), -1, 1);
-            PL.steer += (target - PL.steer) * Math.min(1, dt * (target ? (hb ? 9 : 5 + av * 0.04) : 7));   // volant : vitesse de rotation limitée
+            PL.steer += (target - PL.steer) * Math.min(1, dt * (target ? (hb ? 9 : 4.5 / (1 + av / 35)) : 7));   // volant : plus lent à tourner à haute vitesse (pas de coups de volant brusques), retour au centre rapide
             const sens = 0.55 + 0.09 * SET.steer;   // sensibilité réglable (5 = origine)
             if(hb && av > 8) PL.drift = true;
             const mu = onRoad ? 1.3 * PERF.grip : 0.78;              // adhérence pneu/sol (+ appui aéro à haute vitesse)
@@ -4237,9 +4293,9 @@
             let ax = PL.ax || 0;
             for(let k = 0; k < ns; k++) {
                 const v = Math.hypot(vf, vl), avf = Math.abs(vf);
-                // braquage maxi : 34° à l'arrêt, de moins en moins avec la vitesse (sinon les roues avant décrochent), + contre-braquage assisté
+                // braquage maxi : 29° à l'arrêt, de moins en moins avec la vitesse (environ -30 % de réactivité par rapport à avant), + contre-braquage assisté
                 const beta = Math.atan2(vl, Math.max(avf, 1));
-                let dl = PL.steer * sens * 0.6 / (1 + Math.pow(avf / 7, 1.25));
+                let dl = PL.steer * sens * 0.5 / (1 + Math.pow(avf / 6, 1.3));
                 if(!hb && v > 5) dl -= clamp(beta, -0.5, 0.5) * (PL.drift ? 0.85 : 0.6);   // les roues avant suivent la trajectoire quand l'arrière glisse
                 dl = clamp(dl, -0.6, 0.6);
                 // Charges par essieu (en g × masse) : statique + transfert longitudinal + appui
@@ -4646,7 +4702,7 @@
             fovBoost += ((PL.boost ? 9 : 0) - fovBoost) * Math.min(1, dt * 5);
             if(camMode === 1) {
                 // Vue capot
-                const hf = player.ferrari ? 1.05 : 0.4, hy = player.ferrari ? 1.08 : 1.02;   // Ferrari : au-dessus du capot, devant le pare-brise
+                const hf = player.hood ? player.hood[0] : 0.4, hy = player.hood ? player.hood[1] : 1.02;   // modèle 3D : au-dessus du capot, devant le pare-brise
                 camera.position.set(PL.x - sinY * hf, PL.y + hy, PL.z - cosY * hf);
                 camera.lookAt(PL.x - sinY * 40, PL.y + 0.9 + (groundY(PL.x - sinY * 12, PL.z - cosY * 12) - PL.y) * 0.8, PL.z - cosY * 40);
                 camera.rotation.z += (SUS.gr + SUS.r) * 0.35;   // la tête du pilote compense : l'horizon reste presque droit
@@ -5016,35 +5072,8 @@
         }
 
         // ====== Son : moteur, vent, pneus (WebAudio, démarre en quittant le garage). Touche X pour couper. ======
-        let audio = null, audioOut = null, engSrc = null, engDrive = null, engLp = null, screamOsc = null, screamGain = null, inductGain = null, popBuf = null;
-        let engineGain = null, windGain = null, scrapeGain = null, squealGain = null, prevThr = false;
-        const ENG_REF = 6000;   // régime auquel la boucle d'échappement est enregistrée
-        // Boucle d'échappement du V8 biturbo de la SF90 (vilebrequin à plat) : 8 explosions par cycle de 720°, régulières et
-        // alternées d'un banc à l'autre, chacune avec sa propre force : c'est ce qui donne le cri rauque d'un V8 Ferrari.
-        function buildV8Buffer() {
-            const sr = audio.sampleRate, cyc = Math.round(sr * 120 / ENG_REF), NC = 8, len = cyc * NC;
-            const buf = audio.createBuffer(2, len, sr), L = buf.getChannelData(0), Rr = buf.getChannelData(1);
-            let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-            const cylAmp = []; for(let k = 0; k < 8; k++) cylAmp.push(0.8 + rnd() * 0.28);
-            const plen = Math.round(sr * 0.006);
-            for(let c = 0; c < NC; c++) for(let k = 0; k < 8; k++) {
-                const t0 = c * cyc + Math.round(k * cyc / 8 + (rnd() - 0.5) * cyc * 0.006);
-                const A = cylAmp[k] * (0.9 + rnd() * 0.2), bank = k % 2, ph = rnd() * 0.6;
-                for(let n = 0; n < plen; n++) {
-                    const t = n / sr;
-                    let v = Math.exp(-t / 0.0011) * Math.sin(2 * Math.PI * 520 * t + ph)          // coup de pression principal
-                          + 0.55 * Math.exp(-t / 0.0005) * Math.sin(2 * Math.PI * 1650 * t)        // claquement métallique
-                          + 0.7 * Math.exp(-t / 0.0024) * Math.sin(2 * Math.PI * 190 * t)          // corps grave
-                          + 0.35 * (rnd() * 2 - 1) * Math.exp(-t / 0.0007);                         // souffle
-                    v *= A;
-                    const j = (t0 + n) % len;
-                    L[j] += v * (bank ? 0.7 : 1); Rr[j] += v * (bank ? 1 : 0.7);
-                }
-            }
-            let pk = 0; for(let j = 0; j < len; j++) pk = Math.max(pk, Math.abs(L[j]), Math.abs(Rr[j]));
-            for(let j = 0; j < len; j++) { L[j] /= pk; Rr[j] /= pk; }
-            return buf;
-        }
+        let audio = null, audioOut = null, v12 = [], vib = null, lp = null, popBuf = null;
+        let engineGain = null, windGain = null, scrapeGain = null, squealGain = null;
         function startAudio() {
             try {
                 audio = new (window.AudioContext || window.webkitAudioContext)();
@@ -5052,20 +5081,19 @@
                 engineGain = audio.createGain(); engineGain.gain.value = 0;
                 const comp = audio.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4;
                 engineGain.connect(comp); comp.connect(audioOut);
-                // Échappement
-                engSrc = audio.createBufferSource(); engSrc.buffer = buildV8Buffer(); engSrc.loop = true;
-                engDrive = audio.createWaveShaper();
-                const curve = new Float32Array(1024); for(let i = 0; i < 1024; i++) { const x = i / 512 - 1; curve[i] = Math.tanh(x * 1.8) * 0.9 + 0.1 * Math.tanh(x * 6); }
-                engDrive.curve = curve;
-                engLp = audio.createBiquadFilter(); engLp.type = 'lowpass'; engLp.Q.value = 0.9;
-                const body = audio.createBiquadFilter(); body.type = 'lowshelf'; body.frequency.value = 220; body.gain.value = 6;
-                engSrc.connect(engDrive); engDrive.connect(engLp); engLp.connect(body); body.connect(engineGain); engSrc.start();
-                // Hurlement aigu du V8 à haut régime (2e harmonique de l'allumage)
-                screamOsc = audio.createOscillator(); screamOsc.type = 'sawtooth';
-                const sbp = audio.createBiquadFilter(); sbp.type = 'bandpass'; sbp.Q.value = 2.5;
-                screamGain = audio.createGain(); screamGain.gain.value = 0;
-                screamOsc.connect(sbp); sbp.connect(screamGain); screamGain.connect(engineGain); screamOsc.start();
-                screamOsc.bp = sbp;
+                // V12 : 6 explosions par tour, donc un fondamental à rpm/10 Hz, riche en harmoniques, avec un léger tremblement
+                lp = audio.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1500;
+                const shaper = audio.createWaveShaper(), curve = new Float32Array(256);
+                for(let i = 0; i < 256; i++) { const x = i / 128 - 1; curve[i] = Math.tanh(x * 2.2); }
+                shaper.curve = curve;
+                v12 = [[0.5, 'sawtooth', 0.55], [1, 'sawtooth', 0.8], [2, 'sawtooth', 0.55], [3, 'square', 0.22], [4, 'sawtooth', 0.3], [6, 'triangle', 0.25]].map(([m, t, g]) => {
+                    const o = audio.createOscillator(); o.type = t; const og = audio.createGain(); og.gain.value = g;
+                    o.connect(og); og.connect(shaper); o.start(); return { o, m };
+                });
+                const formant = audio.createBiquadFilter(); formant.type = 'peaking'; formant.frequency.value = 1400; formant.Q.value = 1.4; formant.gain.value = 7;
+                shaper.connect(lp); lp.connect(formant); formant.connect(engineGain);
+                vib = audio.createOscillator(); vib.frequency.value = 23;
+                const vg = audio.createGain(); vg.gain.value = 3; vib.connect(vg); v12.forEach(x => vg.connect(x.o.detune)); vib.start();
                 const buf = audio.createBuffer(1, audio.sampleRate, audio.sampleRate);
                 const d = buf.getChannelData(0);
                 for(let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
@@ -5076,11 +5104,10 @@
                     src.connect(f); f.connect(g); g.connect(dest || audioOut); src.start();
                     g.filt = f; return g;
                 };
-                inductGain = noise('bandpass', 2400, 1.2, engineGain);   // aspiration
                 windGain = noise('bandpass', 700, 0.6);
                 scrapeGain = noise('highpass', 2500, 0.7);
                 squealGain = noise('bandpass', 1500, 6);
-                // Pétarades au lâcher de l'accélérateur
+                // Pétarades quand le moteur prend au démarrage
                 popBuf = audio.createBuffer(1, Math.round(audio.sampleRate * 0.05), audio.sampleRate);
                 const pd = popBuf.getChannelData(0);
                 for(let i = 0; i < pd.length; i++) { const t = i / audio.sampleRate; pd[i] = ((Math.random() * 2 - 1) * 0.8 + Math.sin(2 * Math.PI * 140 * t)) * Math.exp(-t / 0.008); }
@@ -5174,21 +5201,10 @@
             if(!audio) return;
             const flare = ENG.on && ENG.flare < 0.35;   // coup de gaz du démarrage : sonne comme une accélération
             const off = muted || paused || leaving, r = clamp(PL.rpm / 9000, 0, 1.1), thr = !!(ENG.on && (keys.ArrowUp || keys.z || keys.w || PAD.thr > 0.2 || PL.boost)) || flare;
-            const now = audio.currentTime;
-            const lope = PL.rpm < 1500 ? 1 + 0.022 * Math.sin(now * 10.7) + 0.012 * Math.sin(now * 23.3) : 1;   // ralenti un peu irrégulier, comme un vrai moteur
-            engSrc.playbackRate.setTargetAtTime(Math.max(0.05, PL.rpm * lope / ENG_REF), now, 0.02);
-            engLp.frequency.setTargetAtTime(700 + r * 3200 + (thr ? 2600 : 0), now, 0.04);
-            const vol = !ENG.on || off ? 0 : 0.16 + (thr ? 0.13 : 0) + r * 0.08 + (PL.boost ? 0.04 : 0);
-            engineGain.gain.setTargetAtTime(vol, now, 0.03);
-            const fire = PL.rpm / 15;   // V8 : 4 explosions par tour
-            screamOsc.frequency.setTargetAtTime(Math.max(20, fire * 2), now, 0.02);
-            screamOsc.bp.frequency.setTargetAtTime(Math.max(200, fire * 2), now, 0.02);
-            screamGain.gain.setTargetAtTime(thr ? Math.pow(r, 2.5) * 0.09 : Math.pow(r, 2.5) * 0.025, now, 0.05);
-            inductGain.gain.setTargetAtTime(thr ? 0.05 + r * 0.12 : 0.01, now, 0.05);
-            inductGain.filt.frequency.setTargetAtTime(1500 + r * 3500, now, 0.05);
-            // Pétarades quand on lâche l'accélérateur à haut régime
-            if(prevThr && !thr && PL.rpm > 4800 && !off) { const n = 3 + Math.floor(Math.random() * 5); for(let k = 0; k < n; k++) playPop(now + 0.05 + Math.random() * 0.7, 0.1 + Math.random() * 0.12); }
-            prevThr = thr;
+            const f = 70 + PL.rpm / 10 * 0.92;   // ~85 Hz au ralenti, ~900 Hz à 9 000 tr/min
+            v12.forEach(x => { x.o.frequency.value = f * x.m; });
+            lp.frequency.value = 900 + r * 3600 + (thr ? 1500 : 0);
+            engineGain.gain.value = !ENG.on || off ? 0 : 0.045 + (thr ? 0.04 : 0) + r * 0.02 + (PL.boost ? 0.015 : 0);
             windGain.gain.value = off ? 0 : Math.min(0.07, Math.pow(PL.kmh / 340, 2) * 0.06);
             scrape = Math.max(0, scrape - dt);
             scrapeGain.gain.value = off || scrape <= 0 ? 0 : 0.07;
