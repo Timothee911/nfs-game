@@ -901,6 +901,9 @@
         previewMirror.scale.y = -1;
         previewMirror.traverse(o => { if(o.material) { o.material.transparent = true; o.material.opacity = 0.28; o.material.depthWrite = false; o.renderOrder = 5; } });
         previewScene.add(previewCar, previewMirror);
+        // L'ancienne voiture dessinée (SAQR X1) n'est jamais montrée : seuls les modèles 3D s'affichent, une fois chargés
+        const hideDrawnCar = (car) => car.children.forEach(o => { if((o.isMesh || o.type === 'Group') && !o.userData.keep) o.visible = false; });
+        hideDrawnCar(previewCar); hideDrawnCar(previewMirror);
 
         previewCamera.position.set(0, 1.35, camDist);
         previewCamera.lookAt(0, 0.6, 0);
@@ -1174,6 +1177,7 @@
         player.scale.setScalar(0.78);
         (() => { const seen = new Set(); player.traverse(o => { const m = o.material; if(m && !seen.has(m)) { seen.add(m); if(m.color) m.color.convertSRGBToLinear(); if(m.emissive) m.emissive.convertSRGBToLinear(); } }); })();
         scene.add(player);
+        hideDrawnCar(player);
         player.heads = player.children.filter(o => o.isSpotLight);   // phares : éteints jusqu'au contact
         player.heads.forEach(o => { o.userData.i0 = o.intensity; o.intensity = 0; });
         
@@ -5316,8 +5320,11 @@
             f.textContent = 'Chargement du ciel…';
             f.classList.add('on');
             startAudio();
+            // 0) la voiture choisie doit être chargée (sinon on partirait sans voiture) ; si son fichier manque, on prend la Ferrari
+            f.textContent = 'Chargement de la voiture…';
+            const carReady = loadCar(carId).catch(() => carId === 'sf90' ? null : loadCar('sf90').then(F => { setPlayerCar(F); return F; }).catch(() => null));
             // 1) les nuages sont calculés tuile par tuile, 2) puis la carte est construite
-            setTimeout(() => bakeClouds(pc => { f.textContent = 'Chargement du ciel… ' + pc + ' %'; }, () => {
+            carReady.then(() => setTimeout(() => bakeClouds(pc => { f.textContent = 'Chargement du ciel… ' + pc + ' %'; }, () => {
                 f.textContent = 'Chargement du comté…';
                 setTimeout(() => {
                     $('lobby').style.display = 'none';
@@ -5344,7 +5351,7 @@
                     gameActive = true;
                     setTimeout(() => { f.classList.remove('on'); f.textContent = ''; }, 250);
                 }, 80);
-            }), 650);
+            }), 650));
         };
 
         function animate() {
