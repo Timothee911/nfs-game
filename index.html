@@ -199,6 +199,50 @@
         #lobby .gx-tile.gx-pic.locked { color: #a39e96; }
         #lobby .gx-tile.gx-pic.locked img { filter: grayscale(0.85) brightness(0.45); }
         #lobby .gx-tile.gx-pic.locked .gx-lock { width: 22px; height: 22px; color: #f2f0ea; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.9)); }
+        /* Animations : niveau supérieur, voiture débloquée */
+        #lobby .gx { transition: opacity 0.35s; }
+        #lobby.cine .gx { visibility: hidden; }
+        #lobby.cine #car-preview { cursor: default; }
+        #cinefade { position: absolute; inset: 0; z-index: 60; background: #000; opacity: 0; pointer-events: none; transition: opacity 0.26s; }
+        #cinefade.on { opacity: 1; }
+        #lvlfx { position: absolute; inset: 0; z-index: 55; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: #fff; font-family: var(--gx-cond); cursor: pointer;
+                 background: radial-gradient(circle at 50% 42%, rgba(70,48,8,0.6), rgba(0,0,0,0.88) 68%); transition: opacity 0.35s; }
+        #lvlfx[hidden], #unlockfx[hidden] { display: none; }
+        #lvlfx.out { opacity: 0; }
+        #lvlfx .lf-ring { position: relative; width: min(30vh, 250px); height: min(30vh, 250px); }
+        #lvlfx .lf-ring::before { content: ''; position: absolute; inset: -55%; border-radius: 50%; opacity: 0;
+                 background: repeating-conic-gradient(rgba(232,179,60,0.22) 0deg 5deg, transparent 5deg 15deg);
+                 -webkit-mask: radial-gradient(circle, #000 28%, transparent 68%); mask: radial-gradient(circle, #000 28%, transparent 68%); }
+        #lvlfx.on .lf-ring::before { animation: lfSpin 14s linear infinite, lfIn 0.7s 0.85s forwards; }
+        #lvlfx .lf-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+        #lvlfx .lf-ring circle { fill: rgba(0,0,0,0.35); stroke-width: 5; }
+        #lvlfx .lf-ring .bg { stroke: rgba(255,255,255,0.14); }
+        #lvlfx .lf-ring .fg { fill: none; stroke: var(--gx-gold); stroke-linecap: round; stroke-dasharray: 302; stroke-dashoffset: 302; filter: drop-shadow(0 0 6px rgba(232,179,60,0.8)); }
+        #lvlfx.on .lf-ring .fg { animation: lfRing 0.9s cubic-bezier(0.3, 0.7, 0.3, 1) forwards; }
+        #lf-num { position: absolute; inset: 0; display: grid; place-items: center; font: 600 min(14vh, 116px)/1 var(--gx-cond); text-shadow: 0 0 24px rgba(232,179,60,0.6); }
+        #lf-num.pop { animation: lfPop 0.6s cubic-bezier(0.2, 1.6, 0.4, 1); color: var(--gx-gold); }
+        #lvlfx .lf-k { margin: 3.2vh 0 0; font: 500 clamp(14px, 2.2vh, 22px)/1 var(--gx-cond); letter-spacing: 0.32em; text-transform: uppercase; color: var(--gx-gold); }
+        #lvlfx .lf-t { margin: 1.2vh 0 0; font: 600 clamp(34px, 7.5vh, 76px)/1 var(--gx-cond); text-transform: uppercase; }
+        #lvlfx .lf-sub { margin: 1.6vh 0 0; font: 500 clamp(15px, 2.4vh, 24px)/1.2 'Barlow', sans-serif; color: #d9d6d0; min-height: 1.2em; }
+        #lvlfx.on .lf-k, #lvlfx.on .lf-t, #lvlfx.on .lf-sub { opacity: 0; animation: lfUp 0.5s forwards; }
+        #lvlfx.on .lf-k { animation-delay: 0.9s; } #lvlfx.on .lf-t { animation-delay: 1.05s; } #lvlfx.on .lf-sub { animation-delay: 1.4s; }
+        @keyframes lfRing { to { stroke-dashoffset: 0; } }
+        @keyframes lfPop { 0% { transform: scale(0.3); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        @keyframes lfSpin { to { transform: rotate(360deg); } }
+        @keyframes lfIn { to { opacity: 1; } }
+        @keyframes lfUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+        #unlockfx { position: absolute; inset: 0; z-index: 55; pointer-events: none; color: #fff; font-family: var(--gx-cond); }
+        #unlockfx::before, #unlockfx::after { content: ''; position: absolute; left: 0; right: 0; height: 9vh; background: #000; }
+        #unlockfx::before { top: 0; } #unlockfx::after { bottom: 0; }
+        #unlockfx .uf-top { position: absolute; left: 0; right: 0; top: 11vh; text-align: center; text-shadow: 0 2px 10px rgba(0,0,0,0.8); }
+        #unlockfx .uf-k { margin: 0; font: 500 clamp(14px, 2.2vh, 22px)/1 var(--gx-cond); letter-spacing: 0.32em; text-transform: uppercase; color: var(--gx-gold); animation: lfUp 0.6s both; }
+        #uf-name { margin: 1vh 0 0; font: 600 clamp(30px, 6.5vh, 68px)/1 var(--gx-cond); text-transform: uppercase; animation: lfUp 0.6s 0.15s both; }
+        #uf-side { position: absolute; left: 5vw; bottom: 13vh; margin: 0; padding-left: 12px; border-left: 3px solid var(--gx-gold); font: 500 clamp(18px, 3vh, 30px)/1 var(--gx-cond); text-transform: uppercase; text-shadow: 0 2px 8px rgba(0,0,0,0.8); }
+        #uf-side:empty { display: none; }
+        #unlockfx .uf-bottom { position: absolute; left: 0; right: 0; bottom: 12vh; text-align: center; opacity: 0; transition: opacity 0.5s; }
+        #unlockfx.full .uf-bottom { opacity: 1; }
+        #uf-price { margin: 0 0 1.6vh; font: 500 clamp(15px, 2.4vh, 24px)/1.2 'Barlow', sans-serif; color: #f2f0ea; text-shadow: 0 2px 8px rgba(0,0,0,0.9); }
+        #uf-next { pointer-events: auto; cursor: pointer; padding: 1.1vh 3.2vw; border: 0; background: var(--gx-gold); color: #111; font: 600 clamp(15px, 2.3vh, 22px)/1 var(--gx-cond); text-transform: uppercase; letter-spacing: 0.08em; }
         #lobby .gx-id-rec { font: 500 clamp(9.8px, 1.4vh, 12.3px)/1.4 'Barlow', sans-serif; color: var(--gx-mute); }
         #lobby .gx-badge { position: relative; width: clamp(37.7px, 5.2vh, 52.5px); height: clamp(37.7px, 5.2vh, 52.5px); display: grid; place-items: center; border-radius: 50%; border: 3px dotted var(--gx-heat); box-shadow: inset 0 0 0 3px #0b0a09, inset 0 0 0 5px var(--gx-heat); font: 600 clamp(14.8px, 2.3vh, 23px)/1 var(--gx-cond); }
         #lobby #wins-progress { display: none; }
@@ -385,6 +429,18 @@
             <div class="gx-floor"></div><div class="gx-haze"></div>
         </div>
         <div id="car-preview" title="Faites glisser pour tourner la voiture"></div>
+        <div id="lvlfx" hidden>
+            <div class="lf-ring"><svg viewBox="0 0 110 110" aria-hidden="true"><circle class="bg" cx="55" cy="55" r="48"/><circle class="fg" cx="55" cy="55" r="48"/></svg><b id="lf-num">1</b></div>
+            <p class="lf-k">Niveau pilote</p>
+            <p class="lf-t">Niveau supérieur</p>
+            <p class="lf-sub" id="lf-sub"></p>
+        </div>
+        <div id="unlockfx" hidden>
+            <div class="uf-top"><p class="uf-k">Nouvelle voiture débloquée</p><h2 id="uf-name"></h2></div>
+            <p id="uf-side"></p>
+            <div class="uf-bottom"><p id="uf-price"></p><button type="button" id="uf-next">Continuer</button></div>
+        </div>
+        <div id="cinefade"></div>
         <div class="gx-vig" aria-hidden="true"></div>
         <div class="gx">
             <header class="gx-top">
@@ -918,7 +974,7 @@
         previewCamera.lookAt(0, 0.6, 0);
 
         // Légère oscillation autour du trois-quarts avant ; glisser à la souris pour tourner la voiture
-        let pPrev = Date.now(), pT = 0, userYaw = 0, dragging = false, lastX = 0;
+        let pPrev = Date.now(), pT = 0, userYaw = 0, dragging = false, lastX = 0, cine = null;
         previewContainer.addEventListener('pointerdown', (e) => { dragging = true; lastX = e.clientX; });
         window.addEventListener('pointerup', () => { dragging = false; });
         window.addEventListener('pointermove', (e) => {
@@ -934,6 +990,23 @@
             if(!dragging) pT += dt;
             camShift += (camShiftTarget - camShift) * Math.min(1, dt * 5);
             camDist += (camDistTarget - camDist) * Math.min(1, dt * 5);
+            if(cine) {   // animation de déblocage : plans de caméra autour de la voiture (avant de la voiture vers -z)
+                cine.t += dt;
+                const u = Math.min(1, cine.t / cine.dur), e = u * u * (3 - 2 * u), L = (a, b, k) => a + (b - a) * k;
+                if(cine.orbit) {
+                    const a = L(cine.orbit[0], cine.orbit[1], e), r = L(cine.r[0], cine.r[1], e);
+                    previewCamera.position.set(Math.sin(a) * r, L(cine.y[0], cine.y[1], e), -Math.cos(a) * r);
+                    previewCamera.lookAt(cine.l[0], cine.l[1], cine.l[2]);
+                } else {
+                    previewCamera.position.set(L(cine.p0[0], cine.p1[0], u), L(cine.p0[1], cine.p1[1], u), L(cine.p0[2], cine.p1[2], u));
+                    previewCamera.lookAt(L(cine.l0[0], cine.l1[0], u), L(cine.l0[1], cine.l1[1], u), L(cine.l0[2], cine.l1[2], u));
+                }
+                if(previewCamera.clearViewOffset) previewCamera.clearViewOffset();
+                previewCamera.updateProjectionMatrix();
+                previewCar.rotation.y = previewMirror.rotation.y = 0;
+                previewRenderer.render(previewScene, previewCamera);
+                return;
+            }
             previewCamera.position.set(0, 1.35, camDist);
             previewCamera.lookAt(0, 0.6, 0);
             applyViewOffset();
@@ -1222,16 +1295,21 @@
         try {
             const sm = localStorage.getItem('nfsDubaiMap'), sw = localStorage.getItem('nfsDubaiWx'), sl = localStorage.getItem('nfsDubaiLevel');
             const sc = parseInt(localStorage.getItem('nfsDubaiColor'), 10);
-            if(CAR_COLORS.some(o => o.c === sc)) carColor = sc;
+            if(CAR_COLORS.some(o => o.c === sc)) carColor = sc;   // ancienne couleur unique : reprise pour la SF90
         } catch (e) {}
         function setCarColor(car, hex) { if(car.bodyMat) { car.bodyMat.color.setHex(hex); car.bodyMat.emissive.setHex(hex); } }
+        function paintPreview(hex) { setCarColor(previewCar, hex); setCarColor(previewMirror, hex); }
+        function paintPlayer(hex) {
+            setCarColor(player, hex);
+            if(player.bodyMat) { player.bodyMat.color.convertSRGBToLinear(); player.bodyMat.emissive.convertSRGBToLinear(); }   // le monde est rendu en lumière linéaire
+        }
+        // Peinture de la voiture actuelle (page « Peinture ») : chaque voiture garde sa propre couleur
         function applyColor(hex) {
             carColor = hex;
-            setCarColor(previewCar, hex); setCarColor(previewMirror, hex); setCarColor(player, hex);
-            player.bodyMat.color.convertSRGBToLinear(); player.bodyMat.emissive.convertSRGBToLinear();   // le monde est rendu en lumière linéaire
-            store('nfsDubaiColor', String(hex));
+            carColors[carId] = hex; store('nfsCarColors', carColors);
+            if(previewId === carId) paintPreview(hex);
+            paintPlayer(hex);
         }
-        applyColor(carColor);
 
         // ====== VOITURES : modèles 3D (.glb) qui remplacent la voiture dessinée dès qu'ils sont chargés ======
         // Chaque fichier compte des centaines de morceaux : on les fusionne par matière (caisse, roues, étriers) pour garder peu d'appels de dessin.
@@ -1240,21 +1318,21 @@
         // Si le chargement échoue (page ouverte sans serveur, fichier absent), la voiture dessinée reste en place.
         // wheel / cal : nœuds ou matières des roues (tournent) et des étriers (braquent sans tourner) ; hide : morceaux ignorés
         // paint / tail / glass : matières de la peinture (couleur du garage), des feux arrière (freinage) et des vitres ; front : sens de l'avant dans le fichier
-        // price : prix en SP, lvl : niveau pilote requis pour l'acheter (la SF90 est offerte)
+        // price : prix en SP, lvl : niveau pilote qui la débloque (cadenas retiré, elle peut alors être achetée) ; la SF90 est offerte
         const CARS = [
             { id: 'sf90', price: 0, lvl: 1, name: 'Ferrari SF90 Spider', tag: 'Ferrari SF90', url: 'ferrari.glb', img: 'cars/sf90.png', len: 4.71, front: '+z',
               wheel: /Combined_Wheels|Wheel1A_3D/i, cal: /Calliper|Caliper/i, paint: /Paint_Material/, tail: /RED_GLASS/, glass: /Window/,
               credit: '« 2021 Ferrari SF90 Spider » par Outlaw Games (Sketchfab), licence CC BY-NC' },
-            { id: 'gt3', price: 12000, lvl: 2, name: 'Mercedes-AMG GT3', tag: 'AMG GT3', url: 'cars/amg-gt3.glb', img: 'cars/gt3.png', len: 4.75, front: '+z',
+            { id: 'gt3', price: 4000, lvl: 2, name: 'Mercedes-AMG GT3', tag: 'AMG GT3', url: 'cars/amg-gt3.glb', img: 'cars/gt3.png', len: 4.75, front: '+z',
               wheel: /^WHEEL_(LF|RF|LR|RR)$/, cal: /^Caliper_|^Disc_/, hide: /RIM_BLUR|RIM_.._BLUR/, paint: /^EXT_Carpaint_Inst/, tail: /EXT_Emissive_Light_Rear|EXT_Glass_Emissive_Rear/, glass: /^EXT_Windows$|^INT_Windows$|INT_Windshield|MI_INT_Glass/,
               credit: '« amg_evo_3 » par MattDoesBlender (Sketchfab), licence CC BY-NC-SA' },
-            { id: 'p1', price: 25000, lvl: 4, name: 'McLaren P1', tag: 'McLaren P1', url: 'cars/p1.glb', img: 'cars/p1.png', len: 4.59, front: '+z',
+            { id: 'p1', price: 8000, lvl: 3, name: 'McLaren P1', tag: 'McLaren P1', url: 'cars/p1.glb', img: 'cars/p1.png', len: 4.59, front: '+z',
               wheel: /^WHEEL_(LF|RF|LR|RR)$/, cal: /^SUSP_|^DISC_/, paint: /^Carpaint$/, tail: /Taillights/, glass: /^Windows/,
               credit: '« McLaren P1 » par vecarz (Sketchfab), licence CC BY' },
-            { id: 'svj', price: 40000, lvl: 6, name: 'Lamborghini Aventador SVJ', tag: 'Aventador SVJ', url: 'cars/aventador.glb', img: 'cars/svj.png', len: 4.94, front: '+z',
+            { id: 'svj', price: 15000, lvl: 4, name: 'Lamborghini Aventador SVJ', tag: 'Aventador SVJ', url: 'cars/aventador.glb', img: 'cars/svj.png', len: 4.94, front: '+z',
               wheel: /^Circle\.?002/, cal: /plaquette_de_frein/, paint: /^CARROSSERIE$/, tail: /GlassRedLights/, glass: /^GLASS$/,
               credit: '« Lamborghini Aventador SVJ - SC20 Carbon Edition » par SDC PERFORMANCE (Sketchfab), licence CC BY-NC' },
-            { id: 'veneno', price: 60000, lvl: 8, name: 'Lamborghini Veneno', tag: 'Veneno', url: 'cars/veneno.glb', img: 'cars/veneno.png', len: 5.02, front: '+z',
+            { id: 'veneno', price: 25000, lvl: 5, name: 'Lamborghini Veneno', tag: 'Veneno', url: 'cars/veneno.glb', img: 'cars/veneno.png', len: 5.02, front: '+z',
               wheel: /Wheel1A_3D/i, cal: /Calliper|Caliper/i, paint: /Paint_Material/, tail: null, glass: /Window/,
               credit: '« 2013 Lamborghini Veneno » par Ddiaz Design (Sketchfab), licence CC BY' },
         ];
@@ -1263,6 +1341,12 @@
         { const o = loadJSON('nfsCarsOwned', []); if(Array.isArray(o)) o.forEach(id => { if(CARS.some(c => c.id === id)) carsOwned.add(id); }); }
         let carId = 'sf90';
         try { const s = localStorage.getItem('nfsCar'); if(carsOwned.has(s)) carId = s; } catch (e) {}
+        // Couleur attribuée à chaque voiture (modifiable voiture par voiture dans « Peinture »)
+        const CAR_DEF_COLOR = { sf90: 0xe3262e, gt3: 0xeeeee8, p1: 0xf0661c, svj: 0x13a37a, veneno: 0x6f747c };
+        const carColors = loadJSON('nfsCarColors', {});
+        if(carColors.sf90 === undefined && carColor !== RED) carColors.sf90 = carColor;
+        const colorOf = (id) => CAR_COLORS.some(o => o.c === carColors[id]) ? carColors[id] : CAR_DEF_COLOR[id];
+        carColor = colorOf(carId);
         const carDef = (id) => CARS.find(c => c.id === id) || CARS[0];
         function prepCar(gltf, D) {
             const root = gltf.scene;
@@ -1441,7 +1525,7 @@
             dressCar(previewCar, F, { linear: true, scale: pv });
             dressCar(previewMirror, F, { linear: true, scale: pv, mirror: true });
             previewId = F.D.id;
-            applyColor(carColor);
+            paintPreview(colorOf(F.D.id));
         }
         // Voiture du joueur dans le monde
         function setPlayerCar(F) {
@@ -1455,7 +1539,7 @@
             player.children.forEach(o => { if(o.isSpotLight) { const sd = si++ ? 1 : -1; o.position.set(sd * 0.62, H * 0.52, F.box.min.z + 0.1); o.target.position.set(sd * 0.6, 0, F.box.min.z - 33); } });
             flames.forEach((s, k) => s.position.set((k ? 1 : -1) * 0.16, H * 0.47, F.box.max.z + 0.12));
             player.exhZ = F.box.max.z + 0.12;
-            applyColor(carColor);
+            paintPlayer(colorOf(F.D.id));
             console.log(F.D.name + ' chargée : ' + F.parts.length + ' lots, rayon de roue ' + F.r.toFixed(3) + ' m');
         }
         { const e = document.getElementById('gx-carname'); if(e) e.textContent = carDef(carId).tag; }
@@ -1506,12 +1590,10 @@
             { id: 'pneus', name: 'Pneus', stat: 2, what: 'Adhérence en virage +7 %', cost: [400, 800, 1400, 2200, 3200] },
             { id: 'nitro', name: 'Nitro', stat: 3, what: 'Recharge du nitro +30 %', cost: [300, 600, 1100, 1700, 2500] }
         ];
-        let sp = 0, xp = 0;
-        try { sp = Math.max(0, parseInt(localStorage.getItem('nfsSP'), 10) || 0); xp = Math.max(sp, parseInt(localStorage.getItem('nfsXP'), 10) || 0); } catch (e) {}
-        // Niveau pilote : monte avec tous les SP gagnés depuis le début (dépenser des SP ne le fait pas baisser).
-        // Niveau L atteint à 1 250 × L × (L − 1) SP : 2 = 2 500, 3 = 7 500, 4 = 15 000, 6 = 37 500, 8 = 70 000…
-        const lvlXP = (L) => 1250 * L * (L - 1);
-        const pilotLvl = () => { let L = 1; while(xp >= lvlXP(L + 1)) L++; return L; };
+        let sp = 0, pLvl = 1;
+        try { sp = Math.max(0, parseInt(localStorage.getItem('nfsSP'), 10) || 0); pLvl = Math.max(1, parseInt(localStorage.getItem('nfsLvl'), 10) || 1); } catch (e) {}
+        // Niveau pilote : +1 chaque fois qu'une Speedliste est terminée (tous ses objectifs), compté au retour au garage
+        const pilotLvl = () => pLvl;
         const slState = loadJSON('nfsSpeedliste', {});
         if(!SPEEDLISTS.some(l => l.id === slState.cur)) slState.cur = SPEEDLISTS[0].id;
         if(!slState.done || typeof slState.done !== 'object') slState.done = {};
@@ -1549,20 +1631,13 @@
 
         function renderSP() {
             $('lobby-sp').textContent = fmtSP(sp); $('gx-heat').textContent = heat();
-            const L = pilotLvl(), a = lvlXP(L), b = lvlXP(L + 1);
-            $('lobby-lvl').textContent = L; $('lvl-bar').style.width = (100 * (xp - a) / (b - a)).toFixed(1) + '%';
-            $('lobby-lvl-box').title = 'Niveau pilote ' + L + ' : ' + fmtSP(xp) + ' / ' + fmtSP(b) + ' SP gagnés';
+            const l = curList(), n = doneCount(l);
+            $('lobby-lvl').textContent = pLvl; $('lvl-bar').style.width = (100 * n / l.missions.length).toFixed(1) + '%';
+            $('lobby-lvl-box').title = 'Niveau pilote ' + pLvl + ' : termine la Speedliste « ' + l.name + ' » (' + n + ' / ' + l.missions.length + ') pour passer au niveau ' + (pLvl + 1);
             if(screen === 'perf') renderPerf();
             if(screen === 'cars') renderCars();
         }
-        function addSP(n) {
-            const L0 = pilotLvl();
-            sp += n; mt.raceSP += n; store('nfsSP', String(sp));
-            if(n > 0) { xp += n; store('nfsXP', String(xp)); }
-            const L = pilotLvl();
-            if(L > L0) { const nc = CARS.filter(c => c.lvl > L0 && c.lvl <= L); toast('Niveau pilote ' + L, nc.length ? 'À acheter au garage : ' + nc.map(c => c.name).join(', ') : 'Nouveau niveau atteint'); }
-            renderSP();
-        }
+        function addSP(n) { sp += n; mt.raceSP += n; store('nfsSP', String(sp)); renderSP(); }
 
         function statsHTML(previewKey) {
             const D = carDef(screen === 'cars' ? CARS[carSel].id : carId), sp1 = D.name.indexOf(' ');
@@ -1613,7 +1688,7 @@
                 carsOwned.add(D.id); store('nfsCarsOwned', [...carsOwned]);
                 $('lobby-sp').textContent = fmtSP(sp);
             }
-            carId = D.id; store('nfsCar', D.id);
+            carId = D.id; store('nfsCar', D.id); carColor = colorOf(carId);
             $('gx-carname').textContent = D.tag;
             loadCar(D.id).then(setPlayerCar).catch(() => {});
             go('home');
@@ -1622,10 +1697,11 @@
             $('car-stats').innerHTML = statsHTML();
             const L = pilotLvl();
             $('car-tiles').innerHTML = CARS.map((D, i) => { const own = carsOwned.has(D.id);
-                return '<button type="button" class="gx-tile gx-pic' + (own ? '' : ' locked') + (i === carSel ? ' sel' : '') + '" data-i="' + i + '" aria-label="' + D.name + (own ? '' : ', verrouillée') + '">'
+                const lock = !own && L < D.lvl;
+                return '<button type="button" class="gx-tile gx-pic' + (lock ? ' locked' : '') + (i === carSel ? ' sel' : '') + '" data-i="' + i + '" aria-label="' + D.name + (lock ? ', verrouillée' : '') + '">'
                 + '<img src="' + D.img + '" alt="" draggable="false">'
-                + (own ? '' : '<svg class="gx-lock" viewBox="0 0 24 24" aria-hidden="true">' + ICONS.lock + '</svg>'
-                    + '<span class="gx-price' + (L < D.lvl ? ' no' : '') + '">' + fmtSP(D.price) + ' SP · Niv. ' + D.lvl + '</span>')
+                + (lock ? '<svg class="gx-lock" viewBox="0 0 24 24" aria-hidden="true">' + ICONS.lock + '</svg>' : '')
+                + (own ? '' : '<span class="gx-price' + (lock ? ' no' : '') + '">' + fmtSP(D.price) + ' SP' + (lock ? ' · Niv. ' + D.lvl : '') + '</span>')
                 + '<span class="gx-tag">' + D.tag + (D.id === carId ? ' ✓' : '') + '</span></button>'; }).join('');
             previewSel();
             renderInfo();
@@ -1721,8 +1797,82 @@
             else if(screen === 'paint') go('home');
             else if(screen === 'settings') changeSetting(0);
         }
+        // ====== Animations du garage : niveau supérieur, puis une présentation par voiture débloquée ======
+        let fx = null;
+        const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+        function fxNext() { if(fx && fx.skip) { const f = fx.skip; fx.skip = null; f(); } }
+        const fxWait = (ms) => new Promise(r => { const id = setTimeout(() => { if(fx) fx.skip = null; r(); }, ms); fx.skip = () => { clearTimeout(id); r(); }; });
+        const fade = async (on) => { $('cinefade').classList.toggle('on', on); await sleep(280); };
+        // Au retour au garage : les Speedlistes terminées font monter le niveau, puis repartent de zéro (on peut les rejouer)
+        function checkLevelUp() {
+            const n = slState.lvlUp || 0;
+            if(!n || fx) return;
+            const from = pLvl;
+            pLvl += n; store('nfsLvl', String(pLvl));
+            SPEEDLISTS.forEach(l => { if(l.missions.every(m => isDone(l, m))) { l.missions.forEach(m => { delete slState.done[l.id + ':' + m.id]; }); delete slState.bonus[l.id]; } });
+            slState.lvlUp = 0; store('nfsSpeedliste', slState);
+            renderSP(); renderSpeedlist(); showBadge();
+            playLevelUp(from, pLvl, CARS.filter(c => c.lvl > from && c.lvl <= pLvl));
+        }
+        async function playLevelUp(from, to, cars) {
+            fx = {};
+            $('lobby').classList.add('cine');
+            const box = $('lvlfx'), num = $('lf-num');
+            num.textContent = from; num.classList.remove('pop');
+            $('lf-sub').textContent = cars.length ? (cars.length > 1 ? cars.length + ' nouvelles voitures débloquées' : 'Nouvelle voiture débloquée : ' + cars[0].name) : 'Speedliste terminée';
+            box.hidden = false; box.classList.remove('on', 'out'); void box.offsetWidth; box.classList.add('on');
+            await sleep(850);
+            num.textContent = to; void num.offsetWidth; num.classList.add('pop');
+            await fxWait(3000);
+            box.classList.add('out'); await sleep(360); box.hidden = true; box.classList.remove('on', 'out');
+            for(const D of cars) await playUnlock(D);
+            if(cars.length) {   // retour à la voiture du joueur
+                cine = null;
+                if(previewId !== carId) { try { showPreview(await loadCar(carId)); } catch (e) {} }
+                await fade(false);
+            }
+            $('lobby').classList.remove('cine');
+            fx = null;
+            if(screen === 'cars') renderCars();
+        }
+        // Présentation d'une voiture débloquée : avant, côté gauche, arrière, côté droit, puis toute la voiture
+        async function playUnlock(D) {
+            await fade(true);
+            let F = null;
+            try { F = await loadCar(D.id); } catch (e) {}
+            if(!F) return;
+            showPreview(F);
+            const box = $('unlockfx');
+            $('uf-name').textContent = D.name;
+            $('uf-price').textContent = carsOwned.has(D.id) ? '' : 'Disponible dans « Changer de voiture » : ' + fmtSP(D.price) + ' SP';
+            box.classList.remove('full'); box.hidden = false;
+            const S = [
+                ['Avant', [1.6, 0.85, -8.4], [-1.6, 0.75, -7.6], [0, 0.6, 0], [0, 0.55, 0]],
+                ['Côté gauche', [-8.8, 1.0, -2.2], [-8.8, 0.85, 2.2], [0, 0.55, -1.4], [0, 0.55, 1.4]],
+                ['Arrière', [-1.6, 1.15, 8.4], [1.6, 0.9, 7.6], [0, 0.6, 0], [0, 0.55, 0]],
+                ['Côté droit', [8.8, 1.0, 2.2], [8.8, 0.85, -2.2], [0, 0.55, 1.4], [0, 0.55, -1.4]]
+            ];
+            for(const [label, p0, p1, l0, l1] of S) {
+                $('uf-side').textContent = label;
+                cine = { t: 0, dur: 1.9, p0, p1, l0, l1 };
+                await fade(false); await fxWait(1650); await fade(true);
+            }
+            // Toute la voiture : la caméra recule en tournant jusqu'au trois-quarts avant
+            $('uf-side').textContent = '';
+            cine = { t: 0, dur: 3.2, orbit: [-2.3, 0.62], r: [7.5, 12.5], y: [1.0, 2.4], l: [0, 0.55, 0] };
+            box.classList.add('full');
+            await fade(false);
+            await fxWait(600000);   // jusqu'à « Continuer » (ou Entrée)
+            await fade(true);
+            box.hidden = true; box.classList.remove('full');
+        }
+        $('lvlfx').onclick = fxNext;
+        $('uf-next').onclick = fxNext;
+        (function waitSplash() { if(splashOn) return setTimeout(waitSplash, 300); setTimeout(checkLevelUp, 500); })();
+
         // Clavier du garage : flèches ou ZQSD, Entrée, Échap, A / E pour changer de page
         function garageKey(kn) {
+            if(fx) { if(kn === 'Enter' || kn === 'Escape' || kn === ' ' || kn === 'Backspace') fxNext(); return true; }
             const up = kn === 'ArrowUp' || kn === 'z', down = kn === 'ArrowDown' || kn === 's';
             const left = kn === 'ArrowLeft' || kn === 'q', right = kn === 'ArrowRight' || kn === 'd';
             const step = left ? -1 : right ? 1 : 0;
@@ -1788,6 +1938,8 @@
                 slState.bonus[l.id] = true;
                 addSP(LIST_BONUS);
                 toast('Speedliste terminée', l.name, '+' + fmtSP(LIST_BONUS) + ' SP');
+                slState.lvlUp = (slState.lvlUp || 0) + 1;   // le niveau monte au retour au garage
+                toast('Niveau ' + (pLvl + slState.lvlUp) + ' à débloquer', 'Rentre au garage pour monter de niveau');
             }
             store('nfsSpeedliste', slState);
             renderSpeedlist(); renderHudList(); showBadge();
@@ -1826,8 +1978,8 @@
         resetBtn.type = 'button';
         resetBtn.textContent = 'Réinitialiser ma progression';
         resetBtn.onclick = () => {
-            try { ['nfsDubaiWins', 'nfsDubaiBest', 'nfsSP', 'nfsXP', 'nfsCarsOwned', 'nfsCar', 'nfsSpeedliste', 'nfsUpgrades', 'nfsRadars'].forEach(k => localStorage.removeItem(k)); } catch (e) {}
-            sp = 0; xp = 0; carsOwned.clear(); carsOwned.add('sf90');
+            try { ['nfsDubaiWins', 'nfsDubaiBest', 'nfsSP', 'nfsLvl', 'nfsCarsOwned', 'nfsCar', 'nfsSpeedliste', 'nfsUpgrades', 'nfsRadars'].forEach(k => localStorage.removeItem(k)); } catch (e) {}
+            sp = 0; pLvl = 1; slState.lvlUp = 0; carsOwned.clear(); carsOwned.add('sf90');
             if(carId !== 'sf90') { carId = 'sf90'; $('gx-carname').textContent = carDef('sf90').tag; loadCar('sf90').then(F => { setPlayerCar(F); if(screen !== 'cars') showPreview(F); }).catch(() => {}); } slState.done = {}; slState.bonus = {}; Object.keys(upLv).forEach(k => { upLv[k] = 0; });
             Object.keys(radarBest).forEach(k => { delete radarBest[k]; });
             PERF = perfOf();
