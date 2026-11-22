@@ -131,7 +131,7 @@
         /* Disposition commune : barre haute (titre, pages, voiture, SP), contenu, barre basse (touches) */
         :root {
             --gx-ink: #0b0a09; --gx-text: #ececea; --gx-mute: #a19d97; --gx-line: rgba(255,255,255,0.4); --gx-line-soft: rgba(255,255,255,0.22);
-            --gx-panel: rgba(9,8,7,0.62); --gx-sel: rgba(132,152,205,0.5); --gx-gold: #f4b13c; --gx-heat: #ff8a2a;
+            --gx-panel: rgba(9,8,7,0.74); --gx-sel: rgba(132,152,205,0.5); --gx-gold: #f4b13c; --gx-heat: #ff8a2a;
             --gx-cond: 'Barlow Condensed', 'Arial Narrow', 'Segoe UI', sans-serif;
             --H: clamp(68.9px, 12.3vh, 131.2px); --F: clamp(52.5px, 9vh, 98.4px); --FR: clamp(21.3px, 4.1vh, 39.4px);
             --IB: clamp(11.5px, 2.8vh, 29.5px); --IH: clamp(54.1px, 9.4vh, 100px); --TH: clamp(57.4px, 10.7vh, 118.9px); --PX: 2vw;
@@ -190,6 +190,111 @@
         #lobby .gx-heat svg { width: 0.9em; height: 0.9em; fill: none; stroke: currentColor; stroke-width: 2; }
         #lobby .gx-id-sp { margin-top: 2px; color: var(--gx-gold); font: 600 clamp(15.6px, 2.5vh, 25.4px)/1.1 var(--gx-cond); }
         #lobby .gx-id-sp em { margin-left: 6px; padding: 0 4px; font: 700 0.5em/1.5 'Barlow', sans-serif; font-style: normal; vertical-align: middle; border: 1.5px solid var(--gx-gold); border-radius: 3px; }
+        #lobby .gx-lvl { margin-right: 14px; color: #f2f0ea; font: 500 0.72em/1 var(--gx-cond); text-transform: uppercase; display: inline-flex; align-items: center; gap: 6px; vertical-align: middle; }
+        #lobby .gx-lvl b { font-weight: 600; font-size: 1.25em; }
+        #lobby .gx-lvl > i { display: inline-block; width: 46px; height: 4px; background: rgba(255,255,255,0.18); }
+        #lobby .gx-lvl > i > i { display: block; height: 100%; width: 0; background: var(--gx-gold); }
+        #lobby .gx-tile .gx-price { position: absolute; left: 10px; top: 7px; font: 600 clamp(10.7px, 1.6vh, 14.8px)/1 var(--gx-cond); color: var(--gx-gold); text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+        #lobby .gx-tile .gx-price.no { color: #b9b4aa; }
+        #lobby .gx-tile.gx-pic.locked { color: #a39e96; }
+        #lobby .gx-tile.gx-pic.locked img { filter: grayscale(0.85) brightness(0.45); }
+        #lobby .gx-tile.gx-pic.locked .gx-lock { width: 22px; height: 22px; color: #f2f0ea; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.9)); }
+        /* Onglets Carte / Garage */
+        #lobby .gx-tabs { display: flex; gap: 6px; margin-top: 0.4vh; }
+        #lobby .gx-tabs[hidden] { display: none; }
+        #lobby .gx-tabs button { all: unset; cursor: pointer; display: flex; align-items: center; gap: 7px; padding: 4px 12px; font: 500 clamp(12px, 1.7vh, 16px)/1 var(--gx-cond); text-transform: uppercase; letter-spacing: 0.06em; color: #a9a5a0; border-bottom: 2px solid transparent; }
+        #lobby .gx-tabs button.on { color: #fff; border-bottom-color: #fff; }
+        #lobby .gx-tabs kbd { padding: 1px 6px; border-radius: 3px; background: #e9e9e9; color: #111; font: 700 11px/1.4 'Barlow', sans-serif; }
+        #lobby .gx-top, #lobby .gx-bot { z-index: 3; }
+        /* Page Carte */
+        #lobby .gx-mapscr { pointer-events: auto; z-index: 1; background: #07090b; }
+        #gmap { position: absolute; inset: 0; width: 100%; height: 100%; cursor: none; touch-action: none; }
+        #lobby .gm-help { position: absolute; left: var(--PX); bottom: calc(var(--F) + 2vh); margin: 0; font: 500 clamp(12px, 1.7vh, 16px)/1.3 'Barlow', sans-serif; color: #c9c6c0; text-shadow: 0 1px 4px #000; pointer-events: none; }
+        #lobby .gm-ask { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 3vh 3vw; text-align: center; pointer-events: auto; min-width: 300px; }
+        #lobby .gm-ask[hidden] { display: none; }
+        #lobby .gm-ask p { margin: 0 0 1vh; font: 500 clamp(14px, 2.1vh, 20px)/1 var(--gx-cond); text-transform: uppercase; letter-spacing: 0.2em; color: var(--gx-gold); }
+        #lobby .gm-ask b { display: block; margin-bottom: 2.4vh; font: 600 clamp(26px, 4.6vh, 46px)/1 var(--gx-cond); text-transform: uppercase; }
+        #lobby .gm-ask div { display: flex; gap: 12px; justify-content: center; }
+        #lobby .gm-ask .gx-act { position: static; transform: none; width: auto; padding: 1vh 2vw; }
+        #lobby .gm-ask .gm-no { background: rgba(255,255,255,0.12); color: #fff; }
+        /* Personnalisation (façon Need for Speed) : catégories à gauche, choix en bas */
+        #lobby .cu-cats { position: absolute; left: var(--PX); top: calc(var(--H) + 3vh); width: min(21vw, 360px); padding: 1vh 0; pointer-events: auto; }
+        #lobby .cu-cats button { all: unset; box-sizing: border-box; display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 1.05vh 1.4vw; cursor: pointer; border: 1.5px solid transparent; font: 500 clamp(13.5px, 2vh, 21px)/1.1 var(--gx-cond); text-transform: uppercase; }
+        #lobby .cu-cats button small { font: 500 clamp(11px, 1.55vh, 15px)/1 'Barlow', sans-serif; text-transform: none; color: var(--gx-mute); display: flex; align-items: center; gap: 6px; }
+        #lobby .cu-cats button.sel { border-color: rgba(225,232,255,0.8); background: linear-gradient(90deg, var(--gx-sel), rgba(132,152,205,0.12)); }
+        #lobby .cu-cats button.sel small { color: #fff; }
+        #lobby .cu-cats button.act { color: var(--gx-mute); margin-top: 0.6vh; }
+        #lobby .cu-bar { position: absolute; left: calc(var(--PX) + min(21vw, 360px) + 1.4vw); right: var(--PX); bottom: calc(var(--F) + 1.6vh); padding: 1.4vh 1.4vw 1.6vh; pointer-events: auto; }
+        #lobby .pl-bar { left: 50%; right: auto; transform: translateX(-50%); width: min(78vw, 1100px); }
+        #lobby .cu-head { display: flex; justify-content: space-between; align-items: baseline; gap: 2vw; margin-bottom: 1.2vh; }
+        #lobby .cu-head b { font: 600 clamp(17px, 2.6vh, 27px)/1 var(--gx-cond); text-transform: uppercase; }
+        #lobby .cu-head span, #lobby .pl-in { font: 500 clamp(13px, 1.9vh, 19px)/1 var(--gx-cond); color: var(--gx-gold); text-transform: uppercase; }
+        #lobby .cu-opts { display: flex; flex-wrap: wrap; gap: 6px; }
+        #lobby .cu-grid { display: grid; grid-template-columns: repeat(20, 1fr); gap: 4px; flex: 1; }
+        #lobby .cu-sw { all: unset; box-sizing: border-box; aspect-ratio: 1.5; min-height: 14px; cursor: pointer; border: 2px solid rgba(0,0,0,0.5); border-radius: 3px; background: var(--c); transition: transform 0.08s; }
+        #lobby .cu-sw:hover { transform: scale(1.12); }
+        #lobby .cu-sw.sel { border-color: #fff; box-shadow: 0 0 0 2px var(--gx-gold); transform: scale(1.15); }
+        #lobby .cu-none { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0 1vw; margin-right: 6px; min-width: 7vw; border: 2px solid rgba(255,255,255,0.35); border-radius: 3px; font: 600 clamp(12px, 1.7vh, 17px)/1 var(--gx-cond); text-transform: uppercase;
+            background: repeating-linear-gradient(135deg, rgba(255,255,255,0.08) 0 6px, transparent 6px 12px); }
+        #lobby .cu-none.sel { border-color: #fff; box-shadow: 0 0 0 2px var(--gx-gold); }
+        #lobby .cu-tile { all: unset; box-sizing: border-box; cursor: pointer; flex: 1 1 0; min-width: 8vw; padding: 1.6vh 0.8vw; text-align: center; border: 1.5px solid var(--gx-line-soft); font: 600 clamp(13px, 1.9vh, 19px)/1 var(--gx-cond); text-transform: uppercase; background: rgba(255,255,255,0.04); }
+        #lobby .cu-tile:hover { border-color: rgba(255,255,255,0.7); }
+        #lobby .cu-tile.sel { border: 2px solid #fff; background: linear-gradient(180deg, var(--gx-sel), rgba(132,152,205,0.1)); }
+        #lobby .cu-dot { display: inline-block; width: 12px; height: 12px; border-radius: 2px; border: 1.5px solid rgba(255,255,255,0.7); }
+        #lobby .pl-styles { display: flex; gap: 10px; }
+        #lobby .pl-styles button { all: unset; box-sizing: border-box; flex: 1 1 0; cursor: pointer; padding: 6px; border: 1.5px solid var(--gx-line-soft); text-align: center; font: 600 clamp(12px, 1.7vh, 17px)/1 var(--gx-cond); text-transform: uppercase; }
+        #lobby .pl-styles button.sel { border: 2px solid #fff; background: linear-gradient(180deg, var(--gx-sel), rgba(132,152,205,0.1)); }
+        #lobby .pl-styles canvas { display: block; width: 100%; height: auto; margin-bottom: 6px; border-radius: 4px; }
+        #lobby .pl-in input { margin-left: 10px; width: 9em; padding: 5px 10px; border: 1.5px solid rgba(255,255,255,0.5); border-radius: 3px; background: rgba(0,0,0,0.45); color: #fff; font: 600 clamp(15px, 2.3vh, 23px)/1.1 var(--gx-cond); text-transform: uppercase; text-align: center; letter-spacing: 0.08em; }
+        #lobby .pl-in input:focus { outline: none; border-color: var(--gx-gold); }
+        /* Personnalisation, plaque */
+        #lobby .gx-chip { display: inline-block; width: 14px; height: 14px; margin-right: 8px; vertical-align: -2px; border: 1.5px solid rgba(255,255,255,0.7); border-radius: 3px; }
+        #lobby .gx-row input { width: 9.5em; padding: 4px 8px; border: 1.5px solid rgba(255,255,255,0.5); border-radius: 3px; background: rgba(0,0,0,0.45); color: #fff; font: 600 clamp(14px, 2.1vh, 21px)/1.1 var(--gx-cond); text-transform: uppercase; text-align: center; letter-spacing: 0.08em; }
+        #lobby .gx-row input:focus { outline: none; border-color: var(--gx-gold); }
+        /* Animations : niveau supérieur, voiture débloquée */
+        #lobby .gx { transition: opacity 0.35s; }
+        #lobby.cine .gx { visibility: hidden; }
+        #lobby.cine #car-preview { cursor: default; }
+        #cinefade { position: absolute; inset: 0; z-index: 60; background: #000; opacity: 0; pointer-events: none; transition: opacity 0.26s; }
+        #cinefade.on { opacity: 1; }
+        #lvlfx { position: absolute; inset: 0; z-index: 55; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: #fff; font-family: var(--gx-cond); cursor: pointer;
+                 background: radial-gradient(circle at 50% 42%, rgba(70,48,8,0.6), rgba(0,0,0,0.88) 68%); transition: opacity 0.35s; }
+        #lvlfx[hidden], #unlockfx[hidden] { display: none; }
+        #lvlfx.out { opacity: 0; }
+        #lvlfx .lf-ring { position: relative; width: min(30vh, 250px); height: min(30vh, 250px); }
+        #lvlfx .lf-ring::before { content: ''; position: absolute; inset: -55%; border-radius: 50%; opacity: 0;
+                 background: repeating-conic-gradient(rgba(232,179,60,0.22) 0deg 5deg, transparent 5deg 15deg);
+                 -webkit-mask: radial-gradient(circle, #000 28%, transparent 68%); mask: radial-gradient(circle, #000 28%, transparent 68%); }
+        #lvlfx.on .lf-ring::before { animation: lfSpin 14s linear infinite, lfIn 0.7s 0.85s forwards; }
+        #lvlfx .lf-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+        #lvlfx .lf-ring circle { fill: rgba(0,0,0,0.35); stroke-width: 5; }
+        #lvlfx .lf-ring .bg { stroke: rgba(255,255,255,0.14); }
+        #lvlfx .lf-ring .fg { fill: none; stroke: var(--gx-gold); stroke-linecap: round; stroke-dasharray: 302; stroke-dashoffset: 302; filter: drop-shadow(0 0 6px rgba(232,179,60,0.8)); }
+        #lvlfx.on .lf-ring .fg { animation: lfRing 0.9s cubic-bezier(0.3, 0.7, 0.3, 1) forwards; }
+        #lf-num { position: absolute; inset: 0; display: grid; place-items: center; font: 600 min(14vh, 116px)/1 var(--gx-cond); text-shadow: 0 0 24px rgba(232,179,60,0.6); }
+        #lf-num.pop { animation: lfPop 0.6s cubic-bezier(0.2, 1.6, 0.4, 1); color: var(--gx-gold); }
+        #lvlfx .lf-k { margin: 3.2vh 0 0; font: 500 clamp(14px, 2.2vh, 22px)/1 var(--gx-cond); letter-spacing: 0.32em; text-transform: uppercase; color: var(--gx-gold); }
+        #lvlfx .lf-t { margin: 1.2vh 0 0; font: 600 clamp(34px, 7.5vh, 76px)/1 var(--gx-cond); text-transform: uppercase; }
+        #lvlfx .lf-sub { margin: 1.6vh 0 0; font: 500 clamp(15px, 2.4vh, 24px)/1.2 'Barlow', sans-serif; color: #d9d6d0; min-height: 1.2em; }
+        #lvlfx.on .lf-k, #lvlfx.on .lf-t, #lvlfx.on .lf-sub { opacity: 0; animation: lfUp 0.5s forwards; }
+        #lvlfx.on .lf-k { animation-delay: 0.9s; } #lvlfx.on .lf-t { animation-delay: 1.05s; } #lvlfx.on .lf-sub { animation-delay: 1.4s; }
+        @keyframes lfRing { to { stroke-dashoffset: 0; } }
+        @keyframes lfPop { 0% { transform: scale(0.3); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        @keyframes lfSpin { to { transform: rotate(360deg); } }
+        @keyframes lfIn { to { opacity: 1; } }
+        @keyframes lfUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+        #unlockfx { position: absolute; inset: 0; z-index: 55; pointer-events: none; color: #fff; font-family: var(--gx-cond); }
+        #unlockfx::before, #unlockfx::after { content: ''; position: absolute; left: 0; right: 0; height: 9vh; background: #000; }
+        #unlockfx::before { top: 0; } #unlockfx::after { bottom: 0; }
+        #unlockfx .uf-top { position: absolute; left: 0; right: 0; top: 11vh; text-align: center; text-shadow: 0 2px 10px rgba(0,0,0,0.8); }
+        #unlockfx .uf-k { margin: 0; font: 500 clamp(14px, 2.2vh, 22px)/1 var(--gx-cond); letter-spacing: 0.32em; text-transform: uppercase; color: var(--gx-gold); animation: lfUp 0.6s both; }
+        #uf-name { margin: 1vh 0 0; font: 600 clamp(30px, 6.5vh, 68px)/1 var(--gx-cond); text-transform: uppercase; animation: lfUp 0.6s 0.15s both; }
+        #uf-side { position: absolute; left: 5vw; bottom: 13vh; margin: 0; padding-left: 12px; border-left: 3px solid var(--gx-gold); font: 500 clamp(18px, 3vh, 30px)/1 var(--gx-cond); text-transform: uppercase; text-shadow: 0 2px 8px rgba(0,0,0,0.8); }
+        #uf-side:empty { display: none; }
+        #unlockfx .uf-bottom { position: absolute; left: 0; right: 0; bottom: 12vh; text-align: center; opacity: 0; transition: opacity 0.5s; }
+        #unlockfx.full .uf-bottom { opacity: 1; }
+        #uf-price { margin: 0 0 1.6vh; font: 500 clamp(15px, 2.4vh, 24px)/1.2 'Barlow', sans-serif; color: #f2f0ea; text-shadow: 0 2px 8px rgba(0,0,0,0.9); }
+        #uf-next { pointer-events: auto; cursor: pointer; padding: 1.1vh 3.2vw; border: 0; background: var(--gx-gold); color: #111; font: 600 clamp(15px, 2.3vh, 22px)/1 var(--gx-cond); text-transform: uppercase; letter-spacing: 0.08em; }
         #lobby .gx-id-rec { font: 500 clamp(9.8px, 1.4vh, 12.3px)/1.4 'Barlow', sans-serif; color: var(--gx-mute); }
         #lobby .gx-badge { position: relative; width: clamp(37.7px, 5.2vh, 52.5px); height: clamp(37.7px, 5.2vh, 52.5px); display: grid; place-items: center; border-radius: 50%; border: 3px dotted var(--gx-heat); box-shadow: inset 0 0 0 3px #0b0a09, inset 0 0 0 5px var(--gx-heat); font: 600 clamp(14.8px, 2.3vh, 23px)/1 var(--gx-cond); }
         #lobby #wins-progress { display: none; }
@@ -205,7 +310,7 @@
         #lobby .gx-screen { position: absolute; inset: 0; pointer-events: none; }
         #lobby .gx-screen[hidden] { display: none; }
         #lobby .gx-screen > * { pointer-events: auto; }
-        #lobby .gx-panel { background: var(--gx-panel); border: 1px solid var(--gx-line); backdrop-filter: blur(6px); }
+        #lobby .gx-panel { background: var(--gx-panel); border: 1px solid var(--gx-line); }
 
         /* Accueil : menu à gauche, objectifs à droite */
         #lobby .gx-menu { position: absolute; left: var(--PX); top: calc(var(--H) + 5vh); width: 31vw; display: flex; flex-direction: column; gap: 0.6vh; }
@@ -247,7 +352,8 @@
         #lobby .gx-tile.sel { border: 2px solid #f4f4f4; color: #fff; background: rgba(28,26,24,0.8); }
         #lobby .gx-tiles.focus .gx-tile.sel::after { content: ''; position: absolute; left: 50%; bottom: calc(-2.4vh - 1px); width: 14px; height: 14px; transform: translateX(-50%) rotate(45deg); background: rgba(5,5,6,0.92); border-left: 1.5px solid rgba(255,255,255,0.75); border-top: 1.5px solid rgba(255,255,255,0.75); }
         #lobby .gx-tile.locked { color: #5d5a55; }
-        #lobby .gx-tile img.gx-shot { position: absolute; left: 4%; top: 6%; width: 92%; height: calc(94% - clamp(10.7px, 1.6vh, 14.8px) - 9px); object-fit: contain; pointer-events: none; filter: drop-shadow(0 6px 8px rgba(0,0,0,0.6)); }
+        #lobby .gx-tile.gx-pic { overflow: hidden; }
+        #lobby .gx-tile.gx-pic img { position: absolute; left: 6%; top: 5%; width: 88%; height: 66%; object-fit: contain; pointer-events: none; filter: drop-shadow(0 6px 6px rgba(0,0,0,0.5)); }
         #lobby .gx-tile .gx-lock { position: absolute; right: 8px; top: 8px; width: 18px; height: 18px; }
         #lobby .gx-tile .gx-tag { position: absolute; left: 10px; bottom: 7px; font: 500 clamp(10.7px, 1.6vh, 14.8px)/1 var(--gx-cond); text-transform: uppercase; color: inherit; }
         #lobby .gx-pips { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); display: flex; gap: 5px; }
@@ -375,16 +481,29 @@
             <div class="gx-floor"></div><div class="gx-haze"></div>
         </div>
         <div id="car-preview" title="Faites glisser pour tourner la voiture"></div>
+        <div id="lvlfx" hidden>
+            <div class="lf-ring"><svg viewBox="0 0 110 110" aria-hidden="true"><circle class="bg" cx="55" cy="55" r="48"/><circle class="fg" cx="55" cy="55" r="48"/></svg><b id="lf-num">1</b></div>
+            <p class="lf-k">Niveau pilote</p>
+            <p class="lf-t">Niveau supérieur</p>
+            <p class="lf-sub" id="lf-sub"></p>
+        </div>
+        <div id="unlockfx" hidden>
+            <div class="uf-top"><p class="uf-k">Nouvelle voiture débloquée</p><h2 id="uf-name"></h2></div>
+            <p id="uf-side"></p>
+            <div class="uf-bottom"><p id="uf-price"></p><button type="button" id="uf-next">Continuer</button></div>
+        </div>
+        <div id="cinefade"></div>
         <div class="gx-vig" aria-hidden="true"></div>
         <div class="gx">
             <header class="gx-top">
                 <div class="gx-title">
                     <h1 id="gx-title">Garage</h1>
+                    <nav class="gx-tabs" id="gx-tabs" aria-label="Pages"><button type="button" data-tab="map"><kbd>A</kbd>Carte</button><button type="button" data-tab="home">Garage<kbd>E</kbd></button></nav>
                 </div>
                 <div class="gx-id">
                     <div>
-                        <div class="gx-id-name">Ferrari SF90 <span class="gx-heat" title="Niveau de performance"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-3 2-4 2-7 2 1 3 3 3 5 1-1 1-3 0-8z"/></svg><b id="gx-heat">1</b></span></div>
-                        <div class="gx-id-sp"><span id="lobby-sp">0</span><em>SP</em></div>
+                        <div class="gx-id-name"><span id="gx-carname">Ferrari SF90</span> <span class="gx-heat" title="Niveau de performance"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-3 2-4 2-7 2 1 3 3 3 5 1-1 1-3 0-8z"/></svg><b id="gx-heat">1</b></span></div>
+                        <div class="gx-id-sp"><span class="gx-lvl" id="lobby-lvl-box">Niv. <b id="lobby-lvl">1</b><i><i id="lvl-bar"></i></i></span><span id="lobby-sp">0</span><em>SP</em></div>
                         <div class="gx-id-rec">Record radar <span id="lobby-best">--</span></div>
                     </div>
                     <div class="gx-badge" title="Objectifs réussis"><span id="lobby-wins">0</span><i id="wins-progress"></i></div>
@@ -423,6 +542,24 @@
                         <div class="gx-paint-row gx-panel" id="paint-row" role="listbox" aria-label="Couleurs"></div>
                         <button type="button" class="gx-pa r" data-step="1" aria-label="Couleur suivante"></button>
                     </div>
+                </div>
+            </section>
+            <section class="gx-screen" data-screen="custom" hidden>
+                <nav class="cu-cats gx-panel" id="cu-cats" aria-label="Catégories"></nav>
+                <div class="cu-bar gx-panel"><div class="cu-head"><b id="cu-name"></b><span id="cu-val"></span></div><div class="cu-opts" id="cu-opts"></div></div>
+            </section>
+            <section class="gx-screen" data-screen="plate" hidden>
+                <div class="cu-bar gx-panel pl-bar">
+                    <div class="cu-head"><b>Plaque d’immatriculation</b><label class="pl-in">Texte <input id="plate-text" maxlength="8" spellcheck="false" autocomplete="off"></label></div>
+                    <div class="pl-styles" id="pl-styles"></div>
+                </div>
+            </section>
+            <section class="gx-screen gx-mapscr" data-screen="map" hidden>
+                <canvas id="gmap"></canvas>
+                <p class="gm-help">Clique sur une planque pour y apparaître · molette : zoom · glisser : déplacer la carte</p>
+                <div class="gm-ask gx-panel" id="gm-ask" hidden>
+                    <p>Apparaître ici ?</p><b id="gm-name"></b>
+                    <div><button type="button" class="gx-act" data-a="yes">Oui, partir</button><button type="button" class="gx-act gm-no" data-a="no">Non</button></div>
                 </div>
             </section>
             <section class="gx-screen" data-screen="settings" hidden>
@@ -508,14 +645,16 @@
             }
             previewCamera.updateProjectionMatrix();
         }
+        var pvDirty = true;   // l'aperçu du garage doit être redessiné
         function resizePreview() {
             pw = previewContainer.offsetWidth || window.innerWidth || 1280;
             ph = previewContainer.offsetHeight || window.innerHeight || 720;
             previewRenderer.setSize(pw, ph);
+            pvDirty = true;
             previewCamera.aspect = pw / ph;
             applyViewOffset();
         }
-        previewRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        previewRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
         previewContainer.appendChild(previewRenderer.domElement);
         resizePreview();
         setTimeout(resizePreview, 100);
@@ -900,12 +1039,17 @@
         previewMirror.scale.y = -1;
         previewMirror.traverse(o => { if(o.material) { o.material.transparent = true; o.material.opacity = 0.28; o.material.depthWrite = false; o.renderOrder = 5; } });
         previewScene.add(previewCar, previewMirror);
+        // L'ancienne voiture dessinée (SAQR X1) n'est jamais montrée : seuls les modèles 3D s'affichent, une fois chargés
+        const hideDrawnCar = (car) => car.children.forEach(o => { if((o.isMesh || o.type === 'Group') && !o.userData.keep) o.visible = false; });
+        hideDrawnCar(previewCar); hideDrawnCar(previewMirror);
 
         previewCamera.position.set(0, 1.35, camDist);
         previewCamera.lookAt(0, 0.6, 0);
 
         // Légère oscillation autour du trois-quarts avant ; glisser à la souris pour tourner la voiture
-        let pPrev = Date.now(), pT = 0, userYaw = 0, dragging = false, lastX = 0;
+        let pPrev = Date.now(), pT = 0, userYaw = 0, dragging = false, lastX = 0, cine = null, yawBase = Math.PI - 0.55, yawTarget = Math.PI - 0.55, spinOn = true, spinAmp = 1;
+        let plateCamT = 0, plateBlend = 0, lookY = 0.6, lookYT = 0.6, pvSig = '', pvIdle = 0;
+        const pvTmp = new THREE.Vector3();
         previewContainer.addEventListener('pointerdown', (e) => { dragging = true; lastX = e.clientX; });
         window.addEventListener('pointerup', () => { dragging = false; });
         window.addEventListener('pointermove', (e) => {
@@ -918,13 +1062,47 @@
             requestAnimationFrame(animatePreview);
             const now = Date.now(), dt = Math.min(0.05, (now - pPrev) / 1000);
             pPrev = now;
-            if(!dragging) pT += dt;
+            if(!dragging && spinOn) pT += dt;   // la voiture ne se balance qu'à l'accueil du garage
             camShift += (camShiftTarget - camShift) * Math.min(1, dt * 5);
             camDist += (camDistTarget - camDist) * Math.min(1, dt * 5);
-            previewCamera.position.set(0, 1.35, camDist);
-            previewCamera.lookAt(0, 0.6, 0);
+            if(cine) {   // animation de déblocage : plans de caméra autour de la voiture (avant de la voiture vers -z)
+                cine.t += dt;
+                const u = Math.min(1, cine.t / cine.dur), e = u * u * (3 - 2 * u), L = (a, b, k) => a + (b - a) * k;
+                if(cine.orbit) {
+                    const a = L(cine.orbit[0], cine.orbit[1], e), r = L(cine.r[0], cine.r[1], e);
+                    previewCamera.position.set(Math.sin(a) * r, L(cine.y[0], cine.y[1], e), -Math.cos(a) * r);
+                    previewCamera.lookAt(cine.l[0], cine.l[1], cine.l[2]);
+                } else {
+                    previewCamera.position.set(L(cine.p0[0], cine.p1[0], u), L(cine.p0[1], cine.p1[1], u), L(cine.p0[2], cine.p1[2], u));
+                    previewCamera.lookAt(L(cine.l0[0], cine.l1[0], u), L(cine.l0[1], cine.l1[1], u), L(cine.l0[2], cine.l1[2], u));
+                }
+                if(previewCamera.clearViewOffset) previewCamera.clearViewOffset();
+                previewCamera.updateProjectionMatrix();
+                previewCar.rotation.y = previewMirror.rotation.y = 0;
+                previewRenderer.render(previewScene, previewCamera);
+                return;
+            }
+            // Page Plaque : la caméra se rapproche de la plaque arrière ; page Personnaliser : voiture plus haute (la barre des choix est en bas)
+            plateBlend += (plateCamT - plateBlend) * Math.min(1, dt * 3);
+            lookY += (lookYT - lookY) * Math.min(1, dt * 5);
+            let cx = 0, cy = 1.35, cz = camDist, lx = 0, ly = lookY, lz = 0;
+            if(plateBlend > 0.002 && previewCar.plateMesh) {
+                previewCar.updateMatrixWorld(true);
+                const pw = previewCar.plateMesh.getWorldPosition(pvTmp), k = plateBlend * plateBlend * (3 - 2 * plateBlend);
+                cx += (pw.x + 0.45 - cx) * k; cy += (pw.y + 0.3 - cy) * k; cz += (pw.z + 2.1 - cz) * k;
+                lx += (pw.x - lx) * k; ly += (pw.y - 0.16 - ly) * k; lz += (pw.z - lz) * k;
+            }
+            previewCamera.position.set(cx, cy, cz);
+            previewCamera.lookAt(lx, ly, lz);
             applyViewOffset();
-            previewCar.rotation.y = previewMirror.rotation.y = Math.PI - 0.55 + userYaw + Math.sin(pT * 0.3) * 0.3;
+            yawBase += (yawTarget - yawBase) * Math.min(1, dt * 4);   // page Plaque : vue de l'arrière
+            spinAmp += ((spinOn ? 1 : 0) - spinAmp) * Math.min(1, dt * 4);   // dans les onglets : angle fixe
+            previewCar.rotation.y = previewMirror.rotation.y = yawBase + userYaw + Math.sin(pT * 0.3) * 0.3 * spinAmp;
+            // Rendu à la demande : rien ne bouge (onglets) → on ne redessine pas (une image de sécurité toutes les 0,5 s)
+            const sig = [cx, cy, cz, lx, ly, lz, previewCar.rotation.y, camShift, pw, ph].map(v => v.toFixed(4)).join();
+            pvIdle += dt;
+            if(sig === pvSig && !pvDirty && pvIdle < 0.5) return;
+            pvSig = sig; pvDirty = false; pvIdle = 0;
             previewRenderer.render(previewScene, previewCamera);
         }
         animatePreview();
@@ -1173,6 +1351,7 @@
         player.scale.setScalar(0.78);
         (() => { const seen = new Set(); player.traverse(o => { const m = o.material; if(m && !seen.has(m)) { seen.add(m); if(m.color) m.color.convertSRGBToLinear(); if(m.emissive) m.emissive.convertSRGBToLinear(); } }); })();
         scene.add(player);
+        hideDrawnCar(player);
         player.heads = player.children.filter(o => o.isSpotLight);   // phares : éteints jusqu'au contact
         player.heads.forEach(o => { o.userData.i0 = o.intensity; o.intensity = 0; });
         
@@ -1198,6 +1377,17 @@
         ];
 
         const CAR_COLORS = [{n:'Gris titane',c:0x6f747c},{n:'Noir carbone',c:0x18191c},{n:'Orange solaire',c:0xf0661c},{n:'Bleu golfe',c:0x2f6bff},{n:'Argent lunaire',c:0xb9c0c9},{n:'Rouge signal',c:0xe3262e},{n:'Or des dunes',c:0xe8b33c},{n:'Vert jade',c:0x13a37a},{n:'Violet nuit',c:0x6c3cf0},{n:'Blanc perle',c:0xeeeee8}];
+        // Palette élargie (les 10 couleurs d'origine restent en tête pour les réglages déjà enregistrés)
+        (() => {
+            const HUES = [['Rouge', 0], ['Corail', 10], ['Orange', 24], ['Ambre', 36], ['Jaune', 50], ['Citron', 66], ['Vert pomme', 95], ['Vert', 130], ['Émeraude', 152], ['Turquoise', 170],
+                          ['Cyan', 188], ['Azur', 204], ['Bleu', 220], ['Bleu roi', 232], ['Indigo', 248], ['Violet', 266], ['Pourpre', 284], ['Magenta', 305], ['Rose', 328], ['Framboise', 345]];
+            const SHADES = [['clair', 0.85, 0.7], ['vif', 0.92, 0.5], ['profond', 0.85, 0.36], ['sombre', 0.7, 0.2]];
+            const c = new THREE.Color();
+            SHADES.forEach(([sn, sa, li]) => HUES.forEach(([hn, h]) => { c.setHSL(h / 360, sa, li); CAR_COLORS.push({ n: hn + ' ' + sn, c: c.getHex(), g: 1 }); }));
+            [['Blanc pur', 0xffffff], ['Blanc cassé', 0xe9e4d6], ['Gris clair', 0xc4c8cc], ['Gris moyen', 0x8a8f95], ['Anthracite', 0x3a3d42], ['Graphite', 0x26282c], ['Noir profond', 0x0b0b0c],
+             ['Or', 0xd4af37], ['Champagne', 0xd8c79a], ['Bronze', 0x8c5a2b], ['Cuivre', 0xb46a3c], ['Kaki', 0x6b6a3a], ['Sable', 0xc2a878], ['Bordeaux', 0x5e1220], ['Bleu nuit', 0x0f1c3a], ['Vert anglais', 0x123826], ['Chocolat', 0x3b2416], ['Prune', 0x3e1b3a], ['Pétrole', 0x0f3c44], ['Ardoise', 0x4a5563]]
+                .forEach(([n, h]) => CAR_COLORS.push({ n, c: h, g: 2 }));
+        })();
         const RED = 0xe3262e, BLUE = 0x2f6bff;
         const MAP_CHOICES = [['random', 'Aléatoire'], ['dubai', 'Dubaï'], ['alpes', 'Alpes'], ['tokyo', 'Tokyo de nuit'], ['arctique', 'Arctique']];
         const MAP_DESC = { random: 'Tiré au sort à chaque course', dubai: 'Désert et gratte-ciel au coucher du soleil', alpes: 'Forêts de sapins et sommets enneigés', tokyo: 'Ville de nuit, néons et lampadaires', arctique: 'Neige et glace à perte de vue' };
@@ -1208,148 +1398,327 @@
         try {
             const sm = localStorage.getItem('nfsDubaiMap'), sw = localStorage.getItem('nfsDubaiWx'), sl = localStorage.getItem('nfsDubaiLevel');
             const sc = parseInt(localStorage.getItem('nfsDubaiColor'), 10);
-            if(CAR_COLORS.some(o => o.c === sc)) carColor = sc;
+            if(CAR_COLORS.some(o => o.c === sc)) carColor = sc;   // ancienne couleur unique : reprise pour la SF90
         } catch (e) {}
-        let carShot = '', carShotReady = false;   // photo de la voiture pour le garage (voir snapCar)
-        function setCarColor(car, hex) { car.bodyMat.color.setHex(hex); car.bodyMat.emissive.setHex(hex); }
+        function setCarColor(car, hex) { if(car.bodyMat) { car.bodyMat.color.setHex(hex); car.bodyMat.emissive.setHex(hex); } }
+        function paintPreview(hex) { setCarColor(previewCar, hex); setCarColor(previewMirror, hex); pvDirty = true; }
+        function paintPlayer(hex) {
+            setCarColor(player, hex);
+            if(player.bodyMat) { player.bodyMat.color.convertSRGBToLinear(); player.bodyMat.emissive.convertSRGBToLinear(); }   // le monde est rendu en lumière linéaire
+        }
+        // Peinture de la voiture actuelle (page « Peinture ») : chaque voiture garde sa propre couleur
         function applyColor(hex) {
             carColor = hex;
-            setCarColor(previewCar, hex); setCarColor(previewMirror, hex); setCarColor(player, hex);
-            player.bodyMat.color.convertSRGBToLinear(); player.bodyMat.emissive.convertSRGBToLinear();   // le monde est rendu en lumière linéaire
-            store('nfsDubaiColor', String(hex));
-            if(carShotReady) { clearTimeout(snapCar.t); snapCar.t = setTimeout(snapCar, 150); }
+            carColors[carId] = hex; store('nfsCarColors', carColors);
+            if(previewId === carId) paintPreview(hex);
+            paintPlayer(hex);
         }
-        // Photo de la voiture actuelle (vraie Ferrari, peinture choisie) pour la vignette « Changer de voiture » :
-        // la voiture du garage est rendue une fois, de trois-quarts avant, sans le sol ni son reflet, sur fond transparent
-        function snapCar() {
-            let r = null;
-            const ry = previewCar.rotation.y, hid = [floor, previewMirror].filter(o => o.visible);
-            try {
-                const W = 1200, H = 640;
-                r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
-                r.setPixelRatio(1); r.setSize(W, H);
-                r.toneMapping = previewRenderer.toneMapping; r.toneMappingExposure = previewRenderer.toneMappingExposure; r.outputEncoding = previewRenderer.outputEncoding;
-                const cam = new THREE.PerspectiveCamera(24, W / H, 0.1, 100);
-                cam.position.set(0, 1.9, 13); cam.lookAt(0, 0.5, 0);
-                hid.forEach(o => { o.visible = false; });
-                previewCar.rotation.y = Math.PI - 0.62;
-                r.render(previewScene, cam);
-                // recadrage serré sur la voiture (pixels non transparents), puis export en PNG
-                const c2 = document.createElement('canvas'); c2.width = W; c2.height = H;
-                const g = c2.getContext('2d'); g.drawImage(r.domElement, 0, 0);
-                const px = g.getImageData(0, 0, W, H).data;
-                let x0 = W, y0 = H, x1 = 0, y1 = 0;
-                for(let y = 0; y < H; y++) for(let x = 0; x < W; x++) if(px[(y * W + x) * 4 + 3] > 24) { if(x < x0) x0 = x; if(x > x1) x1 = x; if(y < y0) y0 = y; if(y > y1) y1 = y; }
-                if(x1 > x0 && y1 > y0) {
-                    const m = 6, cw = x1 - x0 + 2 * m, chh = y1 - y0 + 2 * m, c3 = document.createElement('canvas');
-                    c3.width = cw; c3.height = chh;
-                    c3.getContext('2d').drawImage(c2, x0 - m, y0 - m, cw, chh, 0, 0, cw, chh);
-                    carShot = c3.toDataURL('image/png');
-                }
-            } catch (e) { console.warn('photo de la voiture', e); }
-            hid.forEach(o => { o.visible = true; });
-            previewCar.rotation.y = ry;
-            if(r) { r.dispose(); r.forceContextLoss(); }
-            document.querySelectorAll('#car-tiles img.gx-shot').forEach(im => { im.src = carShot; });
-            if(carShot && $('car-tiles') && $('car-tiles').children.length && !document.querySelector('#car-tiles img.gx-shot')) renderCars();
-        }
-        applyColor(carColor);
 
-        // ====== FERRARI SF90 SPIDER : modèle 3D ferrari.glb, qui remplace la voiture dessinée dès qu'il est chargé ======
-        // Modèle « 2021 Ferrari SF90 Spider », licence CC BY-NC.
-        // Le fichier compte plus de 1 200 morceaux : on les fusionne par matière (caisse, roues, étriers) pour garder peu d'appels de dessin.
+        // ====== VOITURES : modèles 3D (.glb) qui remplacent la voiture dessinée dès qu'ils sont chargés ======
+        // Chaque fichier compte des centaines de morceaux : on les fusionne par matière (caisse, roues, étriers) pour garder peu d'appels de dessin.
+        // Les roues sont retrouvées par leur nom (nœud ou matière), puis réparties entre les 4 coins d'après leur position :
+        // ça marche aussi quand les 4 roues forment un seul maillage. Seule la voiture choisie est téléchargée.
         // Si le chargement échoue (page ouverte sans serveur, fichier absent), la voiture dessinée reste en place.
-        const FERRARI_URL = 'ferrari.glb', FERRARI_LEN = 4.71;   // longueur réelle de la SF90 (m)
-        function prepFerrari(gltf) {
+        // wheel / cal : nœuds ou matières des roues (tournent) et des étriers (braquent sans tourner) ; hide : morceaux ignorés
+        // paint / tail / glass : matières de la peinture (couleur du garage), des feux arrière (freinage) et des vitres ; front : sens de l'avant dans le fichier
+        // price : prix en SP, lvl : niveau pilote qui la débloque (cadenas retiré, elle peut alors être achetée) ; la SF90 est offerte
+        const CARS = [
+            { id: 'sf90', price: 0, lvl: 1, name: 'Ferrari SF90 Spider', tag: 'Ferrari SF90', url: 'ferrari.glb', img: 'cars/sf90.png', len: 4.71, front: '+z',
+              wheel: /Combined_Wheels|Wheel1A_3D/i, cal: /Calliper|Caliper/i, paint: /Paint_Material/, tail: /RED_GLASS/, glass: /Window/,
+              credit: '« 2021 Ferrari SF90 Spider », licence CC BY-NC' },
+            { id: 'gt3', price: 4000, lvl: 2, name: 'Mercedes-AMG GT3', tag: 'AMG GT3', url: 'cars/amg-gt3.glb', img: 'cars/gt3.png', len: 4.75, front: '+z',
+              wheel: /^WHEEL_(LF|RF|LR|RR)$/, cal: /^Caliper_|^Disc_/, hide: /RIM_BLUR|RIM_.._BLUR/, paint: /^EXT_Carpaint_Inst/, tail: /EXT_Emissive_Light_Rear|EXT_Glass_Emissive_Rear/, glass: /^EXT_Windows$|^INT_Windows$|INT_Windshield|MI_INT_Glass/,
+              credit: '« amg_evo_3 », licence CC BY-NC-SA' },
+            { id: 'p1', price: 8000, lvl: 3, name: 'McLaren P1', tag: 'McLaren P1', url: 'cars/p1.glb', img: 'cars/p1.png', len: 4.59, front: '+z',
+              wheel: /^WHEEL_(LF|RF|LR|RR)$/, cal: /^SUSP_|^DISC_/, paint: /^Carpaint$/, tail: /Taillights/, glass: /^Windows/,
+              credit: '« McLaren P1 », licence CC BY' },
+            { id: 'svj', price: 15000, lvl: 4, name: 'Lamborghini Aventador SVJ', tag: 'Aventador SVJ', url: 'cars/aventador.glb', img: 'cars/svj.png', len: 4.94, front: '+z',
+              wheel: /^Circle\.?002/, cal: /plaquette_de_frein/, paint: /^CARROSSERIE$/, tail: /GlassRedLights/, glass: /^GLASS$/,
+              credit: '« Lamborghini Aventador SVJ - SC20 Carbon Edition », licence CC BY-NC' },
+            { id: 'veneno', price: 25000, lvl: 5, name: 'Lamborghini Veneno', tag: 'Veneno', url: 'cars/veneno.glb', img: 'cars/veneno.png', len: 5.02, front: '+z',
+              wheel: /Wheel1A_3D/i, cal: /Calliper|Caliper/i, paint: /Paint_Material/, tail: null, glass: /Window/,
+              credit: '« 2013 Lamborghini Veneno », licence CC BY' },
+        ];
+        // Pièces à personnaliser dans chaque modèle : calp = étriers (couleur), rim = jantes (teinte),
+        // plate = plaque d'origine (remplacée par la nôtre, posée au même endroit) ; plateY = hauteur de nos plaques [arrière, avant] sinon
+        const CAR_PARTS = {
+            sf90: { calp: /CalliperA_Zone/, rim: /Wheel1C_Material/, plate: /ManufacturerPlate/ },
+            gt3: { calp: /^EXT_Calipers/, rim: /^amg_gt3_rims$/, plateY: [0.5, null] },
+            p1: { calp: /^Brake_Caliper$/, rim: /^Rim_(LF|RF|LR|RR)1_SUB0/, plateY: [0.42, 0.3] },
+            svj: { calp: /plaquette_de_frein/, rim: /^Rim_Texture$/, plateY: [0.45, null] },
+            veneno: { calp: /CalliperGloss/, rim: /Wheel1C_Material/, plate: /ManufacturerPlate/ }
+        };
+        CARS.forEach(c => Object.assign(c, CAR_PARTS[c.id]));
+        // Voitures achetées (la SF90 est toujours possédée)
+        const carsOwned = new Set(['sf90']);
+        { const o = loadJSON('nfsCarsOwned', []); if(Array.isArray(o)) o.forEach(id => { if(CARS.some(c => c.id === id)) carsOwned.add(id); }); }
+        let carId = 'sf90';
+        try { const s = localStorage.getItem('nfsCar'); if(carsOwned.has(s)) carId = s; } catch (e) {}
+        // Couleur attribuée à chaque voiture (modifiable voiture par voiture dans « Peinture »)
+        const CAR_DEF_COLOR = { sf90: 0xe3262e, gt3: 0xeeeee8, p1: 0xf0661c, svj: 0x13a37a, veneno: 0x6f747c };
+        const carColors = loadJSON('nfsCarColors', {});
+        if(carColors.sf90 === undefined && carColor !== RED) carColors.sf90 = carColor;
+        const colorOf = (id) => CAR_COLORS.some(o => o.c === carColors[id]) ? carColors[id] : CAR_DEF_COLOR[id];
+        carColor = colorOf(carId);
+        const carDef = (id) => CARS.find(c => c.id === id) || CARS[0];
+        // ====== Personnalisation : finition, motif, étriers, jantes, vitres, néons (par voiture) ; plaque (pour toutes) ======
+        const FINISHES = [{ n: 'Brillant', m: 0.55, r: 0.28, c: 1 }, { n: 'Métallisé', m: 0.9, r: 0.3, c: 1 }, { n: 'Nacré', m: 0.65, r: 0.16, c: 1 }, { n: 'Satiné', m: 0.4, r: 0.5, c: 0.35 }, { n: 'Mat', m: 0.3, r: 0.62, c: 0 }, { n: 'Chrome', m: 1, r: 0.05, c: 1 }];
+        const STYLES = ['Aucun', 'Double bande', 'Bande centrale', 'Bandes latérales', 'Toit contrasté', 'Bas de caisse'];
+        const TINTS = [{ n: 'Claires', c: 0x2a3440, o: 0.28, m: 0.1 }, { n: 'Fumées', c: 0x0a0d12, o: 0.55, m: 0.1 }, { n: 'Noires', c: 0x030304, o: 0.86, m: 0.2 }, { n: 'Bleutées', c: 0x0b2a52, o: 0.6, m: 0.3 }, { n: 'Miroir doré', c: 0x6a4a10, o: 0.8, m: 0.95 }];
+        // Réglages par voiture ; les couleurs sont gardées en hexadécimal (null = d'origine / aucun)
+        const CUST_DEF = { fin: 0, sty: 0, styHex: 0xeeeee8, calC: null, rimC: null, tint: 1, neonC: null };
+        const custAll = loadJSON('nfsCustom', {});
+        const custOf = (id) => { const o = Object.assign({}, CUST_DEF, custAll[id] || {}); ['styHex', 'calC', 'rimC', 'neonC'].forEach(k => { if(o[k] !== null && typeof o[k] !== 'number') o[k] = CUST_DEF[k]; }); return o; };
+        // Motif peint : calculé dans le shader de la peinture d'après la position sur la caisse (repère de la voiture, en mètres)
+        const STYLE_GLSL = `
+            varying vec3 vCarPos;
+            uniform float uStyle;
+            uniform vec3 uStyleCol;
+            uniform vec3 uDim;
+            float bnd(float v, float a, float b) { return smoothstep(a - 0.012, a + 0.012, v) * (1.0 - smoothstep(b - 0.012, b + 0.012, v)); }
+            float carStyle(vec3 p) {
+                float H = uDim.x, W = uDim.y, ax = abs(p.x);
+                if(uStyle < 0.5) return 0.0;
+                if(uStyle < 1.5) return bnd(ax, 0.07, 0.25) * step(0.36 * H, p.y);                     // double bande
+                if(uStyle < 2.5) return (1.0 - smoothstep(0.25, 0.28, ax)) * step(0.36 * H, p.y);       // bande centrale
+                if(uStyle < 3.5) return bnd(p.y, 0.38 * H, 0.46 * H) * step(0.62 * W, ax);              // bandes latérales
+                if(uStyle < 4.5) return smoothstep(0.8 * H - 0.012, 0.8 * H + 0.012, p.y);              // toit contrasté
+                return 1.0 - smoothstep(0.27 * H - 0.012, 0.27 * H + 0.012, p.y);                       // bas de caisse
+            }
+        `;
+        function patchStyle(m, F) {
+            const sz = F.box.getSize(new THREE.Vector3());
+            const sty = { uStyle: { value: 0 }, uStyleCol: { value: new THREE.Color(1, 1, 1) }, uDim: { value: new THREE.Vector3(F.box.max.y, sz.x / 2, sz.z / 2) } };
+            m.userData.sty = sty;
+            m.onBeforeCompile = (sh) => {
+                Object.assign(sh.uniforms, sty);
+                sh.vertexShader = 'varying vec3 vCarPos;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvCarPos = position;');
+                sh.fragmentShader = STYLE_GLSL + sh.fragmentShader.replace('vec4 diffuseColor = vec4( diffuse, opacity );', 'vec4 diffuseColor = vec4( diffuse, opacity );\n\tdiffuseColor.rgb = mix( diffuseColor.rgb, uStyleCol, carStyle( vCarPos ) );');
+            };
+            m.customProgramCacheKey = () => 'carStyle';
+        }
+        // Halo des néons : rectangle aux bords très doux
+        const neonTex = (() => {
+            const c = document.createElement('canvas'); c.width = 128; c.height = 256;
+            const g = c.getContext('2d'), im = g.createImageData(128, 256);
+            for(let y = 0; y < 256; y++) for(let x = 0; x < 128; x++) {
+                const dx = Math.max(0, Math.abs(x - 63.5) - 30) / 34, dy = Math.max(0, Math.abs(y - 127.5) - 80) / 48, d = Math.min(1, Math.hypot(dx, dy));
+                const a = Math.pow(1 - d, 2) * (Math.abs(x - 63.5) < 30 && Math.abs(y - 127.5) < 80 ? 0.55 : 1);
+                const o = (y * 128 + x) * 4; im.data[o] = im.data[o + 1] = im.data[o + 2] = 255; im.data[o + 3] = a * 255;
+            }
+            g.putImageData(im, 0, 0);
+            return new THREE.CanvasTexture(c);
+        })();
+        // Plaque d'immatriculation : texte (8 caractères) et style, dessinés sur une texture partagée par toutes les voitures
+        const PLATE_STYLES = ['Dubaï', 'Europe', 'Américaine', 'Noire', 'Course'];
+        const plateSet = Object.assign({ text: 'NFS 2026', sty: 0 }, loadJSON('nfsPlate', {}));
+        const plateCv = document.createElement('canvas'); plateCv.width = 512; plateCv.height = 110;
+        const plateTexG = new THREE.CanvasTexture(plateCv), plateTexW = new THREE.CanvasTexture(plateCv);
+        plateTexW.encoding = THREE.sRGBEncoding; plateTexG.anisotropy = plateTexW.anisotropy = 4;
+        const plateMatG = new THREE.MeshStandardMaterial({ map: plateTexG, roughness: 0.45, metalness: 0.05, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+        const plateMatW = new THREE.MeshStandardMaterial({ map: plateTexW, roughness: 0.45, metalness: 0.05, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+        function drawPlateOn(g, sty, text, W, H) {
+            const k = W / 512, t = (text || '').toUpperCase().trim() || ' ';
+            g.save(); g.scale(k, H / 110);
+            const rr = (x, y, w, h, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); };
+            const bg = ['#f6f6f2', '#f8f8f4', '#eef0e6', '#101114', '#f5c400'][sty] || '#f6f6f2', fg = ['#111', '#111', '#1d2b6b', '#d8dbe0', '#111'][sty] || '#111';
+            g.clearRect(0, 0, 512, 110);
+            g.fillStyle = bg; rr(2, 2, 508, 106, 12); g.fill();
+            g.lineWidth = 5; g.strokeStyle = sty === 3 ? '#9aa0a8' : '#1a1a1a'; rr(6, 6, 500, 98, 9); g.stroke();
+            let x0 = 22;
+            if(sty === 0) { g.fillStyle = '#c8102e'; g.fillRect(16, 14, 70, 82); g.fillStyle = '#fff'; g.font = '700 22px "Barlow Condensed", "Arial Narrow", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('DUBAI', 51, 43); g.fillText('UAE', 51, 69); x0 = 92; }
+            if(sty === 1) {
+                g.fillStyle = '#1d3fa8'; g.fillRect(12, 12, 56, 86);
+                g.fillStyle = '#ffd200'; for(let q = 0; q < 12; q++) { const a = q / 12 * Math.PI * 2; g.beginPath(); g.arc(40 + Math.cos(a) * 15, 38 + Math.sin(a) * 15, 2.6, 0, 7); g.fill(); }
+                g.fillStyle = '#fff'; g.font = '700 26px "Barlow Condensed", "Arial Narrow", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('F', 40, 80); x0 = 74;
+            }
+            if(sty === 2) { g.fillStyle = '#c8102e'; g.font = 'italic 700 22px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'top'; g.fillText('Dubai County', 256, 10); }
+            g.fillStyle = fg; g.textAlign = 'center'; g.textBaseline = 'middle';
+            let fs = 84; g.font = '700 ' + fs + 'px "Barlow Condensed", "Arial Narrow", sans-serif';
+            const room = 512 - x0 - 24; while(g.measureText(t).width > room && fs > 30) { fs -= 2; g.font = '700 ' + fs + 'px "Barlow Condensed", "Arial Narrow", sans-serif'; }
+            g.fillText(t, x0 + room / 2 + 2, 55 + (sty === 2 ? 10 : 4));
+            g.restore();
+        }
+        function drawPlate() {
+            drawPlateOn(plateCv.getContext('2d'), plateSet.sty, plateSet.text, 512, 110);
+            plateTexG.needsUpdate = plateTexW.needsUpdate = true;
+            document.querySelectorAll('#pl-styles canvas').forEach(cv => drawPlateOn(cv.getContext('2d'), +cv.dataset.s, plateSet.text, cv.width, cv.height));
+            pvDirty = true;
+        }
+        drawPlate();
+        drawPlate();
+        if(document.fonts && document.fonts.ready) document.fonts.ready.then(drawPlate);
+        // Applique la personnalisation d'une voiture (id) au modèle habillé ; linear = rendu du garage (couleurs sans conversion)
+        function applyCustom(car, id, linear) {
+            const c = custOf(id), col = (hex) => { const k = new THREE.Color(hex); if(!linear) k.convertSRGBToLinear(); return k; };
+            const bm = car.bodyMat;
+            if(bm && bm.userData.sty) {
+                const f = FINISHES[c.fin] || FINISHES[0];
+                bm.metalness = f.m; bm.roughness = f.r; bm.clearcoat = f.c;
+                bm.userData.sty.uStyle.value = c.sty;
+                bm.userData.sty.uStyleCol.value.copy(col(c.styHex));
+            }
+            (car.calMats || []).forEach(o => { const on = c.calC !== null, map = on ? null : o.map; if(o.m.map !== map) { o.m.map = map; o.m.needsUpdate = true; } o.m.color.copy(on ? col(c.calC) : o.c); });
+            (car.rimMats || []).forEach(o => { o.m.color.copy(c.rimC !== null ? col(c.rimC) : o.c); });
+            (car.glassMats || []).forEach(m => { const t = TINTS[c.tint] || TINTS[1]; m.color.copy(col(t.c)); m.metalness = t.m; if(!m.userData.mir) m.opacity = t.o; });
+            if(car.neon) {
+                const on = c.neonC !== null;
+                car.neon.visible = on;
+                if(on) car.neon.material.color.copy(col(c.neonC));
+                if(car.neonLight) { car.neonLight.intensity = on ? 2.2 : 0; if(on) car.neonLight.color.copy(col(c.neonC)); }
+            }
+            pvDirty = true;
+        }
+        function prepCar(gltf, D) {
             const root = gltf.scene;
             root.updateMatrixWorld(true);
-            const wheelNode = (re) => { let f = null; root.traverse(o => { if(!f && re.test(o.name)) f = o; }); return f; };
-            const wn = [/3DWheel_?Front_?L$/, /3DWheel_?Front_?R$/, /3DWheel_?Rear_?L$/, /3DWheel_?Rear_?R$/].map(wheelNode);
-            if(wn.some(n => !n)) throw new Error('roues introuvables dans ferrari.glb');
-            const hubs = wn.map(n => new THREE.Vector3().setFromMatrixPosition(n.matrixWorld));
-            // Repère du jeu : avant vers -z, posée sur le sol, centrée, longueur réelle
-            const box = new THREE.Box3().setFromObject(root), ctr = box.getCenter(new THREE.Vector3());
-            const fwd = hubs[0].clone().add(hubs[1]).sub(hubs[2]).sub(hubs[3]);
-            const rot = new THREE.Matrix4().makeRotationY(Math.PI - Math.atan2(fwd.x, fwd.z));
-            const tb = box.clone().translate(new THREE.Vector3(-ctr.x, -box.min.y, -ctr.z)).applyMatrix4(rot);
-            const sc = FERRARI_LEN / (tb.max.z - tb.min.z);
-            const M = new THREE.Matrix4().makeScale(sc, sc, sc).multiply(rot).multiply(new THREE.Matrix4().makeTranslation(-ctr.x, -box.min.y, -ctr.z));
-            hubs.forEach(h => h.applyMatrix4(M));
-            // Chaque maillage va dans un lot : caisse, roue k (tourne) ou étrier k (braque sans tourner)
-            const lots = new Map(), tmp = new THREE.Vector3(), nm = new THREE.Matrix3(), W = new THREE.Matrix4();
+            const tmp = new THREE.Vector3(), nm = new THREE.Matrix3(), A = new THREE.Vector3(), B = new THREE.Vector3(), C = new THREE.Vector3();
+            const names = (o) => { const a = []; for(let p = o; p; p = p.parent) a.push(p.name || ''); return a; };
+            const hit = (re, o, mat) => !!re && (names(o).some(n => re.test(n)) || re.test(mat.name || ''));
+            // 1. Morceaux gardés et leur rôle (par matière : un maillage peut mêler roue et étrier)
+            const parts = [], plateParts = [];
             root.traverse(o => {
-                if(!o.isMesh) return;
-                let grp = 'body';
-                for(let p = o; p; p = p.parent) { if(/Calliper|Caliper/i.test(p.name)) { grp = 'cal'; break; } if(/Combined_Wheels|Wheel1A_3D/i.test(p.name)) { grp = 'wheel'; break; } }
-                W.multiplyMatrices(M, o.matrixWorld);
-                if(grp !== 'body') {   // roue la plus proche du centre du morceau
-                    o.geometry.computeBoundingBox(); o.geometry.boundingBox.getCenter(tmp).applyMatrix4(W);
-                    let k = 0; hubs.forEach((h, q) => { if(h.distanceTo(tmp) < hubs[k].distanceTo(tmp)) k = q; });
-                    grp += k;
-                }
-                (Array.isArray(o.material) ? o.material : [o.material]).forEach((mat, mi) => {
-                    const key = grp + '|' + (mat.name || mat.uuid);
-                    let L = lots.get(key);
-                    if(!L) lots.set(key, L = { grp, mat, parts: [] });
-                    L.parts.push({ g: o.geometry, W: W.clone(), group: Array.isArray(o.material) ? o.geometry.groups.find(g => g.materialIndex === mi) : null });
+                if(!o.isMesh || (D.hide && names(o).some(n => D.hide.test(n)))) return;
+                const mats = Array.isArray(o.material) ? o.material : [o.material];
+                mats.forEach((mat, mi) => {
+                    const grp = hit(D.cal, o, mat) ? 'cal' : hit(D.wheel, o, mat) ? 'wheel' : 'body';
+                    const tag = hit(D.calp, o, mat) ? 'C' : hit(D.rim, o, mat) ? 'R' : '';   // étrier / jante à teinter
+                    const group = Array.isArray(o.material) ? o.geometry.groups.find(g => g.materialIndex === mi) : null;
+                    (hit(D.plate, o, mat) ? plateParts : parts).push({ o, g: o.geometry, mat, grp, tag, group, W: o.matrixWorld });
                 });
             });
-            // Fusion : positions et normales dans le repère du jeu (moyeu à l'origine pour les roues), uv, uv2, couleurs
+            // Parcourt les triangles d'un morceau (positions dans le repère du fichier)
             const nk = (a) => { if(!a.normalized) return 1; const t = (a.array || a.data.array).constructor; return t === Uint8Array ? 1 / 255 : t === Uint16Array ? 1 / 65535 : t === Int8Array ? 1 / 127 : t === Int16Array ? 1 / 32767 : 1; };
-            const out = [];
+            const vtx = (P, i, v) => { const a = P.g.attributes.position, k = nk(a); return v.set(a.getX(i) * k, a.getY(i) * k, a.getZ(i) * k).applyMatrix4(P.W); };
+            const triIdx = (P, t) => { const s0 = P.group ? P.group.start : 0, ix = P.g.index; const f = (c) => ix ? ix.getX(s0 + t + c) : s0 + t + c; return [f(0), f(1), f(2)]; };
+            const triCount = (P) => P.group ? P.group.count : P.g.index ? P.g.index.count : P.g.attributes.position.count;
+            // 2. Boîte des roues : axe long, centre, sol (bas des pneus)
+            const wb = new THREE.Box3(), all = new THREE.Box3();
+            parts.forEach(P => { const n = P.g.attributes.position.count; for(let i = 0; i < n; i++) { vtx(P, i, tmp); all.expandByPoint(tmp); if(P.grp === 'wheel') wb.expandByPoint(tmp); } });
+            if(wb.isEmpty()) throw new Error('roues introuvables dans ' + D.url);
+            const wc = wb.getCenter(new THREE.Vector3()), ws = wb.getSize(new THREE.Vector3());
+            const ax = D.front[1];   // axe de l'avant dans le fichier : x ou z
+            const lat = ax === 'z' ? 'x' : 'z', fs = D.front[0] === '+' ? 1 : -1;
+            // Coin d'un point : 0 avant gauche, 1 avant droit, 2 arrière gauche, 3 arrière droit (gauche vue du conducteur)
+            const corner = (p) => { const f = (p[ax] - wc[ax]) * fs > 0, l = p[lat] - wc[lat]; const left = ax === 'z' ? l * fs > 0 : l * fs < 0; return (f ? 0 : 2) + (left ? 0 : 1); };
+            const hb = [0, 1, 2, 3].map(() => new THREE.Box3());
+            parts.forEach(P => { if(P.grp !== 'wheel') return; const n = P.g.attributes.position.count; for(let i = 0; i < n; i++) { vtx(P, i, tmp); hb[corner(tmp)].expandByPoint(tmp); } });
+            if(hb.some(b => b.isEmpty())) throw new Error('les 4 roues ne sont pas toutes trouvées dans ' + D.url);
+            // 3. Repère du jeu : avant vers -z, posée sur le sol (bas des pneus), centrée, longueur réelle
+            const yaw = { '+z': Math.PI, '-z': 0, '+x': Math.PI / 2, '-x': -Math.PI / 2 }[D.front];
+            const rot = new THREE.Matrix4().makeRotationY(yaw);
+            const ctr = all.getCenter(new THREE.Vector3());
+            const sc = D.len / (all.max[ax] - all.min[ax]);
+            const M = new THREE.Matrix4().makeScale(sc, sc, sc).multiply(rot).multiply(new THREE.Matrix4().makeTranslation(-ctr.x, -wb.min.y, -ctr.z));
+            const hubs = hb.map(b => b.getCenter(new THREE.Vector3()).applyMatrix4(M));
+            const tyreR = hb.map(b => (b.max.y - b.min.y) / 2 * sc);   // rayon de chaque pneu (repère du jeu)
+            // 4. Lots : caisse, roue k, étrier k ; chaque triangle de roue ou d'étrier va au coin le plus proche
+            const lots = new Map();
+            parts.forEach(P => {
+                const key0 = P.mat.name || P.mat.uuid, cnt = triCount(P);
+                if(P.grp === 'body') { const k = 'body' + P.tag + '|' + key0; let L = lots.get(k); if(!L) lots.set(k, L = { grp: 'body', tag: P.tag, mat: P.mat, items: [] }); L.items.push({ P, tris: null }); return; }
+                const per = [[], [], [], []], tyre = [[], [], [], []], cutR = P.tag === 'R' && P.grp === 'wheel';
+                for(let t = 0; t < cnt; t += 3) {
+                    const [a, b, c] = triIdx(P, t);
+                    vtx(P, a, A); vtx(P, b, B); vtx(P, c, C);
+                    const k = corner(A.add(B).add(C).multiplyScalar(1 / 3));
+                    // même matière pour jante et pneu (SF90, Veneno) : au-delà de 79 % du rayon du pneu, c'est le pneu (non teinté)
+                    if(cutR) { A.applyMatrix4(M).sub(hubs[k]); if(Math.hypot(A.y, A.z) > 0.79 * tyreR[k]) { tyre[k].push(t); continue; } }
+                    per[k].push(t);
+                }
+                const addLot = (tris, k, tag) => { if(!tris.length) return; const key = P.grp + k + tag + '|' + key0; let L = lots.get(key); if(!L) lots.set(key, L = { grp: P.grp + k, tag, mat: P.mat, items: [] }); L.items.push({ P, tris }); };
+                per.forEach((tris, k) => addLot(tris, k, P.tag));
+                tyre.forEach((tris, k) => addLot(tris, k, ''));
+            });
+            // 5. Fusion : positions et normales dans le repère du jeu (moyeu à l'origine pour les roues), uv, uv2, couleurs
+            const out = [], W = new THREE.Matrix4();
             lots.forEach(L => {
                 const hub = L.grp === 'body' ? null : hubs[+L.grp.slice(-1)];
-                let nv = 0, ni = 0, hasC = false, hasU2 = false;
-                L.parts.forEach(P => { const g = P.g, n = g.attributes.position.count; nv += n; ni += P.group ? P.group.count : g.index ? g.index.count : n; hasC = hasC || !!g.attributes.color; hasU2 = hasU2 || !!g.attributes.uv2; });
-                const pos = new Float32Array(nv * 3), nor = new Float32Array(nv * 3), uv = new Float32Array(nv * 2), uv2 = hasU2 ? new Float32Array(nv * 2) : null, col = hasC ? new Float32Array(nv * 3).fill(1) : null, idx = new Uint32Array(ni);
-                let vo = 0, io = 0;
-                L.parts.forEach(P => {
-                    const g = P.g, A = g.attributes, n = A.position.count, flip = P.W.determinant() < 0;
-                    nm.getNormalMatrix(P.W);
-                    const kp = nk(A.position);
-                    for(let i = 0; i < n; i++) {
-                        tmp.set(A.position.getX(i) * kp, A.position.getY(i) * kp, A.position.getZ(i) * kp).applyMatrix4(P.W);
+                const pos = [], nor = [], uv = [], uv2 = [], col = [], idx = [];
+                let hasC = false, hasU2 = false;
+                L.items.forEach(({ P }) => { hasC = hasC || !!P.g.attributes.color; hasU2 = hasU2 || !!P.g.attributes.uv2; });
+                L.items.forEach(({ P, tris }) => {
+                    const G = P.g.attributes, map = new Map();
+                    W.multiplyMatrices(M, P.W); nm.getNormalMatrix(W);
+                    const flip = W.determinant() < 0, kp = nk(G.position);
+                    const kN = G.normal ? nk(G.normal) : 0, kU = G.uv ? nk(G.uv) : 0, s2 = G.uv2 || G.uv, kU2 = s2 ? nk(s2) : 0, kC = G.color ? nk(G.color) : 0;
+                    const add = (i) => {
+                        let o = map.get(i);
+                        if(o !== undefined) return o;
+                        o = pos.length / 3; map.set(i, o);
+                        tmp.set(G.position.getX(i) * kp, G.position.getY(i) * kp, G.position.getZ(i) * kp).applyMatrix4(W);
                         if(hub) tmp.sub(hub);
-                        pos[(vo + i) * 3] = tmp.x; pos[(vo + i) * 3 + 1] = tmp.y; pos[(vo + i) * 3 + 2] = tmp.z;
-                    }
-                    if(A.normal) { const k = nk(A.normal); for(let i = 0; i < n; i++) { tmp.set(A.normal.getX(i) * k, A.normal.getY(i) * k, A.normal.getZ(i) * k).applyMatrix3(nm).normalize(); nor[(vo + i) * 3] = tmp.x; nor[(vo + i) * 3 + 1] = tmp.y; nor[(vo + i) * 3 + 2] = tmp.z; } }
-                    if(A.uv) { const k = nk(A.uv); for(let i = 0; i < n; i++) { uv[(vo + i) * 2] = A.uv.getX(i) * k; uv[(vo + i) * 2 + 1] = A.uv.getY(i) * k; } }
-                    if(uv2) { const s = A.uv2 || A.uv; if(s) { const k = nk(s); for(let i = 0; i < n; i++) { uv2[(vo + i) * 2] = s.getX(i) * k; uv2[(vo + i) * 2 + 1] = s.getY(i) * k; } } }
-                    if(col && A.color) { const k = nk(A.color); for(let i = 0; i < n; i++) { col[(vo + i) * 3] = A.color.getX(i) * k; col[(vo + i) * 3 + 1] = A.color.getY(i) * k; col[(vo + i) * 3 + 2] = A.color.getZ(i) * k; } }
-                    const s0 = P.group ? P.group.start : 0, cnt = P.group ? P.group.count : g.index ? g.index.count : n;
-                    for(let t = 0; t < cnt; t += 3) for(let c = 0; c < 3; c++) { const src = s0 + t + (flip ? 2 - c : c); idx[io + t + c] = vo + (g.index ? g.index.getX(src) : src); }
-                    vo += n; io += cnt;
+                        pos.push(tmp.x, tmp.y, tmp.z);
+                        if(G.normal) { tmp.set(G.normal.getX(i) * kN, G.normal.getY(i) * kN, G.normal.getZ(i) * kN).applyMatrix3(nm).normalize(); nor.push(tmp.x, tmp.y, tmp.z); } else nor.push(0, 1, 0);
+                        if(G.uv) uv.push(G.uv.getX(i) * kU, G.uv.getY(i) * kU); else uv.push(0, 0);
+                        if(hasU2) { if(s2) uv2.push(s2.getX(i) * kU2, s2.getY(i) * kU2); else uv2.push(0, 0); }
+                        if(hasC) { if(G.color) col.push(G.color.getX(i) * kC, G.color.getY(i) * kC, G.color.getZ(i) * kC); else col.push(1, 1, 1); }
+                        return o;
+                    };
+                    const cnt = triCount(P);
+                    const each = (t) => { const v = triIdx(P, t); if(flip) idx.push(add(v[2]), add(v[1]), add(v[0])); else idx.push(add(v[0]), add(v[1]), add(v[2])); };
+                    if(tris) tris.forEach(each); else for(let t = 0; t < cnt; t += 3) each(t);
                 });
                 const geo = new THREE.BufferGeometry();
-                geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
-                if(uv2) geo.setAttribute('uv2', new THREE.BufferAttribute(uv2, 2));
-                if(col) geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-                geo.setIndex(new THREE.BufferAttribute(idx, 1));
+                geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+                if(hasU2) geo.setAttribute('uv2', new THREE.Float32BufferAttribute(uv2, 2));
+                if(hasC) geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+                geo.setIndex(pos.length / 3 > 65535 ? new THREE.Uint32BufferAttribute(idx, 1) : new THREE.Uint16BufferAttribute(idx, 1));
                 geo.computeBoundingSphere();
-                out.push({ grp: L.grp, mat: L.mat, geo, vc: hasC });
+                out.push({ grp: L.grp, tag: L.tag, mat: L.mat, geo, vc: hasC });
             });
-            const all = new THREE.Box3(); out.forEach(o => { if(o.grp === 'body') { o.geo.computeBoundingBox(); all.union(o.geo.boundingBox); } });
-            return { parts: out, hubs, box: all, r: hubs.reduce((s, h) => s + h.y, 0) / 4 };
+            const box = new THREE.Box3(); out.forEach(o => { if(o.grp === 'body') { o.geo.computeBoundingBox(); box.union(o.geo.boundingBox); } });
+            const r = hb.reduce((s, b) => s + (b.max.y - b.min.y), 0) / 8 * sc;   // rayon moyen des pneus
+            // Plaques d'immatriculation : à la place de celles du modèle, sinon contre le bouclier (rayon lancé à la hauteur donnée)
+            const plates = [];
+            if(plateParts.length) {
+                const pb = [new THREE.Box3(), new THREE.Box3()];
+                plateParts.forEach(P => { const n = P.g.attributes.position.count; for(let i = 0; i < n; i++) { vtx(P, i, tmp).applyMatrix4(M); pb[tmp.z > 0 ? 0 : 1].expandByPoint(tmp); } });
+                pb.forEach((b, k) => { if(b.isEmpty()) return; const c = b.getCenter(new THREE.Vector3()); plates.push({ x: c.x, y: c.y, z: k ? b.min.z - 0.004 : b.max.z + 0.004, rear: !k, w: clamp(b.max.x - b.min.x, 0.3, 0.52) }); });
+            } else if(D.plateY) {
+                const rc = new THREE.Raycaster(), dm = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide });
+                const meshes = out.filter(o => o.grp === 'body' && !(D.glass && D.glass.test(o.mat.name || ''))).map(o => new THREE.Mesh(o.geo, dm));
+                D.plateY.forEach((y, k) => {
+                    if(y === null) return;
+                    const rear = k === 0;
+                    rc.set(new THREE.Vector3(0, y, rear ? box.max.z + 1 : box.min.z - 1), new THREE.Vector3(0, 0, rear ? -1 : 1));
+                    const h = rc.intersectObjects(meshes, false)[0];
+                    if(h) plates.push({ x: 0, y, z: h.point.z + (rear ? 0.008 : -0.008), rear, w: 0.52 });
+                });
+            }
+            return { parts: out, hubs, box, r, plates, D };
         }
-        // Habille une voiture du jeu (joueur, garage, reflet du garage) avec la Ferrari ; linear = rendu sans conversion sRGB (garage)
-        function dressFerrari(car, F, opt) {
+        // Retire le modèle 3D d'une voiture du jeu (avant d'en mettre un autre)
+        function undressCar(car) {
+            if(!car.ferrari) return;
+            car.remove(car.ferrari);
+            car.ferrari.traverse(o => { if(o.isMesh) o.material.dispose(); });
+            car.ferrari = null; car.wheels = null;
+        }
+        // Habille une voiture du jeu (joueur, garage, reflet du garage) avec un modèle ; linear = rendu sans conversion sRGB (garage)
+        function dressCar(car, F, opt) {
+            undressCar(car);
             car.children.forEach(o => { if((o.isMesh || o.type === 'Group') && !o.userData.keep) o.visible = false; });
-            const fg = new THREE.Group();
+            const D = F.D, fg = new THREE.Group();
             fg.scale.setScalar(opt.scale || 1);
             const mats = new Map(), wheels = [];
+            car.tailMat = null; car.calMats = []; car.rimMats = []; car.glassMats = []; car.neon = null; car.neonLight = null; car.plateMesh = null;
             const texFix = (t) => { if(!t || !opt.linear) return t; const c = t.clone(); c.encoding = THREE.LinearEncoding; c.needsUpdate = true; return c; };
-            const matFor = (src, vc) => {
-                if(mats.has(src)) return mats.get(src);
+            const matFor = (src, vc, tag) => {
+                const mk = src.uuid + (tag || '');
+                if(mats.has(mk)) return mats.get(mk);
                 const name = src.name || '';
                 let m, own = true;   // own : matière refaite ici (couleurs en hexadécimal sRGB, comme le reste du jeu)
-                if(/Paint_Material/.test(name)) {   // peinture : vernis, couleur choisie au garage
+                if(D.paint && D.paint.test(name)) {   // peinture : vernis, couleur choisie au garage
                     m = new THREE.MeshPhysicalMaterial({ color: carColor, metalness: 0.55, roughness: 0.28, clearcoat: 1, clearcoatRoughness: 0.04, emissive: carColor, emissiveIntensity: 0.04 });
                     car.bodyMat = m;
-                } else if(/RED_GLASS/.test(name)) {   // feux arrière : s'allument au freinage
+                    patchStyle(m, F);
+                } else if(D.tail && D.tail.test(name)) {   // feux arrière : s'allument au freinage
                     m = new THREE.MeshStandardMaterial({ color: 0x5a0000, emissive: 0xff1010, emissiveIntensity: 2.4, roughness: 0.1, transparent: true, opacity: 0.88 });
                     car.tailMat = m;
-                } else if(/Window/.test(name)) {   // vitres teintées
+                } else if(D.glass && D.glass.test(name)) {   // vitres teintées
                     m = new THREE.MeshPhysicalMaterial({ color: 0x0a0d12, metalness: 0.1, roughness: 0.04, clearcoat: 1, transparent: true, opacity: 0.55, depthWrite: false });
+                    car.glassMats.push(m);
                 } else {
                     own = false;
                     m = src.clone();
@@ -1367,41 +1736,81 @@
                     m.emissive.setRGB(1, 1, 1); m.emissiveMap = m.map; m.emissiveIntensity = opt.linear && !opt.mirror ? 0.8 : 0;
                     if(!opt.linear) car.lightMat = m;
                 }
-                if(opt.mirror) { m.transparent = true; m.opacity = 0.28; m.depthWrite = false; }
-                mats.set(src, m);
+                if(opt.mirror) { m.transparent = true; m.opacity = 0.28; m.depthWrite = false; m.userData.mir = true; }
+                if(tag === 'C') car.calMats.push({ m, c: m.color.clone(), map: m.map });   // couleur d'origine gardée (option « Origine »)
+                if(tag === 'R') car.rimMats.push({ m, c: m.color.clone() });
+                mats.set(mk, m);
                 return m;
             };
-            const piv = F.hubs.map((h, k) => { const g = new THREE.Group(), s = new THREE.Group(); g.position.copy(h); g.rotation.order = 'YXZ'; g.add(s); fg.add(g); wheels.push({ g, s, front: h.z < 0 }); return { g, s }; });
+            const piv = F.hubs.map((h) => { const g = new THREE.Group(), s = new THREE.Group(); g.position.copy(h); g.rotation.order = 'YXZ'; g.add(s); fg.add(g); wheels.push({ g, s, front: h.z < 0 }); return { g, s }; });
             F.parts.forEach(P => {
-                const mesh = new THREE.Mesh(P.geo, matFor(P.mat, P.vc));
+                const mesh = new THREE.Mesh(P.geo, matFor(P.mat, P.vc, P.tag));
                 mesh.castShadow = !opt.mirror; mesh.receiveShadow = true;
                 if(opt.mirror) mesh.renderOrder = 5;
                 if(P.grp === 'body') fg.add(mesh);
                 else piv[+P.grp.slice(-1)][P.grp.startsWith('wheel') ? 's' : 'g'].add(mesh);
             });
+            if(!opt.mirror) {
+                // Plaques d'immatriculation (texte et style choisis au garage)
+                (F.plates || []).forEach(pl => {
+                    const m = new THREE.Mesh(new THREE.PlaneGeometry(pl.w, pl.w * 0.215), opt.linear ? plateMatG : plateMatW);
+                    m.position.set(pl.x, pl.y, pl.z); if(!pl.rear) m.rotation.y = Math.PI;
+                    fg.add(m);
+                    if(pl.rear && !car.plateMesh) car.plateMesh = m;
+                });
+                // Néons sous la caisse : halo au sol (et une petite lumière dans le monde)
+                const W = F.box.max.x - F.box.min.x, L = F.box.max.z - F.box.min.z;
+                const ne = new THREE.Mesh(new THREE.PlaneGeometry(W + 1.1, L * 0.95), new THREE.MeshBasicMaterial({ map: neonTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+                ne.rotation.x = -Math.PI / 2; ne.position.y = 0.03; ne.renderOrder = 11; ne.visible = false;
+                fg.add(ne); car.neon = ne;
+                if(!opt.linear) { const pl = new THREE.PointLight(0xffffff, 0, 6, 2); pl.position.y = 0.12; fg.add(pl); car.neonLight = pl; }
+            }
             car.add(fg);
             car.wheels = wheels;
             car.ferrari = fg;
             return fg;
         }
-        if(THREE.GLTFLoader) new THREE.GLTFLoader().load(FERRARI_URL, (gltf) => {
-            let F;
-            try { F = prepFerrari(gltf); } catch (e) { console.warn('Ferrari : ', e); return; }
-            const pv = 6.0 / FERRARI_LEN;   // au garage, la voiture garde la taille de cadrage de l'ancienne
-            dressFerrari(previewCar, F, { linear: true, scale: pv });
-            dressFerrari(previewMirror, F, { linear: true, scale: pv, mirror: true });
-            dressFerrari(player, F, {});
+        // Téléchargement d'un modèle (une seule fois, gardé en mémoire)
+        const carCache = new Map();
+        function loadCar(id) {
+            if(carCache.has(id)) return carCache.get(id);
+            const D = carDef(id);
+            const p = new Promise((ok, ko) => {
+                if(!THREE.GLTFLoader) return ko(new Error('GLTFLoader absent'));
+                new THREE.GLTFLoader().load(D.url, (gltf) => { try { ok(prepCar(gltf, D)); } catch (e) { ko(e); } }, undefined, ko);
+            });
+            p.catch(e => { carCache.delete(id); console.warn(D.url + ' non chargé : ', e); });
+            carCache.set(id, p);
+            return p;
+        }
+        // Voiture montrée au garage (celle qu'on regarde dans « Changer de voiture »)
+        let previewId = null;
+        function showPreview(F) {
+            const pv = 6.0 / 4.71;   // au garage, la SF90 garde la taille de cadrage de l'ancienne voiture ; les autres à la même échelle
+            dressCar(previewCar, F, { linear: true, scale: pv });
+            dressCar(previewMirror, F, { linear: true, scale: pv, mirror: true });
+            previewId = F.D.id; pvDirty = true;
+            paintPreview(colorOf(F.D.id));
+            applyCustom(previewCar, F.D.id, true); applyCustom(previewMirror, F.D.id, true);
+        }
+        // Voiture du joueur dans le monde
+        function setPlayerCar(F) {
+            dressCar(player, F, {});
             player.scale.setScalar(1);
             player.wheelR = F.r;
-            // Phares, flammes de nitro : replacés sur la Ferrari (double échappement central, haut sur le bouclier arrière)
+            const L = F.box.max.z - F.box.min.z, H = F.box.max.y;
+            player.hood = [1.05 * L / 4.71, H * 0.91];   // vue capot : au-dessus du capot, devant le pare-brise
+            // Phares, flammes de nitro : replacés sur la voiture
             let si = 0;
-            player.children.forEach(o => { if(o.isSpotLight) { const sd = si++ ? 1 : -1; o.position.set(sd * 0.62, 0.62, F.box.min.z + 0.1); o.target.position.set(sd * 0.6, 0, F.box.min.z - 33); } });
-            flames.forEach((s, k) => s.position.set((k ? 1 : -1) * 0.16, 0.56, F.box.max.z + 0.12));
+            player.children.forEach(o => { if(o.isSpotLight) { const sd = si++ ? 1 : -1; o.position.set(sd * 0.62, H * 0.52, F.box.min.z + 0.1); o.target.position.set(sd * 0.6, 0, F.box.min.z - 33); } });
+            flames.forEach((s, k) => s.position.set((k ? 1 : -1) * 0.16, H * 0.47, F.box.max.z + 0.12));
             player.exhZ = F.box.max.z + 0.12;
-            applyColor(carColor);
-            carShotReady = true; snapCar();
-            console.log('Ferrari chargée : ' + F.parts.length + ' lots, rayon de roue ' + F.r.toFixed(3) + ' m');
-        }, undefined, (e) => console.warn('ferrari.glb non chargé, voiture dessinée conservée', e));
+            paintPlayer(colorOf(F.D.id));
+            applyCustom(player, F.D.id, false);
+            console.log(F.D.name + ' chargée : ' + F.parts.length + ' lots, rayon de roue ' + F.r.toFixed(3) + ' m');
+        }
+        { const e = document.getElementById('gx-carname'); if(e) e.textContent = carDef(carId).tag; }
+        loadCar(carId).then(F => { if(previewId === null || previewId === carId) showPreview(F); setPlayerCar(F); }).catch(() => {});
 
         // ====== Speedlistes, points SP, améliorations ======
         // Suivi de la sortie en cours (remis à zéro à chaque sortie : la page se recharge en revenant au garage)
@@ -1439,7 +1848,8 @@
             turbo: '<circle cx="32" cy="20" r="15"/><circle cx="32" cy="20" r="4"/><path d="M32 5c5 4 5 9 0 11M47 20c-4 5-9 5-11 0M32 35c-5-4-5-9 0-11M17 20c4-5 9-5 11 0"/>',
             pneus: '<circle cx="32" cy="20" r="16"/><circle cx="32" cy="20" r="8"/><circle cx="32" cy="20" r="2"/><path d="M32 4v4M32 32v4M16 20h4M44 20h4M20.7 8.7l2.8 2.8M40.5 28.5l2.8 2.8M20.7 31.3l2.8-2.8M40.5 11.5l2.8-2.8"/>',
             nitro: '<path d="M28 4h8M30 4v4h4V4M25 8h14v28H25zM25 14h14M30 19l-3 7h6l-3 7"/>',
-            lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'
+            lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+            plate: '<rect x="2" y="7" width="20" height="10" rx="2"/><path d="M6 12h3M11 12h7"/>'
         };
         const svg = (k, vb) => '<svg viewBox="' + (vb || '0 0 24 24') + '" aria-hidden="true">' + ICONS[k] + '</svg>';
         const UPGRADES = [
@@ -1448,8 +1858,10 @@
             { id: 'pneus', name: 'Pneus', stat: 2, what: 'Adhérence en virage +7 %', cost: [400, 800, 1400, 2200, 3200] },
             { id: 'nitro', name: 'Nitro', stat: 3, what: 'Recharge du nitro +30 %', cost: [300, 600, 1100, 1700, 2500] }
         ];
-        let sp = 0;
-        try { sp = Math.max(0, parseInt(localStorage.getItem('nfsSP'), 10) || 0); } catch (e) {}
+        let sp = 0, pLvl = 1;
+        try { sp = Math.max(0, parseInt(localStorage.getItem('nfsSP'), 10) || 0); pLvl = Math.max(1, parseInt(localStorage.getItem('nfsLvl'), 10) || 1); } catch (e) {}
+        // Niveau pilote : +1 chaque fois qu'une Speedliste est terminée (tous ses objectifs), compté au retour au garage
+        const pilotLvl = () => pLvl;
         const slState = loadJSON('nfsSpeedliste', {});
         if(!SPEEDLISTS.some(l => l.id === slState.cur)) slState.cur = SPEEDLISTS[0].id;
         if(!slState.done || typeof slState.done !== 'object') slState.done = {};
@@ -1469,27 +1881,36 @@
         const fr1 = (x) => x.toFixed(1).replace('.', ',');
 
         // ====== Interface du garage ======
-        const TITLES = { home: 'Garage', lists: 'Choisir une Speedliste', cars: 'Garage / Changer de voiture', perf: 'Garage / Améliorer performance', paint: 'Personnaliser la voiture / Peinture', settings: 'Garage / Réglages' };
-        const SHIFT = { home: 0.05, lists: 0, cars: 0.08, perf: 0.08, paint: 0, settings: 0.02 };
+        const TITLES = { map: 'Carte', custom: 'Personnaliser la voiture', plate: 'Garage / Plaque d’immatriculation', home: 'Garage', lists: 'Choisir une Speedliste', cars: 'Garage / Changer de voiture', perf: 'Garage / Améliorer performance', paint: 'Personnaliser la voiture / Peinture', settings: 'Garage / Réglages' };
+        const SHIFT = { map: 0, custom: 0.1, plate: 0, home: 0.05, lists: 0, cars: 0.08, perf: 0.08, paint: 0, settings: 0.02 };
         // Distance de la caméra : voiture très grosse dans le garage (comme dans NFS Rivals), plus petite quand des cartes occupent le bas
-        const DIST = { home: 7.2, lists: 10.8, cars: 9.4, perf: 9.4, paint: 8.2, settings: 10.4 };
+        const DIST = { map: 10, custom: 10.2, plate: 9.6, home: 7.2, lists: 10.8, cars: 9.4, perf: 9.4, paint: 8.2, settings: 10.4 };
         const MENU = [
             { label: 'Quitter le garage', icon: 'exit', go: 'start' },
             { label: 'Changer de Speedliste', icon: 'list', go: 'lists' },
             { label: 'Changer de voiture', icon: 'car', go: 'cars' },
             { label: 'Améliorer performance', icon: 'wrench', go: 'perf' },
-            { label: 'Personnaliser la voiture', icon: 'brush', go: 'paint' },
+            { label: 'Personnaliser la voiture', icon: 'brush', go: 'custom' },
+            { label: 'Plaque d’immatriculation', icon: 'plate', go: 'plate' },
             { label: 'Réglages', icon: 'sliders', go: 'settings' }
         ];
         let setSel = 0;
         let screen = 'home', menuSel = 0, listSel = 0, carSel = 0, upSel = 0, paintSel = 0, buyMsg = '';
         const $ = (id) => document.getElementById(id);
 
-        function renderSP() { $('lobby-sp').textContent = fmtSP(sp); $('gx-heat').textContent = heat(); if(screen === 'perf') renderPerf(); }
+        function renderSP() {
+            $('lobby-sp').textContent = fmtSP(sp); $('gx-heat').textContent = heat();
+            const l = curList(), n = doneCount(l);
+            $('lobby-lvl').textContent = pLvl; $('lvl-bar').style.width = (100 * n / l.missions.length).toFixed(1) + '%';
+            $('lobby-lvl-box').title = 'Niveau pilote ' + pLvl + ' : termine la Speedliste « ' + l.name + ' » (' + n + ' / ' + l.missions.length + ') pour passer au niveau ' + (pLvl + 1);
+            if(screen === 'perf') renderPerf();
+            if(screen === 'cars') renderCars();
+        }
         function addSP(n) { sp += n; mt.raceSP += n; store('nfsSP', String(sp)); renderSP(); }
 
         function statsHTML(previewKey) {
-            let h = '<div class="gx-car"><div><b>Ferrari</b><span>SF90 Spider</span></div><span class="gx-heat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-3 2-4 2-7 2 1 3 3 3 5 1-1 1-3 0-8z"/></svg>' + heat() + '</span></div>';
+            const D = carDef(screen === 'cars' ? CARS[carSel].id : carId), sp1 = D.name.indexOf(' ');
+            let h = '<div class="gx-car"><div><b>' + D.name.slice(0, sp1) + '</b><span>' + D.name.slice(sp1 + 1) + '</span></div><span class="gx-heat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-3 2-4 2-7 2 1 3 3 3 5 1-1 1-3 0-8z"/></svg>' + heat() + '</span></div>';
             STATS.forEach(([label, base, step, key]) => {
                 const v = base + step * upLv[key];
                 const next = previewKey === key && upLv[key] < 5;
@@ -1519,18 +1940,39 @@
             renderInfo();
         }
         const CAR_SIL = '<path d="M6 30l4-6q12-4 30-6l16-8q10-2 22 0l18 8q12 2 18 6l2 6z"/><path d="M58 12h18l14 7H50z"/><circle cx="30" cy="30" r="7"/><circle cx="94" cy="30" r="7"/>';
+        // Changer de voiture : une vignette par modèle ; la voiture survolée s'affiche en 3D, Entrée (ou un 2e clic) la choisit
+        let carLoading = null;
+        function previewSel() {
+            const D = CARS[carSel];
+            if(previewId === D.id) { carLoading = null; return; }
+            carLoading = D.id;
+            loadCar(D.id).then(F => { if(screen === 'cars' && CARS[carSel].id === D.id) showPreview(F); if(carLoading === D.id) carLoading = null; if(screen === 'cars') renderInfo(); })
+                .catch(() => { if(carLoading === D.id) carLoading = 'err'; if(screen === 'cars') renderInfo(); });
+        }
+        function chooseCar() {
+            const D = CARS[carSel];
+            if(!carsOwned.has(D.id)) {   // achat
+                if(pilotLvl() < D.lvl || sp < D.price) return;
+                sp -= D.price; store('nfsSP', String(sp));
+                carsOwned.add(D.id); store('nfsCarsOwned', [...carsOwned]);
+                $('lobby-sp').textContent = fmtSP(sp);
+            }
+            carId = D.id; store('nfsCar', D.id); carColor = colorOf(carId);
+            $('gx-carname').textContent = D.tag;
+            loadCar(D.id).then(setPlayerCar).catch(() => {});
+            go('home');
+        }
         function renderCars() {
             $('car-stats').innerHTML = statsHTML();
-            let h = '';
-            for(let i = 0; i < 5; i++) {
-                const own = i === 0;
-                h += '<button type="button" class="gx-tile' + (own ? '' : ' locked') + (i === carSel ? ' sel' : '') + '" data-i="' + i + '" aria-label="' + (own ? 'Ferrari SF90 Spider' : 'Emplacement verrouillé') + '">'
-                   + (own && carShot ? '<img class="gx-shot" src="' + carShot + '" alt="" draggable="false">'   // photo de la voiture actuelle
-                      : '<svg viewBox="0 0 124 40" aria-hidden="true" style="height:48%"><g' + (own ? ' fill="' + hex6(carColor) + '" fill-opacity="0.85"' : '') + '>' + CAR_SIL + '</g></svg>')
-                   + (own ? '' : '<svg class="gx-lock" viewBox="0 0 24 24" aria-hidden="true">' + ICONS.lock + '</svg>')
-                   + '<span class="gx-tag">' + (own ? 'Ferrari SF90' : 'Bientôt') + '</span></button>';
-            }
-            $('car-tiles').innerHTML = h;
+            const L = pilotLvl();
+            $('car-tiles').innerHTML = CARS.map((D, i) => { const own = carsOwned.has(D.id);
+                const lock = !own && L < D.lvl;
+                return '<button type="button" class="gx-tile gx-pic' + (lock ? ' locked' : '') + (i === carSel ? ' sel' : '') + '" data-i="' + i + '" aria-label="' + D.name + (lock ? ', verrouillée' : '') + '">'
+                + '<img src="' + D.img + '" alt="" draggable="false">'
+                + (lock ? '<svg class="gx-lock" viewBox="0 0 24 24" aria-hidden="true">' + ICONS.lock + '</svg>' : '')
+                + (own ? '' : '<span class="gx-price' + (lock ? ' no' : '') + '">' + fmtSP(D.price) + ' SP' + (lock ? ' · Niv. ' + D.lvl : '') + '</span>')
+                + '<span class="gx-tag">' + D.tag + (D.id === carId ? ' ✓' : '') + '</span></button>'; }).join('');
+            previewSel();
             renderInfo();
         }
         function renderPerf() {
@@ -1560,12 +2002,203 @@
             else SET[r.k] = clamp(SET[r.k] + step, r.min, r.max);
             store('nfsSettings', SET); applySettings(); renderSettings();
         }
+        // --- Personnaliser la voiture (voiture actuelle) : catégories (haut / bas), choix (gauche / droite) ---
+        let custSel = 0, plateSel = 0;
+        const PAL = CAR_COLORS;
+        const CUST_ROWS = [
+            { k: 'paint', label: 'Peinture', pal: true },
+            { k: 'fin', label: 'Finition', list: FINISHES.map(f => f.n) },
+            { k: 'sty', label: 'Motif', list: STYLES },
+            { k: 'styHex', label: 'Couleur du motif', pal: true },
+            { k: 'calC', label: 'Étriers de frein', pal: true, none: 'Origine' },
+            { k: 'rimC', label: 'Jantes', pal: true, none: 'Origine' },
+            { k: 'tint', label: 'Vitres', list: TINTS.map(t => t.n) },
+            { k: 'neonC', label: 'Néons sous caisse', pal: true, none: 'Aucun' },
+            { k: 'reset', label: 'Tout remettre d’origine', action: true }
+        ];
+        // valeur courante : hexadécimal (ou null) pour les couleurs, numéro pour les listes
+        const custGet = (r) => r.k === 'paint' ? colorOf(carId) : custOf(carId)[r.k];
+        const palName = (hex) => { const o = PAL.find(q => q.c === hex); return o ? o.n : '#' + (hex >>> 0).toString(16).padStart(6, '0'); };
+        const custLabel = (r) => { const v = custGet(r); if(r.action) return ''; if(r.pal) return v === null ? r.none : palName(v); return r.list[v] || r.list[0]; };
+        function renderCust() {
+            $('cu-cats').innerHTML = CUST_ROWS.map((r, i) => {
+                const v = custGet(r);
+                return '<button type="button" class="' + (i === custSel ? 'sel' : '') + (r.action ? ' act' : '') + '" data-i="' + i + '"><span>' + r.label + '</span>'
+                    + (r.action ? '' : '<small>' + (r.pal && v !== null ? '<i class="cu-dot" style="background:' + hex6(v) + '"></i>' : '') + custLabel(r) + '</small>') + '</button>';
+            }).join('');
+            const r = CUST_ROWS[custSel], v = custGet(r);
+            $('cu-name').textContent = r.label;
+            $('cu-val').textContent = r.action ? 'Entrée pour confirmer' : custLabel(r);
+            let h = '';
+            if(r.action) h = '<button type="button" class="cu-tile sel" data-reset="1">Remettre cette voiture d’origine</button>';
+            else if(r.pal) {
+                if(r.none) h += '<button type="button" class="cu-none' + (v === null ? ' sel' : '') + '" data-c="none">' + r.none + '</button>';
+                h += '<div class="cu-grid">' + PAL.filter(o => o.g).map(o => '<button type="button" class="cu-sw' + (o.c === v ? ' sel' : '') + '" data-c="' + o.c + '" style="--c:' + hex6(o.c) + '" title="' + o.n + '" aria-label="' + o.n + '"></button>').join('') + '</div>';
+            } else h = r.list.map((n, i) => '<button type="button" class="cu-tile' + (i === v ? ' sel' : '') + '" data-o="' + i + '">' + n + '</button>').join('');
+            $('cu-opts').innerHTML = h;
+        }
+        function refreshCustom() {
+            if(previewId === carId) { applyCustom(previewCar, carId, true); applyCustom(previewMirror, carId, true); }
+            applyCustom(player, carId, false);
+        }
+        function setCust(r, v) {
+            if(r.k === 'paint') applyColor(v);
+            else { const c = custAll[carId] || (custAll[carId] = {}); c[r.k] = v; store('nfsCustom', custAll); refreshCustom(); }
+            renderCust();
+        }
+        function changeCust(step) {
+            const r = CUST_ROWS[custSel];
+            if(r.action) { if(step === 0) { delete custAll[carId]; store('nfsCustom', custAll); applyColor(CAR_DEF_COLOR[carId]); refreshCustom(); renderCust(); } return; }
+            if(!step) return;
+            if(r.pal) {
+                const opts = (r.none ? [null] : []).concat(PAL.filter(o => o.g).map(o => o.c)), cur = Math.max(0, opts.indexOf(custGet(r)));
+                setCust(r, opts[(cur + step + opts.length) % opts.length]);
+            } else setCust(r, (custGet(r) + step + r.list.length) % r.list.length);
+        }
+        $('cu-cats').onclick = (e) => { const b = closest(e, '[data-i]'); if(!b) return; custSel = +b.dataset.i; renderCust(); };
+        $('cu-opts').onclick = (e) => {
+            const r = CUST_ROWS[custSel], b = closest(e, '[data-c],[data-o],[data-reset]');
+            if(!b) return;
+            if(b.dataset.reset) changeCust(0);
+            else if(b.dataset.o !== undefined) setCust(r, +b.dataset.o);
+            else setCust(r, b.dataset.c === 'none' ? null : +b.dataset.c);
+        };
+        // --- Plaque d'immatriculation : texte en haut, styles en vignettes ---
+        const PLATE_ROWS = [{ k: 'sty' }];
+        function renderPlate() {
+            const inp = $('plate-text');
+            if(document.activeElement !== inp) inp.value = (plateSet.text || '').replace(/[^A-Za-z0-9 \-]/g, '');
+            $('pl-styles').innerHTML = PLATE_STYLES.map((n, i) => '<button type="button" class="' + (i === plateSet.sty ? 'sel' : '') + '" data-s="' + i + '"><canvas width="256" height="55" data-s="' + i + '"></canvas>' + n + '</button>').join('');
+            drawPlate();
+        }
+        function changePlate(step) {
+            if(step === 0) { const inp = $('plate-text'); inp.focus(); inp.select(); return; }
+            plateSet.sty = (plateSet.sty + step + PLATE_STYLES.length) % PLATE_STYLES.length;
+            store('nfsPlate', plateSet); renderPlate();
+        }
+        $('plate-text').addEventListener('input', (e) => {
+            const v = e.target.value.toUpperCase().replace(/[^A-Z0-9 \-]/g, '').slice(0, 8);
+            if(v !== e.target.value) e.target.value = v;
+            plateSet.text = v; store('nfsPlate', plateSet); drawPlate();
+        });
+        $('pl-styles').onclick = (e) => { const b = closest(e, 'button[data-s]'); if(!b) return; plateSet.sty = +b.dataset.s; store('nfsPlate', plateSet); renderPlate(); };
+        // --- Carte : choisir sa planque de départ ---
+        const gm = { zoom: 1, cx: 0, cz: 0, mx: -1, my: -1, hover: -1, drag: null, ask: -1, img: null, roads: null };
+        let spawnPick = -1;   // planque choisie sur la carte : départ de la prochaine sortie
+        function gmImage() {
+            const MN = 1024, HN = 256, c = document.createElement('canvas'); c.width = c.height = MN;
+            const g = c.getContext('2d'), im = g.createImageData(MN, MN), d = im.data, hc = 2 * MAP_HALF / HN, mc = 2 * MAP_HALF / MN;
+            const hs = new Float32Array((HN + 1) * (HN + 1));
+            for(let j = 0; j <= HN; j++) for(let i = 0; i <= HN; i++) hs[j * (HN + 1) + i] = hAt(i * hc - MAP_HALF, j * hc - MAP_HALF);
+            const hI = (x, z) => { const u = clamp((x + MAP_HALF) / hc, 0, HN - 0.001), v = clamp((z + MAP_HALF) / hc, 0, HN - 0.001), i = Math.floor(u), j = Math.floor(v), fu = u - i, fv = v - j, o = j * (HN + 1) + i; return (hs[o] * (1 - fu) + hs[o + 1] * fu) * (1 - fv) + (hs[o + HN + 1] * (1 - fu) + hs[o + HN + 2] * fu) * fv; };
+            const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+            for(let j = 0; j < MN; j++) for(let i = 0; i < MN; i++) {
+                const x = (i + 0.5) * mc - MAP_HALF, z = (j + 0.5) * mc - MAP_HALF, h = hI(x, z), e = mc * 1.5;
+                const gx = (hI(x + e, z) - hI(x - e, z)) / (2 * e), gz = (hI(x, z + e) - hI(x, z - e)) / (2 * e);
+                const nx = -gx * 3, nz = -gz * 3, nl = Math.hypot(nx, 1, nz), sh = clamp(0.62 + 0.5 * (nx * -0.55 + 0.7 + nz * -0.45) / nl, 0.45, 1.25);
+                let col = mix([96, 120, 74], [140, 140, 94], clamp(sstep(0.38, 0.72, vnoise(x / 900 + 5, z / 900)) * 0.7, 0, 1));
+                const ub = urbanAt(x, z); if(ub > 0) col = mix(col, [200, 194, 182], ub * 0.9);
+                const f = forestAt(x, z) * (1 - ub); if(f > 0.02) col = mix(col, [70, 96, 62], sstep(0.3, 0.7, f) * 0.75);
+                if(h > 80) col = mix(col, [150, 142, 130], sstep(80, 420, h));
+                col = mix(col, [240, 243, 247], sstep(840, 1000, h));
+                let r = col[0] * sh, g2 = col[1] * sh, b = col[2] * sh;
+                for(const L of lakes) { if(Math.hypot(L.x - x, L.z - z) < L.r && h < L.level) { r = 52; g2 = 110; b = 150; } }
+                const out = sstep(WORLD_R + 150, WORLD_R + 900, Math.hypot(x, z)) * 0.45;
+                const o = (j * MN + i) * 4; d[o] = r * (1 - out) * 0.78; d[o + 1] = g2 * (1 - out) * 0.78; d[o + 2] = (b * (1 - out) + out * 20) * 0.8; d[o + 3] = 255;
+            }
+            g.putImageData(im, 0, 0);
+            return c;
+        }
+        function gmView() {
+            const c = $('gmap'), dpr = Math.min(window.devicePixelRatio || 1, 2), W = Math.floor(c.clientWidth * dpr) || 1, H = Math.floor(c.clientHeight * dpr) || 1;
+            if(c.width !== W) c.width = W;
+            if(c.height !== H) c.height = H;
+            const sc0 = Math.min(W * 0.96, H * 0.8) / (2 * WORLD_R * 1.04);
+            return { c, W, H, dpr, sc: sc0 * gm.zoom, ox: W / 2, oy: H * 0.52 };
+        }
+        const gmClamp = () => { gm.zoom = clamp(gm.zoom, 1, 8); const lim = WORLD_R * (1 - 1 / gm.zoom); gm.cx = clamp(gm.cx, -lim, lim); gm.cz = clamp(gm.cz, -lim, lim); };
+        function drawGMap() {
+            if(screen !== 'map') return;
+            const v = gmView(), g = v.c.getContext('2d'), { W, H, dpr, sc, ox, oy } = v, u = dpr;
+            const tr = (x, z) => [ox + (x - gm.cx) * sc, oy + (z - gm.cz) * sc];
+            if(!gm.img) gm.img = gmImage();
+            if(!gm.roads) gm.roads = [0, 1].map(c => { const p = new Path2D(); roads.forEach(R => { if((R.cls === 0) !== (c === 0)) return; p.moveTo(R.px[0], R.pz[0]); for(let i = 2; i < R.n; i += 2) p.lineTo(R.px[i], R.pz[i]); if(R.closed) p.closePath(); else p.lineTo(R.px[R.n - 1], R.pz[R.n - 1]); }); return p; });
+            g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = '#07090b'; g.fillRect(0, 0, W, H);
+            g.save(); g.translate(ox, oy); g.scale(sc, sc); g.translate(-gm.cx, -gm.cz);
+            g.imageSmoothingEnabled = true; g.drawImage(gm.img, -MAP_HALF, -MAP_HALF, 2 * MAP_HALF, 2 * MAP_HALF);
+            g.lineCap = g.lineJoin = 'round';
+            g.strokeStyle = 'rgba(20,16,10,0.85)'; g.lineWidth = 5.5 * u / sc; g.stroke(gm.roads[1]); g.lineWidth = 7.5 * u / sc; g.stroke(gm.roads[0]);
+            g.strokeStyle = '#e9e4d8'; g.lineWidth = 2.6 * u / sc; g.stroke(gm.roads[1]);
+            g.strokeStyle = '#f2c14e'; g.lineWidth = 4 * u / sc; g.stroke(gm.roads[0]);
+            g.strokeStyle = 'rgba(255,255,255,0.35)'; g.lineWidth = 1.4 * u / sc; g.setLineDash([10 * u / sc, 8 * u / sc]); g.beginPath(); g.arc(0, 0, WORLD_R, 0, 7); g.stroke(); g.setLineDash([]);
+            g.restore();
+            g.textAlign = 'center'; g.textBaseline = 'middle';
+            cities.forEach(C => { const q = tr(C.x, C.z); g.font = FONT(700, (C.metro ? 20 : 16) * u); g.lineWidth = 4 * u; g.strokeStyle = 'rgba(8,10,12,0.85)'; g.strokeText(C.name.toUpperCase(), q[0], q[1]); g.fillStyle = '#fff'; g.fillText(C.name.toUpperCase(), q[0], q[1]); });
+            hides.forEach((h, k) => {
+                const q = tr(h.x, h.z), hov = k === gm.hover, pick = k === spawnPick, s = (hov ? 9.5 : 7.5) * u;
+                if(pick) { g.strokeStyle = '#e8b33c'; g.lineWidth = 2.5 * u; g.beginPath(); g.arc(q[0], q[1], 17 * u, 0, 7); g.stroke(); }
+                g.shadowColor = 'rgba(0,0,0,0.6)'; g.shadowBlur = 6 * u; pinIcon(g, q[0], q[1], s, hov ? '#8dff9f' : '#52e06c'); g.shadowBlur = 0;
+                g.font = FONT(600, (hov ? 16 : 13) * u);
+                const tw = g.measureText(h.name).width + 16 * u, ty = q[1] - s * 2.1 - 14 * u;
+                g.fillStyle = hov ? 'rgba(18,60,30,0.95)' : 'rgba(10,14,12,0.8)'; roundRect(g, q[0] - tw / 2, ty - 10 * u, tw, 20 * u, 10 * u); g.fill();
+                g.strokeStyle = hov ? '#8dff9f' : 'rgba(120,230,140,0.5)'; g.lineWidth = 1.2 * u; g.stroke();
+                g.fillStyle = '#eafaee'; g.fillText(h.name, q[0], ty + 1 * u);
+            });
+            // Curseur : réticule rond (aimanté sur la planque survolée)
+            if(gm.mx >= 0) {
+                let cx = gm.mx, cy = gm.my;
+                if(gm.hover >= 0) { const q = tr(hides[gm.hover].x, hides[gm.hover].z); cx = q[0]; cy = q[1]; }
+                g.strokeStyle = '#fff'; g.lineWidth = 2 * u; g.shadowColor = 'rgba(0,0,0,0.8)'; g.shadowBlur = 5 * u;
+                g.beginPath(); g.arc(cx, cy, 22 * u, 0, 7); g.stroke();
+                g.lineWidth = 1.4 * u; g.beginPath(); g.arc(cx, cy, 30 * u, -0.5, 0.5); g.stroke(); g.beginPath(); g.arc(cx, cy, 30 * u, Math.PI - 0.5, Math.PI + 0.5); g.stroke();
+                [[0, -1], [0, 1], [-1, 0], [1, 0]].forEach(([a, b]) => { g.beginPath(); g.moveTo(cx + a * 14 * u, cy + b * 14 * u); g.lineTo(cx + a * 26 * u, cy + b * 26 * u); g.stroke(); });
+                g.fillStyle = '#fff'; g.beginPath(); g.arc(cx, cy, 2.6 * u, 0, 7); g.fill(); g.shadowBlur = 0;
+                if(gm.hover >= 0) { g.font = FONT(600, 15 * u); g.textAlign = 'left'; g.fillStyle = '#fff'; g.fillText('Clic : apparaître ici', cx + 34 * u, cy + 30 * u); g.textAlign = 'center'; }
+            }
+        }
+        function gmHover() {
+            const v = gmView(); let best = -1, bd = 30 * v.dpr;
+            hides.forEach((h, k) => { const d = Math.hypot(v.ox + (h.x - gm.cx) * v.sc - gm.mx, v.oy + (h.z - gm.cz) * v.sc - gm.my); if(d < bd) { bd = d; best = k; } });
+            gm.hover = gm.mx >= 0 ? best : -1;
+        }
+        function gmAsk(k) { gm.ask = k; $('gm-name').textContent = hides[k].name; $('gm-ask').hidden = false; }
+        function gmClose() { gm.ask = -1; $('gm-ask').hidden = true; drawGMap(); }
+        function gmYes() { const k = gm.ask; gmClose(); if(k < 0) return; spawnPick = k; window.startGame(); }
+        $('gm-ask').onclick = (e) => { const b = closest(e, '[data-a]'); if(!b) return; if(b.dataset.a === 'yes') gmYes(); else gmClose(); };
+        (function () {
+            const c = $('gmap'), pos = (e) => { const r = c.getBoundingClientRect(), dpr = c.width / Math.max(1, r.width); return [(e.clientX - r.left) * dpr, (e.clientY - r.top) * dpr]; };
+            c.addEventListener('pointermove', (e) => {
+                const [x, y] = pos(e);
+                if(gm.drag) { const v = gmView(); if(Math.hypot(x - gm.drag[0], y - gm.drag[1]) > 5) gm.drag[4] = true; if(gm.drag[4]) { gm.cx = gm.drag[2] - (x - gm.drag[0]) / v.sc; gm.cz = gm.drag[3] - (y - gm.drag[1]) / v.sc; gmClamp(); } }
+                gm.mx = x; gm.my = y; gmHover(); drawGMap();
+            });
+            c.addEventListener('pointerdown', (e) => { if(gm.ask >= 0) return; const [x, y] = pos(e); gm.drag = [x, y, gm.cx, gm.cz, false]; c.setPointerCapture(e.pointerId); });
+            c.addEventListener('pointerup', () => { const d = gm.drag; gm.drag = null; if(d && !d[4] && gm.hover >= 0 && gm.ask < 0) gmAsk(gm.hover); });
+            c.addEventListener('pointerleave', () => { if(!gm.drag) { gm.mx = -1; gm.hover = -1; drawGMap(); } });
+            c.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const [x, y] = pos(e), v = gmView(), wx = gm.cx + (x - v.ox) / v.sc, wz = gm.cz + (y - v.oy) / v.sc;
+                gm.zoom = clamp(gm.zoom * Math.exp(-e.deltaY * 0.0016), 1, 8);
+                const s2 = gmView().sc; gm.cx = wx - (x - v.ox) / s2; gm.cz = wz - (y - v.oy) / s2; gmClamp(); gmHover(); drawGMap();
+            }, { passive: false });
+            window.addEventListener('resize', drawGMap);
+        })();
+        function gmKey(kn, dx, dy) {
+            if(gm.ask >= 0) { if(kn === 'Enter') gmYes(); else if(kn === 'Escape' || kn === 'Backspace') gmClose(); return true; }
+            if(kn === 'Enter') { if(gm.hover >= 0) gmAsk(gm.hover); return true; }
+            if(dx || dy) { const v = gmView(); if(gm.mx < 0) { gm.mx = v.ox; gm.my = v.oy; } gm.mx = clamp(gm.mx + dx * 22 * v.dpr, 0, v.W); gm.my = clamp(gm.my + dy * 22 * v.dpr, 0, v.H); gmHover(); drawGMap(); return true; }
+            return false;
+        }
         function pickPaint(i) { paintSel = (i + CAR_COLORS.length) % CAR_COLORS.length; applyColor(CAR_COLORS[paintSel].c); renderPaint(); }
         function renderInfo() {
             const box = $('gx-info');
             let h = '';
             if(screen === 'cars') {
-                h = carSel === 0 ? '<b>Ferrari SF90 Spider<span>Sélectionnée</span></b><p class="gx-desc">Hypercar hybride à moteur V8 central. Modèle 3D « 2021 Ferrari SF90 Spider », licence CC BY-NC.</p>' : '<b>Emplacement verrouillé</b><p class="gx-desc">De nouvelles voitures arriveront bientôt</p>';
+                const D = CARS[carSel], cur = D.id === carId, own = carsOwned.has(D.id), L = pilotLvl();
+                h = '<b>' + D.name + '<span>' + (cur ? 'Sélectionnée' : carLoading === D.id ? 'Chargement…' : carLoading === 'err' ? 'Fichier introuvable' : own ? 'Possédée' : fmtSP(D.price) + ' SP') + '</span></b>';
+                if(own) { if(!cur && carLoading !== 'err') h += '<button type="button" class="gx-act" data-act="car">Choisir cette voiture</button>'; }
+                else if(L < D.lvl) h += '<button type="button" class="gx-act" disabled>Niveau ' + D.lvl + ' requis (tu es niveau ' + L + ')</button>';
+                else h += '<button type="button" class="gx-act" data-act="car"' + (sp < D.price ? ' disabled' : '') + '>Acheter : ' + fmtSP(D.price) + ' SP' + (sp < D.price ? ' (il te manque ' + fmtSP(D.price - sp) + ')' : '') + '</button>';
             } else if(screen === 'perf') {
                 const u = UPGRADES[upSel], lv = upLv[u.id], cost = u.cost[lv];
                 h = '<b>' + u.name + '<span>' + lv + ' de 5</span></b><p class="gx-desc">' + (buyMsg || u.what + ' par niveau') + '</p>';
@@ -1581,7 +2214,7 @@
         }
         function renderFooter() {
             const key = (k, label, act) => '<button type="button" class="gx-hint" data-act="' + act + '"><span class="gx-key">' + k + '</span>' + label + '</button>';
-            $('gx-bot-left').innerHTML = screen === 'settings' ? key('← →', 'Modifier', 'none') : '';
+            $('gx-bot-left').innerHTML = ['settings', 'custom', 'plate'].includes(screen) ? key('← →', 'Modifier', 'none') : screen === 'map' ? key('Clic', 'Choisir une planque', 'none') : '';
             $('gx-bot-right').innerHTML = (screen === 'perf' ? '' : key('Entrée', 'Sélectionner', 'select')) + (screen === 'home' ? '' : key('Échap', 'Retour', 'back'));
         }
         function go(next) {
@@ -1589,11 +2222,18 @@
             screen = next; buyMsg = '';
             if(next === 'lists') listSel = SPEEDLISTS.findIndex(l => l.id === slState.cur);
             if(next === 'paint') paintSel = Math.max(0, CAR_COLORS.findIndex(o => o.c === carColor));
+            if(next === 'cars') carSel = Math.max(0, CARS.findIndex(c => c.id === carId));
+            else if(previewId !== carId) loadCar(carId).then(F => { if(screen !== 'cars') showPreview(F); }).catch(() => {});
             document.querySelectorAll('#lobby .gx-screen').forEach(sec => { sec.hidden = sec.dataset.screen !== next; });
             $('gx-title').textContent = TITLES[next];
             camShiftTarget = SHIFT[next]; camDistTarget = DIST[next];
-            ({ home: () => { renderMenu(); renderSpeedlist(); }, lists: renderLists, cars: renderCars, perf: renderPerf, paint: renderPaint, settings: renderSettings })[next]();
-            if(next === 'home' || next === 'paint') renderInfo();
+            ({ home: () => { renderMenu(); renderSpeedlist(); }, lists: renderLists, cars: renderCars, perf: renderPerf, paint: renderPaint, settings: renderSettings, custom: renderCust, plate: renderPlate, map: () => { gmClose(); drawGMap(); } })[next]();
+            if(!['cars', 'perf', 'lists'].includes(next)) renderInfo();
+            $('gx-tabs').hidden = next !== 'home' && next !== 'map';
+            yawTarget = next === 'plate' ? 0.3 : Math.PI - 0.55;
+            plateCamT = next === 'plate' ? 1 : 0; lookYT = next === 'custom' ? 0.05 : 0.6; pvDirty = true;
+            spinOn = next === 'home';
+            document.querySelectorAll('#gx-tabs [data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === next));
             renderFooter();
         }
         function buy() {
@@ -1614,12 +2254,96 @@
         function activate() {
             if(screen === 'home') go(MENU[menuSel].go);
             else if(screen === 'lists') chooseList();
-            else if(screen === 'cars') { if(carSel === 0) go('home'); }
+            else if(screen === 'cars') { if(CARS[carSel].id === carId) go('home'); else chooseCar(); }
             else if(screen === 'paint') go('home');
             else if(screen === 'settings') changeSetting(0);
+            else if(screen === 'custom') changeCust(0);
+            else if(screen === 'plate') changePlate(0);
         }
+        // ====== Animations du garage : niveau supérieur, puis une présentation par voiture débloquée ======
+        let fx = null;
+        const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+        function fxNext() { if(fx && fx.skip) { const f = fx.skip; fx.skip = null; f(); } }
+        const fxWait = (ms) => new Promise(r => { const id = setTimeout(() => { if(fx) fx.skip = null; r(); }, ms); fx.skip = () => { clearTimeout(id); r(); }; });
+        const fade = async (on) => { $('cinefade').classList.toggle('on', on); await sleep(280); };
+        // Au retour au garage : les Speedlistes terminées font monter le niveau, puis repartent de zéro (on peut les rejouer)
+        function checkLevelUp() {
+            const n = slState.lvlUp || 0;
+            if(!n || fx) return;
+            const from = pLvl;
+            pLvl += n; store('nfsLvl', String(pLvl));
+            SPEEDLISTS.forEach(l => { if(l.missions.every(m => isDone(l, m))) { l.missions.forEach(m => { delete slState.done[l.id + ':' + m.id]; }); delete slState.bonus[l.id]; } });
+            slState.lvlUp = 0; store('nfsSpeedliste', slState);
+            renderSP(); renderSpeedlist(); showBadge();
+            playLevelUp(from, pLvl, CARS.filter(c => c.lvl > from && c.lvl <= pLvl));
+        }
+        async function playLevelUp(from, to, cars) {
+            fx = {};
+            $('lobby').classList.add('cine');
+            const box = $('lvlfx'), num = $('lf-num');
+            num.textContent = from; num.classList.remove('pop');
+            $('lf-sub').textContent = cars.length ? (cars.length > 1 ? cars.length + ' nouvelles voitures débloquées' : 'Nouvelle voiture débloquée : ' + cars[0].name) : 'Speedliste terminée';
+            box.hidden = false; box.classList.remove('on', 'out'); void box.offsetWidth; box.classList.add('on');
+            await sleep(850);
+            num.textContent = to; void num.offsetWidth; num.classList.add('pop');
+            await fxWait(3000);
+            box.classList.add('out'); await sleep(360); box.hidden = true; box.classList.remove('on', 'out');
+            for(const D of cars) await playUnlock(D);
+            if(cars.length) {   // retour à la voiture du joueur
+                cine = null;
+                if(previewId !== carId) { try { showPreview(await loadCar(carId)); } catch (e) {} }
+                await fade(false);
+            }
+            $('lobby').classList.remove('cine');
+            fx = null;
+            if(screen === 'cars') renderCars();
+        }
+        // Présentation d'une voiture débloquée : avant, côté gauche, arrière, côté droit, puis toute la voiture
+        async function playUnlock(D) {
+            await fade(true);
+            let F = null;
+            try { F = await loadCar(D.id); } catch (e) {}
+            if(!F) return;
+            showPreview(F);
+            const box = $('unlockfx');
+            $('uf-name').textContent = D.name;
+            $('uf-price').textContent = carsOwned.has(D.id) ? '' : 'Disponible dans « Changer de voiture » : ' + fmtSP(D.price) + ' SP';
+            box.classList.remove('full'); box.hidden = false;
+            const S = [
+                ['Avant', [1.6, 0.85, -8.4], [-1.6, 0.75, -7.6], [0, 0.6, 0], [0, 0.55, 0]],
+                ['Côté gauche', [-8.8, 1.0, -2.2], [-8.8, 0.85, 2.2], [0, 0.55, -1.4], [0, 0.55, 1.4]],
+                ['Arrière', [-1.6, 1.15, 8.4], [1.6, 0.9, 7.6], [0, 0.6, 0], [0, 0.55, 0]],
+                ['Côté droit', [8.8, 1.0, 2.2], [8.8, 0.85, -2.2], [0, 0.55, 1.4], [0, 0.55, -1.4]]
+            ];
+            for(const [label, p0, p1, l0, l1] of S) {
+                $('uf-side').textContent = label;
+                cine = { t: 0, dur: 1.9, p0, p1, l0, l1 };
+                await fade(false); await fxWait(1650); await fade(true);
+            }
+            // Toute la voiture : la caméra recule en tournant jusqu'au trois-quarts avant
+            $('uf-side').textContent = '';
+            cine = { t: 0, dur: 3.2, orbit: [-2.3, 0.62], r: [7.5, 12.5], y: [1.0, 2.4], l: [0, 0.55, 0] };
+            box.classList.add('full');
+            await fade(false);
+            await fxWait(600000);   // jusqu'à « Continuer » (ou Entrée)
+            await fade(true);
+            box.hidden = true; box.classList.remove('full');
+        }
+        $('lvlfx').onclick = fxNext;
+        $('uf-next').onclick = fxNext;
+        (function waitSplash() { if(splashOn) return setTimeout(waitSplash, 300); setTimeout(checkLevelUp, 500); })();
+
         // Clavier du garage : flèches ou ZQSD, Entrée, Échap, A / E pour changer de page
         function garageKey(kn) {
+            if(fx) { if(kn === 'Enter' || kn === 'Escape' || kn === ' ' || kn === 'Backspace') fxNext(); return true; }
+            const ae = document.activeElement;
+            if(ae && ae.tagName === 'INPUT') { if(kn === 'Enter' || kn === 'Escape') { ae.blur(); renderPlate(); return true; } return false; }   // saisie de la plaque
+            if(kn === 'a' && screen === 'home') { go('map'); return true; }
+            if(kn === 'e' && screen === 'map' && gm.ask < 0) { go('home'); return true; }
+            if(screen === 'map') {
+                const dx = (kn === 'ArrowLeft' || kn === 'q') ? -1 : (kn === 'ArrowRight' || kn === 'd') ? 1 : 0, dy = (kn === 'ArrowUp' || kn === 'z') ? -1 : (kn === 'ArrowDown' || kn === 's') ? 1 : 0;
+                if(gmKey(kn, dx, dy)) return true;
+            }
             const up = kn === 'ArrowUp' || kn === 'z', down = kn === 'ArrowDown' || kn === 's';
             const left = kn === 'ArrowLeft' || kn === 'q', right = kn === 'ArrowRight' || kn === 'd';
             const step = left ? -1 : right ? 1 : 0;
@@ -1627,9 +2351,13 @@
             if(kn === 'Escape' || kn === 'Backspace') { if(screen !== 'home') go('home'); return true; }
             if(screen === 'settings' && (up || down)) { setSel = (setSel + (down ? 1 : -1) + SET_ROWS.length) % SET_ROWS.length; renderSettings(); return true; }
             if(screen === 'settings' && step) { changeSetting(step); return true; }
+            if(screen === 'custom' && (up || down)) { custSel = (custSel + (down ? 1 : -1) + CUST_ROWS.length) % CUST_ROWS.length; renderCust(); return true; }
+            if(screen === 'custom' && step) { changeCust(step); return true; }
+            if(screen === 'plate' && (up || down)) { plateSel = (plateSel + (down ? 1 : -1) + PLATE_ROWS.length) % PLATE_ROWS.length; renderPlate(); return true; }
+            if(screen === 'plate' && step) { changePlate(step); return true; }
             if(screen === 'home' && (up || down)) { menuSel = (menuSel + (down ? 1 : -1) + MENU.length) % MENU.length; renderMenu(); return true; }
             if(screen === 'lists' && step) { listSel = (listSel + step + SPEEDLISTS.length) % SPEEDLISTS.length; renderLists(); return true; }
-            if(screen === 'cars' && step) { carSel = (carSel + step + 5) % 5; renderCars(); return true; }
+            if(screen === 'cars' && step) { carSel = (carSel + step + CARS.length) % CARS.length; renderCars(); return true; }
             if(screen === 'perf' && step) { upSel = (upSel + step + UPGRADES.length) % UPGRADES.length; buyMsg = ''; renderPerf(); return true; }
             if(screen === 'paint' && step) { pickPaint(paintSel + step); return true; }
             return false;
@@ -1640,11 +2368,11 @@
         $('gx-menu').onmouseover = (e) => { const b = closest(e, '[data-i]'); if(b && +b.dataset.i !== menuSel) { menuSel = +b.dataset.i; renderMenu(); } };
         $('lists-cols').onclick = (e) => { const c = closest(e, '[data-i]'); if(!c) return; const i = +c.dataset.i; if(i === listSel) chooseList(); else { listSel = i; renderLists(); } };
         document.querySelectorAll('#lobby .gx-arrow').forEach(b => { b.onclick = () => garageKey(+b.dataset.step < 0 ? 'ArrowLeft' : 'ArrowRight'); });
-        $('car-tiles').onclick = (e) => { const t = closest(e, '[data-i]'); if(t) { carSel = +t.dataset.i; renderCars(); } };
+        $('car-tiles').onclick = (e) => { const t = closest(e, '[data-i]'); if(!t) return; const i = +t.dataset.i; if(i === carSel) activate(); else { carSel = i; renderCars(); } };
         $('perf-tiles').onclick = (e) => { const t = closest(e, '[data-i]'); if(!t) return; const i = +t.dataset.i; if(i === upSel) buy(); else { upSel = i; buyMsg = ''; renderPerf(); } };
         $('paint-row').onclick = (e) => { const b = closest(e, '[data-i]'); if(b) pickPaint(+b.dataset.i); };
         document.querySelectorAll('#lobby .gx-pa').forEach(b => { b.onclick = () => pickPaint(paintSel + +b.dataset.step); });
-        $('gx-info').onclick = (e) => { const b = closest(e, '[data-act]'); if(!b) return; if(b.dataset.act === 'buy') buy(); if(b.dataset.act === 'choose') chooseList(); };
+        $('gx-info').onclick = (e) => { const b = closest(e, '[data-act]'); if(!b) return; if(b.dataset.act === 'buy') buy(); if(b.dataset.act === 'choose') chooseList(); if(b.dataset.act === 'car') chooseCar(); };
         $('set-rows').onclick = (e) => { const r = closest(e, '[data-i]'); if(!r) return; setSel = +r.dataset.i; const b = closest(e, '[data-step]'); if(b) changeSetting(+b.dataset.step); else if(SET_ROWS[setSel].action) changeSetting(0); else renderSettings(); };
         document.querySelector('#lobby .gx-bot').onclick = (e) => {
             const b = closest(e, '[data-act]'); if(!b) return;
@@ -1685,6 +2413,8 @@
                 slState.bonus[l.id] = true;
                 addSP(LIST_BONUS);
                 toast('Speedliste terminée', l.name, '+' + fmtSP(LIST_BONUS) + ' SP');
+                slState.lvlUp = (slState.lvlUp || 0) + 1;   // le niveau monte au retour au garage
+                toast('Niveau ' + (pLvl + slState.lvlUp) + ' à débloquer', 'Rentre au garage pour monter de niveau');
             }
             store('nfsSpeedliste', slState);
             renderSpeedlist(); renderHudList(); showBadge();
@@ -1723,8 +2453,9 @@
         resetBtn.type = 'button';
         resetBtn.textContent = 'Réinitialiser ma progression';
         resetBtn.onclick = () => {
-            try { ['nfsDubaiWins', 'nfsDubaiBest', 'nfsSP', 'nfsSpeedliste', 'nfsUpgrades', 'nfsRadars'].forEach(k => localStorage.removeItem(k)); } catch (e) {}
-            sp = 0; slState.done = {}; slState.bonus = {}; Object.keys(upLv).forEach(k => { upLv[k] = 0; });
+            try { ['nfsDubaiWins', 'nfsDubaiBest', 'nfsSP', 'nfsLvl', 'nfsCarsOwned', 'nfsCar', 'nfsSpeedliste', 'nfsUpgrades', 'nfsRadars'].forEach(k => localStorage.removeItem(k)); } catch (e) {}
+            sp = 0; pLvl = 1; slState.lvlUp = 0; carsOwned.clear(); carsOwned.add('sf90');
+            if(carId !== 'sf90') { carId = 'sf90'; $('gx-carname').textContent = carDef('sf90').tag; loadCar('sf90').then(F => { setPlayerCar(F); if(screen !== 'cars') showPreview(F); }).catch(() => {}); } slState.done = {}; slState.bonus = {}; Object.keys(upLv).forEach(k => { upLv[k] = 0; });
             Object.keys(radarBest).forEach(k => { delete radarBest[k]; });
             PERF = perfOf();
             renderSP(); renderSpeedlist(); showBadge();
@@ -4331,7 +5062,7 @@
             // et l'appui aérodynamique. Transmission intégrale (40 % avant / 60 % arrière), puissance limitée, contrôle de traction et ABS.
             // Frein à main : roues arrière bloquées, l'arrière décroche. Tout est calculé par masse (forces en m/s²).
             const av = Math.abs(PL.vf), target = clamp((left ? 1 : 0) - (right ? 1 : 0) - (dead ? 0 : PAD.steer), -1, 1);
-            PL.steer += (target - PL.steer) * Math.min(1, dt * (target ? (hb ? 9 : 5 + av * 0.04) : 7));   // volant : vitesse de rotation limitée
+            PL.steer += (target - PL.steer) * Math.min(1, dt * (target ? (hb ? 9 : 5 / (1 + av / 50)) : 7));   // volant : plus lent à tourner à haute vitesse (pas de coups de volant brusques), retour au centre rapide
             const sens = 0.55 + 0.09 * SET.steer;   // sensibilité réglable (5 = origine)
             if(hb && av > 8) PL.drift = true;
             const mu = onRoad ? 1.3 * PERF.grip : 0.78;              // adhérence pneu/sol (+ appui aéro à haute vitesse)
@@ -4347,9 +5078,9 @@
             let ax = PL.ax || 0;
             for(let k = 0; k < ns; k++) {
                 const v = Math.hypot(vf, vl), avf = Math.abs(vf);
-                // braquage maxi : 34° à l'arrêt, de moins en moins avec la vitesse (sinon les roues avant décrochent), + contre-braquage assisté
+                // braquage maxi : 33° à l’arrêt, de moins en moins avec la vitesse, + contre-braquage assisté
                 const beta = Math.atan2(vl, Math.max(avf, 1));
-                let dl = PL.steer * sens * 0.6 / (1 + Math.pow(avf / 7, 1.25));
+                let dl = PL.steer * sens * 0.57 / (1 + Math.pow(avf / 7, 1.1));
                 if(!hb && v > 5) dl -= clamp(beta, -0.5, 0.5) * (PL.drift ? 0.85 : 0.6);   // les roues avant suivent la trajectoire quand l'arrière glisse
                 dl = clamp(dl, -0.6, 0.6);
                 // Charges par essieu (en g × masse) : statique + transfert longitudinal + appui
@@ -4756,7 +5487,7 @@
             fovBoost += ((PL.boost ? 9 : 0) - fovBoost) * Math.min(1, dt * 5);
             if(camMode === 1) {
                 // Vue capot
-                const hf = player.ferrari ? 1.05 : 0.4, hy = player.ferrari ? 1.08 : 1.02;   // Ferrari : au-dessus du capot, devant le pare-brise
+                const hf = player.hood ? player.hood[0] : 0.4, hy = player.hood ? player.hood[1] : 1.02;   // modèle 3D : au-dessus du capot, devant le pare-brise
                 camera.position.set(PL.x - sinY * hf, PL.y + hy, PL.z - cosY * hf);
                 camera.lookAt(PL.x - sinY * 40, PL.y + 0.9 + (groundY(PL.x - sinY * 12, PL.z - cosY * 12) - PL.y) * 0.8, PL.z - cosY * 40);
                 camera.rotation.z += (SUS.gr + SUS.r) * 0.35;   // la tête du pilote compense : l'horizon reste presque droit
@@ -5126,35 +5857,8 @@
         }
 
         // ====== Son : moteur, vent, pneus (WebAudio, démarre en quittant le garage). Touche X pour couper. ======
-        let audio = null, audioOut = null, engSrc = null, engDrive = null, engLp = null, screamOsc = null, screamGain = null, inductGain = null, popBuf = null;
-        let engineGain = null, windGain = null, scrapeGain = null, squealGain = null, prevThr = false;
-        const ENG_REF = 6000;   // régime auquel la boucle d'échappement est enregistrée
-        // Boucle d'échappement du V8 biturbo de la SF90 (vilebrequin à plat) : 8 explosions par cycle de 720°, régulières et
-        // alternées d'un banc à l'autre, chacune avec sa propre force : c'est ce qui donne le cri rauque d'un V8 Ferrari.
-        function buildV8Buffer() {
-            const sr = audio.sampleRate, cyc = Math.round(sr * 120 / ENG_REF), NC = 8, len = cyc * NC;
-            const buf = audio.createBuffer(2, len, sr), L = buf.getChannelData(0), Rr = buf.getChannelData(1);
-            let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-            const cylAmp = []; for(let k = 0; k < 8; k++) cylAmp.push(0.8 + rnd() * 0.28);
-            const plen = Math.round(sr * 0.006);
-            for(let c = 0; c < NC; c++) for(let k = 0; k < 8; k++) {
-                const t0 = c * cyc + Math.round(k * cyc / 8 + (rnd() - 0.5) * cyc * 0.006);
-                const A = cylAmp[k] * (0.9 + rnd() * 0.2), bank = k % 2, ph = rnd() * 0.6;
-                for(let n = 0; n < plen; n++) {
-                    const t = n / sr;
-                    let v = Math.exp(-t / 0.0011) * Math.sin(2 * Math.PI * 520 * t + ph)          // coup de pression principal
-                          + 0.55 * Math.exp(-t / 0.0005) * Math.sin(2 * Math.PI * 1650 * t)        // claquement métallique
-                          + 0.7 * Math.exp(-t / 0.0024) * Math.sin(2 * Math.PI * 190 * t)          // corps grave
-                          + 0.35 * (rnd() * 2 - 1) * Math.exp(-t / 0.0007);                         // souffle
-                    v *= A;
-                    const j = (t0 + n) % len;
-                    L[j] += v * (bank ? 0.7 : 1); Rr[j] += v * (bank ? 1 : 0.7);
-                }
-            }
-            let pk = 0; for(let j = 0; j < len; j++) pk = Math.max(pk, Math.abs(L[j]), Math.abs(Rr[j]));
-            for(let j = 0; j < len; j++) { L[j] /= pk; Rr[j] /= pk; }
-            return buf;
-        }
+        let audio = null, audioOut = null, v12 = [], vib = null, lp = null, popBuf = null;
+        let engineGain = null, windGain = null, scrapeGain = null, squealGain = null;
         function startAudio() {
             try {
                 audio = new (window.AudioContext || window.webkitAudioContext)();
@@ -5162,20 +5866,19 @@
                 engineGain = audio.createGain(); engineGain.gain.value = 0;
                 const comp = audio.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4;
                 engineGain.connect(comp); comp.connect(audioOut);
-                // Échappement
-                engSrc = audio.createBufferSource(); engSrc.buffer = buildV8Buffer(); engSrc.loop = true;
-                engDrive = audio.createWaveShaper();
-                const curve = new Float32Array(1024); for(let i = 0; i < 1024; i++) { const x = i / 512 - 1; curve[i] = Math.tanh(x * 1.8) * 0.9 + 0.1 * Math.tanh(x * 6); }
-                engDrive.curve = curve;
-                engLp = audio.createBiquadFilter(); engLp.type = 'lowpass'; engLp.Q.value = 0.9;
-                const body = audio.createBiquadFilter(); body.type = 'lowshelf'; body.frequency.value = 220; body.gain.value = 6;
-                engSrc.connect(engDrive); engDrive.connect(engLp); engLp.connect(body); body.connect(engineGain); engSrc.start();
-                // Hurlement aigu du V8 à haut régime (2e harmonique de l'allumage)
-                screamOsc = audio.createOscillator(); screamOsc.type = 'sawtooth';
-                const sbp = audio.createBiquadFilter(); sbp.type = 'bandpass'; sbp.Q.value = 2.5;
-                screamGain = audio.createGain(); screamGain.gain.value = 0;
-                screamOsc.connect(sbp); sbp.connect(screamGain); screamGain.connect(engineGain); screamOsc.start();
-                screamOsc.bp = sbp;
+                // V12 : 6 explosions par tour, donc un fondamental à rpm/10 Hz, riche en harmoniques, avec un léger tremblement
+                lp = audio.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1500;
+                const shaper = audio.createWaveShaper(), curve = new Float32Array(256);
+                for(let i = 0; i < 256; i++) { const x = i / 128 - 1; curve[i] = Math.tanh(x * 2.2); }
+                shaper.curve = curve;
+                v12 = [[0.5, 'sawtooth', 0.55], [1, 'sawtooth', 0.8], [2, 'sawtooth', 0.55], [3, 'square', 0.22], [4, 'sawtooth', 0.3], [6, 'triangle', 0.25]].map(([m, t, g]) => {
+                    const o = audio.createOscillator(); o.type = t; const og = audio.createGain(); og.gain.value = g;
+                    o.connect(og); og.connect(shaper); o.start(); return { o, m };
+                });
+                const formant = audio.createBiquadFilter(); formant.type = 'peaking'; formant.frequency.value = 1400; formant.Q.value = 1.4; formant.gain.value = 7;
+                shaper.connect(lp); lp.connect(formant); formant.connect(engineGain);
+                vib = audio.createOscillator(); vib.frequency.value = 23;
+                const vg = audio.createGain(); vg.gain.value = 3; vib.connect(vg); v12.forEach(x => vg.connect(x.o.detune)); vib.start();
                 const buf = audio.createBuffer(1, audio.sampleRate, audio.sampleRate);
                 const d = buf.getChannelData(0);
                 for(let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
@@ -5186,11 +5889,10 @@
                     src.connect(f); f.connect(g); g.connect(dest || audioOut); src.start();
                     g.filt = f; return g;
                 };
-                inductGain = noise('bandpass', 2400, 1.2, engineGain);   // aspiration
                 windGain = noise('bandpass', 700, 0.6);
                 scrapeGain = noise('highpass', 2500, 0.7);
                 squealGain = noise('bandpass', 1500, 6);
-                // Pétarades au lâcher de l'accélérateur
+                // Pétarades quand le moteur prend au démarrage
                 popBuf = audio.createBuffer(1, Math.round(audio.sampleRate * 0.05), audio.sampleRate);
                 const pd = popBuf.getChannelData(0);
                 for(let i = 0; i < pd.length; i++) { const t = i / audio.sampleRate; pd[i] = ((Math.random() * 2 - 1) * 0.8 + Math.sin(2 * Math.PI * 140 * t)) * Math.exp(-t / 0.008); }
@@ -5284,21 +5986,10 @@
             if(!audio) return;
             const flare = ENG.on && ENG.flare < 0.35;   // coup de gaz du démarrage : sonne comme une accélération
             const off = muted || paused || leaving, r = clamp(PL.rpm / 9000, 0, 1.1), thr = !!(ENG.on && (keys.ArrowUp || keys.z || keys.w || PAD.thr > 0.2 || PL.boost)) || flare;
-            const now = audio.currentTime;
-            const lope = PL.rpm < 1500 ? 1 + 0.022 * Math.sin(now * 10.7) + 0.012 * Math.sin(now * 23.3) : 1;   // ralenti un peu irrégulier, comme un vrai moteur
-            engSrc.playbackRate.setTargetAtTime(Math.max(0.05, PL.rpm * lope / ENG_REF), now, 0.02);
-            engLp.frequency.setTargetAtTime(700 + r * 3200 + (thr ? 2600 : 0), now, 0.04);
-            const vol = !ENG.on || off ? 0 : 0.16 + (thr ? 0.13 : 0) + r * 0.08 + (PL.boost ? 0.04 : 0);
-            engineGain.gain.setTargetAtTime(vol, now, 0.03);
-            const fire = PL.rpm / 15;   // V8 : 4 explosions par tour
-            screamOsc.frequency.setTargetAtTime(Math.max(20, fire * 2), now, 0.02);
-            screamOsc.bp.frequency.setTargetAtTime(Math.max(200, fire * 2), now, 0.02);
-            screamGain.gain.setTargetAtTime(thr ? Math.pow(r, 2.5) * 0.09 : Math.pow(r, 2.5) * 0.025, now, 0.05);
-            inductGain.gain.setTargetAtTime(thr ? 0.05 + r * 0.12 : 0.01, now, 0.05);
-            inductGain.filt.frequency.setTargetAtTime(1500 + r * 3500, now, 0.05);
-            // Pétarades quand on lâche l'accélérateur à haut régime
-            if(prevThr && !thr && PL.rpm > 4800 && !off) { const n = 3 + Math.floor(Math.random() * 5); for(let k = 0; k < n; k++) playPop(now + 0.05 + Math.random() * 0.7, 0.1 + Math.random() * 0.12); }
-            prevThr = thr;
+            const f = 70 + PL.rpm / 10 * 0.92;   // ~85 Hz au ralenti, ~900 Hz à 9 000 tr/min
+            v12.forEach(x => { x.o.frequency.value = f * x.m; });
+            lp.frequency.value = 900 + r * 3600 + (thr ? 1500 : 0);
+            engineGain.gain.value = !ENG.on || off ? 0 : 0.045 + (thr ? 0.04 : 0) + r * 0.02 + (PL.boost ? 0.015 : 0);
             windGain.gain.value = off ? 0 : Math.min(0.07, Math.pow(PL.kmh / 340, 2) * 0.06);
             scrape = Math.max(0, scrape - dt);
             scrapeGain.gain.value = off || scrape <= 0 ? 0 : 0.07;
@@ -5396,6 +6087,8 @@
                 });
                 if(edge(0)) garageKey('Enter');
                 if(edge(1)) garageKey('Escape');
+                if(edge(4)) garageKey('a');
+                if(edge(5)) garageKey('e');
                 PAD.used = true;
             }
         }
@@ -5410,8 +6103,11 @@
             f.textContent = 'Chargement du ciel…';
             f.classList.add('on');
             startAudio();
+            // 0) la voiture choisie doit être chargée (sinon on partirait sans voiture) ; si son fichier manque, on prend la Ferrari
+            f.textContent = 'Chargement de la voiture…';
+            const carReady = loadCar(carId).catch(() => carId === 'sf90' ? null : loadCar('sf90').then(F => { setPlayerCar(F); return F; }).catch(() => null));
             // 1) les nuages sont calculés tuile par tuile, 2) puis la carte est construite
-            setTimeout(() => bakeClouds(pc => { f.textContent = 'Chargement du ciel… ' + pc + ' %'; }, () => {
+            carReady.then(() => setTimeout(() => bakeClouds(pc => { f.textContent = 'Chargement du ciel… ' + pc + ' %'; }, () => {
                 f.textContent = 'Chargement du comté…';
                 setTimeout(() => {
                     $('lobby').style.display = 'none';
@@ -5422,6 +6118,7 @@
                     try { last = parseInt(localStorage.getItem('nfsStartHide'), 10); } catch (e) {}
                     let hk = Math.floor(Math.random() * hides.length);
                     if(hk === last && hides.length > 1) hk = (hk + 1 + Math.floor(Math.random() * (hides.length - 1))) % hides.length;
+                    if(spawnPick >= 0) hk = spawnPick;   // planque choisie sur la carte du garage
                     try { localStorage.setItem('nfsStartHide', String(hk)); } catch (e) {}
                     const H = hides[hk];
                     placeAtHide(H);
@@ -5438,7 +6135,7 @@
                     gameActive = true;
                     setTimeout(() => { f.classList.remove('on'); f.textContent = ''; }, 250);
                 }, 80);
-            }), 650);
+            }), 650));
         };
 
         function animate() {
