@@ -1438,6 +1438,9 @@
             { id: 'veneno', price: 25000, lvl: 5, name: 'Lamborghini Veneno', tag: 'Veneno', url: 'cars/veneno.glb', img: 'cars/veneno.png', len: 5.02, front: '+z',
               wheel: /Wheel1A_3D/i, cal: /Calliper|Caliper/i, paint: /Paint_Material/, tail: null, glass: /Window/,
               credit: '« 2013 Lamborghini Veneno », licence CC BY' },
+            { id: 'one', price: 40000, lvl: 6, name: 'Koenigsegg One:1', tag: 'Koenigsegg', url: 'cars/one.glb', img: 'cars/one.png', len: 4.5, front: '+z',
+              wheel: /KOP_Rims_Geo|KOP_Tyre_Geo/, cal: /KOP_DiskBrake_Geo/, paint: /^KOP_Body_Shd$/, paintTint: true, tail: null, glass: null, alphaMask: /OutCarbonFiber|KOP_Steel/,
+              credit: '« Koenigsegg One Pro », licence CC BY' },
         ];
         // Pièces à personnaliser dans chaque modèle : calp = étriers (couleur), rim = jantes (teinte),
         // plate = plaque d'origine (remplacée par la nôtre, posée au même endroit) ; plateY = hauteur de nos plaques [arrière, avant] sinon
@@ -1446,7 +1449,8 @@
             gt3: { calp: /^EXT_Calipers/, rim: /^amg_gt3_rims$/, plateY: [0.5, null] },
             p1: { calp: /^Brake_Caliper$/, rim: /^Rim_(LF|RF|LR|RR)1_SUB0/, plateY: [0.42, 0.3] },
             svj: { calp: /plaquette_de_frein/, rim: /^Rim_Texture$/, plateY: [0.45, null] },
-            veneno: { calp: /CalliperGloss/, rim: /Wheel1C_Material/, plate: /ManufacturerPlate/ }
+            veneno: { calp: /CalliperGloss/, rim: /Wheel1C_Material/, plate: /ManufacturerPlate/ },
+            one: { calp: /^KOP_DiskBrake_Shd$/, rim: /^KOP_Rims_Shd$/, plateY: [0.42, null] }
         };
         CARS.forEach(c => Object.assign(c, CAR_PARTS[c.id]));
         // Voitures achetées (la SF90 est toujours possédée)
@@ -1455,7 +1459,7 @@
         let carId = 'sf90';
         try { const s = localStorage.getItem('nfsCar'); if(carsOwned.has(s)) carId = s; } catch (e) {}
         // Couleur attribuée à chaque voiture (modifiable voiture par voiture dans « Peinture »)
-        const CAR_DEF_COLOR = { sf90: 0xe3262e, gt3: 0xeeeee8, p1: 0xf0661c, svj: 0x13a37a, veneno: 0x6f747c };
+        const CAR_DEF_COLOR = { sf90: 0xe3262e, gt3: 0xeeeee8, p1: 0xf0661c, svj: 0x13a37a, veneno: 0x6f747c, one: 0x2f6bff };
         const carColors = loadJSON('nfsCarColors', {});
         if(carColors.sf90 === undefined && carColor !== RED) carColors.sf90 = carColor;
         const colorOf = (id) => CAR_COLORS.some(o => o.c === carColors[id]) ? carColors[id] : CAR_DEF_COLOR[id];
@@ -1711,6 +1715,10 @@
                 let m, own = true;   // own : matière refaite ici (couleurs en hexadécimal sRGB, comme le reste du jeu)
                 if(D.paint && D.paint.test(name)) {   // peinture : vernis, couleur choisie au garage
                     m = new THREE.MeshPhysicalMaterial({ color: carColor, metalness: 0.55, roughness: 0.28, clearcoat: 1, clearcoatRoughness: 0.04, emissive: carColor, emissiveIntensity: 0.04 });
+                    if(D.paintTint && src.map) {   // carrosserie texturée (déco peinte dans la texture) : la couleur teinte la texture au lieu de la remplacer
+                        m.map = texFix(src.map); m.emissiveIntensity = 0.015;
+                        if(src.normalMap) { m.normalMap = src.normalMap; m.normalScale = src.normalScale.clone(); m.normalScale.y = -Math.abs(m.normalScale.y); }
+                    }
                     car.bodyMat = m;
                     patchStyle(m, F);
                 } else if(D.tail && D.tail.test(name)) {   // feux arrière : s'allument au freinage
@@ -1727,6 +1735,7 @@
                     m.vertexTangents = false;
                     if(m.normalScale) m.normalScale.y = -Math.abs(m.normalScale.y);   // sans tangentes, l'axe v de la carte de relief est inversé
                     if(m.transparent && m.opacity < 0.3) m.opacity = 0.3;
+                    if(D.alphaMask && D.alphaMask.test(name)) { m.transparent = false; m.alphaTest = 0.5; m.depthWrite = true; }   // pièces découpées : transparence nette, sans erreur d'ordre d'affichage
                 }
                 // Garage : rendu sans conversion sRGB, les facteurs glTF (linéaires) sont repassés en sRGB.
                 // Monde : rendu linéaire, les couleurs hexadécimales des matières refaites sont converties.
