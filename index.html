@@ -4065,8 +4065,118 @@
                 m.rotation.order = 'YXZ';
                 scene.add(m);
                 traffic.push({ m, body, wheels, T, R: null, p: 0, dir: 1, lat: 3, v: 25, v0: 25, stun: 0, nm: 0, x: 0, z: 0, fx: 0, fz: -1,
-                    spin: 0, yaw: 0, ya: 0, sP: 0, sPv: 0, sR: 0, sRv: 0, vPrev: 25, ready: false });
+                    spin: 0, yaw: 0, ya: 0, sP: 0, sPv: 0, sR: 0, sRv: 0, vPrev: 25, ready: false, col: c, met });
             });
+
+            // --- Voitures civiles en 3D : Pontiac Ventura (pontiac.glb) et Chevrolet Colorado (colorado.glb), une voiture sur deux.
+            // Elles remplacent la caisse dessinée dès que leur fichier est chargé ; si un fichier manque, la voiture dessinée reste : le trafic ne disparaît jamais.
+            // « Pontiac Ventura », licence CC BY-NC 4.0.
+            const CIVILS = [
+                { url: 'pontiac.glb', len: 5.0, fwd: [1, 0, 0], skip: /^Plane/, ax: [0.2, 0.78] },
+                { url: 'colorado.glb', len: 5.4, fwd: [0, 0, 1], paint: /CarPaint_Max/, wheel: /Wheel|Offroad|tire/i }
+            ];
+            function prepCivil(gltf, C) {
+                const root = gltf.scene;
+                root.updateMatrixWorld(true);
+                const meshes = [];
+                root.traverse(o => { if(o.isMesh && !(C.skip && C.skip.test(o.name))) meshes.push(o); });
+                const box = new THREE.Box3(); meshes.forEach(o => box.union(new THREE.Box3().setFromObject(o)));
+                // Repère du jeu : avant vers -z, roues au sol (y = 0), centrée, longueur réelle
+                const ctr = box.getCenter(new THREE.Vector3());
+                const rot = new THREE.Matrix4().makeRotationY(Math.PI - Math.atan2(C.fwd[0], C.fwd[2]));
+                const tb = box.clone().translate(new THREE.Vector3(-ctr.x, -box.min.y, -ctr.z)).applyMatrix4(rot);
+                const sc = C.len / (tb.max.z - tb.min.z);
+                const M = new THREE.Matrix4().makeScale(sc, sc, sc).multiply(rot).multiply(new THREE.Matrix4().makeTranslation(-ctr.x, -box.min.y, -ctr.z));
+                const isWheel = (o) => { if(!C.wheel) return false; for(let p = o; p; p = p.parent) if(C.wheel.test(p.name)) return true; return false; };
+                // Lots par matière ; les roues sont rangées par coin (0 : avant gauche, 1 : avant droite, 2 : arrière gauche, 3 : arrière droite)
+                const lots = new Map(), wbox = [0, 1, 2, 3].map(() => new THREE.Box3());
+                meshes.forEach(o => {
+                    const W = new THREE.Matrix4().multiplyMatrices(M, o.matrixWorld), c = new THREE.Vector3();
+                    o.geometry.computeBoundingBox(); o.geometry.boundingBox.clone().applyMatrix4(W).getCenter(c);
+                    let grp = 'body';
+                    if(isWheel(o)) { const k = (c.x > 0 ? 1 : 0) + (c.z > 0 ? 2 : 0); wbox[k].union(o.geometry.boundingBox.clone().applyMatrix4(W)); grp = 'w' + k; }
+                    const key = grp + '|' + (o.material.name || o.material.uuid);
+                    let L = lots.get(key);
+                    if(!L) lots.set(key, L = { grp, mat: o.material, parts: [] });
+                    L.parts.push({ g: o.geometry, W });
+                });
+                const hubs = wbox.every(b => !b.isEmpty()) ? wbox.map(b => b.getCenter(new THREE.Vector3())) : null;
+                // Matières simples (pas de transmission, coûteuse) ; la peinture est repérée pour être recolorée voiture par voiture
+                const conv = (m) => {
+                    const n = new THREE.MeshStandardMaterial({ color: m.color ? m.color.clone() : 0xffffff, map: m.map || null, metalness: m.metalness !== undefined ? m.metalness : 0.3, roughness: m.roughness !== undefined ? m.roughness : 0.5,
+                        metalnessMap: m.metalnessMap || null, roughnessMap: m.roughnessMap || null, normalMap: m.normalMap || null, emissive: m.emissive ? m.emissive.clone() : 0x000000, emissiveMap: m.emissiveMap || null,
+                        transparent: !!m.transparent, opacity: m.opacity !== undefined ? m.opacity : 1, alphaTest: m.alphaTest || 0, side: m.side });
+                    if(n.transparent) n.depthWrite = false;
+                    return n;
+                };
+                const out = [];
+                lots.forEach(L => {
+                    const hub = L.grp === 'body' ? null : hubs ? hubs[+L.grp[1]] : null;
+                    if(L.grp !== 'body' && !hub) L.grp = 'body';
+                    let nv = 0, ni = 0;
+                    const gs = L.parts.map(P => {
+                        const g = new THREE.BufferGeometry(), A = P.g.attributes;
+                        ['position', 'normal', 'uv'].forEach(k => { if(A[k]) g.setAttribute(k, A[k].clone()); });
+                        if(P.g.index) g.setIndex(P.g.index.clone());
+                        g.applyMatrix4(P.W);
+                        if(hub) g.translate(-hub.x, -hub.y, -hub.z);
+                        if(!g.index) { const n = g.attributes.position.count, ix = new Uint32Array(n); for(let i = 0; i < n; i++) ix[i] = i; g.setIndex(new THREE.BufferAttribute(ix, 1)); }
+                        nv += g.attributes.position.count; ni += g.index.count;
+                        return g;
+                    });
+                    const pos = new Float32Array(nv * 3), nor = new Float32Array(nv * 3), uv = new Float32Array(nv * 2), idx = new Uint32Array(ni);
+                    let vo = 0, io = 0;
+                    gs.forEach(g => {
+                        const A = g.attributes, n = A.position.count;
+                        for(let i = 0; i < n; i++) {
+                            pos[(vo + i) * 3] = A.position.getX(i); pos[(vo + i) * 3 + 1] = A.position.getY(i); pos[(vo + i) * 3 + 2] = A.position.getZ(i);
+                            if(A.normal) { nor[(vo + i) * 3] = A.normal.getX(i); nor[(vo + i) * 3 + 1] = A.normal.getY(i); nor[(vo + i) * 3 + 2] = A.normal.getZ(i); }
+                            if(A.uv) { uv[(vo + i) * 2] = A.uv.getX(i); uv[(vo + i) * 2 + 1] = A.uv.getY(i); }
+                        }
+                        for(let i = 0; i < g.index.count; i++) idx[io + i] = vo + g.index.getX(i);
+                        vo += n; io += g.index.count;
+                    });
+                    const geo = new THREE.BufferGeometry();
+                    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+                    geo.setIndex(new THREE.BufferAttribute(idx, 1));
+                    geo.computeBoundingSphere();
+                    const mat = conv(L.mat);
+                    out.push({ grp: L.grp, geo, mat, paint: !!(C.paint && C.paint.test(L.mat.name || '')), shadow: !mat.transparent && ni / 3 > 1500 });
+                });
+                const bb = tb.clone(); bb.min.multiplyScalar(sc); bb.max.multiplyScalar(sc);
+                const L = bb.max.z - bb.min.z, Wd = bb.max.x - bb.min.x;
+                const T = hubs ? { L, W: Wd, r: hubs.reduce((s, h) => s + h.y, 0) / 4, ax: [(hubs[0].z + hubs[1].z) / 2 / L + 0.5, (hubs[2].z + hubs[3].z) / 2 / L + 0.5] }
+                    : { L, W: Wd, r: 0.33, ax: C.ax };
+                return { parts: out, hubs, T };
+            }
+            // Habille une voiture du trafic avec un modèle 3D (la caisse dessinée est cachée, pas supprimée)
+            function dressCivil(t, P) {
+                t.body.children.forEach(o => { o.visible = false; });
+                const g = new THREE.Group();
+                let paint = null;
+                P.parts.forEach(pt => {
+                    if(pt.grp !== 'body') return;
+                    if(pt.paint && !paint) { paint = pt.mat.clone(); paint.color.copy(lin(t.col)); paint.metalness = t.met ? 0.55 : 0.1; paint.roughness = t.met ? 0.32 : 0.45; }
+                    const me = new THREE.Mesh(pt.geo, pt.paint ? paint : pt.mat);
+                    me.castShadow = pt.shadow;
+                    g.add(me);
+                });
+                t.body.add(g);
+                t.wheels.forEach((wh, k) => {
+                    if(!P.hubs) { wh.piv.visible = false; return; }
+                    const h = P.hubs[k], w = new THREE.Group();
+                    P.parts.forEach(pt => { if(pt.grp === 'w' + k) { const me = new THREE.Mesh(pt.geo, pt.mat); me.castShadow = pt.shadow; w.add(me); } });
+                    wh.piv.remove(wh.w); wh.piv.add(w); wh.piv.position.copy(h); wh.w = w;
+                });
+                t.T = P.T;
+                t.m.children[0].scale.set(P.T.W + 0.4, 1, P.T.L + 0.6);   // ombre de contact
+            }
+            if(THREE.GLTFLoader) CIVILS.forEach((C, ci) => new THREE.GLTFLoader().load(C.url, (gltf) => {
+                try {
+                    const P = prepCivil(gltf, C);
+                    traffic.forEach((t, k) => { if(k % CIVILS.length === ci) dressCivil(t, P); });
+                } catch (e) { console.warn(C.url + ' : voitures dessinées conservées', e); }
+            }, undefined, (e) => console.warn(C.url + ' non chargé, voitures dessinées conservées', e)));
 
             // --- Fond de carte (2048 px) : relief ombré, courbes de niveau, prairies, forêts, roche, neige, lacs ---
             const MN = 2048, HN = 1024, mc = document.createElement('canvas');
