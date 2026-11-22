@@ -4800,11 +4800,11 @@
             });
 
             // --- Voitures civiles en 3D : Pontiac Ventura (pontiac.glb) et Chevrolet Colorado (colorado.glb), une voiture sur deux.
-            // Elles remplacent la caisse dessinée dès que leur fichier est chargé ; si un fichier manque, la voiture dessinée reste : le trafic ne disparaît jamais.
+            // Elles remplacent la caisse dessinée dès que leur fichier est chargé (roues du modèle, fixes) ; si un fichier manque, la voiture dessinée reste : le trafic ne disparaît jamais.
             // « Pontiac Ventura », licence CC BY-NC 4.0.
             const CIVILS = [
                 { url: 'pontiac.glb', len: 5.0, fwd: [1, 0, 0], skip: /^Plane/, ax: [0.2, 0.78] },
-                { url: 'colorado.glb', len: 5.4, fwd: [0, 0, 1], paint: /CarPaint_Max/, wheel: /Wheel|Offroad|tire/i }
+                { url: 'colorado.glb', len: 5.4, fwd: [0, 0, 1], paint: /CarPaint_Max/, ax: [0.18, 0.78], r: 0.38 }
             ];
             function prepCivil(gltf, C) {
                 const root = gltf.scene;
@@ -4877,7 +4877,7 @@
                 const bb = tb.clone(); bb.min.multiplyScalar(sc); bb.max.multiplyScalar(sc);
                 const L = bb.max.z - bb.min.z, Wd = bb.max.x - bb.min.x;
                 const T = hubs ? { L, W: Wd, r: hubs.reduce((s, h) => s + h.y, 0) / 4, ax: [(hubs[0].z + hubs[1].z) / 2 / L + 0.5, (hubs[2].z + hubs[3].z) / 2 / L + 0.5] }
-                    : { L, W: Wd, r: 0.33, ax: C.ax };
+                    : { L, W: Wd, r: C.r || 0.33, ax: C.ax };
                 return { parts: out, hubs, T };
             }
             // Habille une voiture du trafic avec un modèle 3D (la caisse dessinée est cachée, pas supprimée)
