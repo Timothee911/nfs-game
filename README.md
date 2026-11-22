@@ -65,7 +65,6 @@ Dans le garage : croix ou stick pour naviguer, Croix / A pour valider, Rond / B 
   - **Lamborghini Veneno** : `cars/veneno.glb`, « 2013 Lamborghini Veneno », licence **CC BY** ;
   - **McLaren P1** : `cars/p1.glb`, « McLaren P1 », licence **CC BY** ;
   - **Mercedes-AMG GT3** : `cars/amg-gt3.glb`, « amg_evo_3 », licence **CC BY-NC-SA**.
-  - **Koenigsegg One:1** : `cars/one.glb`, « Koenigsegg One Pro », licence **CC BY** (textures réduites pour alléger le fichier).
 
   Seule la voiture choisie est téléchargée. Au chargement, ses morceaux sont regroupés par matière pour rester fluide ; les roues tournent et braquent, les étriers restent fixes, les feux arrière s'allument au freinage et la peinture suit la couleur choisie au garage. La page doit être servie par un serveur (GitHub Pages, ou « Live Server » dans VS Code) : ouverte en double-cliquant, ou si le fichier manque, le jeu garde l'ancienne voiture dessinée (SAQR X1).
 - **Garage** : menu style NFS Rivals avec la voiture choisie en 3D, les Speedlistes (objectifs à remplir en roulant), les améliorations (moteur, turbo, pneus, nitro) à payer en SP, et deux pages : **Carte** (touche `A` ou L1) et **Garage** (touche `E` ou R1).
