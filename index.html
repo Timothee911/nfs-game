@@ -1425,19 +1425,19 @@
         const CARS = [
             { id: 'sf90', price: 0, lvl: 1, name: 'Ferrari SF90 Spider', tag: 'Ferrari SF90', url: 'ferrari.glb', img: 'cars/sf90.png', len: 4.71, front: '+z',
               wheel: /Combined_Wheels|Wheel1A_3D/i, cal: /Calliper|Caliper/i, paint: /Paint_Material/, tail: /RED_GLASS/, glass: /Window/,
-              credit: '« 2021 Ferrari SF90 Spider », licence CC BY-NC' },
+              credit: '' },
             { id: 'gt3', price: 4000, lvl: 2, name: 'Mercedes-AMG GT3', tag: 'AMG GT3', url: 'cars/amg-gt3.glb', img: 'cars/gt3.png', len: 4.75, front: '+z',
               wheel: /^WHEEL_(LF|RF|LR|RR)$/, cal: /^Caliper_|^Disc_/, hide: /RIM_BLUR|RIM_.._BLUR/, paint: /^EXT_Carpaint_Inst/, tail: /EXT_Emissive_Light_Rear|EXT_Glass_Emissive_Rear/, glass: /^EXT_Windows$|^INT_Windows$|INT_Windshield|MI_INT_Glass/,
-              credit: '« amg_evo_3 », licence CC BY-NC-SA' },
+              credit: '' },
             { id: 'p1', price: 8000, lvl: 3, name: 'McLaren P1', tag: 'McLaren P1', url: 'cars/p1.glb', img: 'cars/p1.png', len: 4.59, front: '+z',
               wheel: /^WHEEL_(LF|RF|LR|RR)$/, cal: /^SUSP_|^DISC_/, paint: /^Carpaint$/, tail: /Taillights/, glass: /^Windows/,
-              credit: '« McLaren P1 », licence CC BY' },
+              credit: '' },
             { id: 'svj', price: 15000, lvl: 4, name: 'Lamborghini Aventador SVJ', tag: 'Aventador SVJ', url: 'cars/aventador.glb', img: 'cars/svj.png', len: 4.94, front: '+z',
               wheel: /^Circle\.?002/, cal: /plaquette_de_frein/, paint: /^CARROSSERIE$/, tail: /GlassRedLights/, glass: /^GLASS$/,
-              credit: '« Lamborghini Aventador SVJ - SC20 Carbon Edition », licence CC BY-NC' },
+              credit: '' },
             { id: 'veneno', price: 25000, lvl: 5, name: 'Lamborghini Veneno', tag: 'Veneno', url: 'cars/veneno.glb', img: 'cars/veneno.png', len: 5.02, front: '+z',
               wheel: /Wheel1A_3D/i, cal: /Calliper|Caliper/i, paint: /Paint_Material/, tail: null, glass: /Window/,
-              credit: '« 2013 Lamborghini Veneno », licence CC BY' },
+              credit: '' },
             { id: 'one', price: 40000, lvl: 6, name: 'Koenigsegg One:1', tag: 'Koenigsegg', url: 'cars/one.glb', img: 'cars/one.png', len: 4.5, front: '+z',
               wheel: /KOP_Rims_Geo|KOP_Tyre_Geo/, cal: /KOP_DiskBrake_Geo/, paint: /^KOP_Body_Shd$/, paintTint: true, tail: null, glass: null, alphaMask: /OutCarbonFiber|KOP_Steel/,
               credit: '' },
@@ -4810,7 +4810,6 @@
 
             // --- Voitures civiles en 3D : Pontiac Ventura (pontiac.glb) et Chevrolet Colorado (colorado.glb), une voiture sur deux.
             // Elles remplacent la caisse dessinée dès que leur fichier est chargé (roues du modèle, fixes) ; si un fichier manque, la voiture dessinée reste : le trafic ne disparaît jamais.
-            // « Pontiac Ventura », licence CC BY-NC 4.0.
             const CIVILS = [
                 { url: 'pontiac.glb', len: 5.0, fwd: [1, 0, 0], skip: /^Plane/, ax: [0.2, 0.78] },
                 { url: 'colorado.glb', len: 5.4, fwd: [0, 0, 1], paint: /CarPaint_Max/, ax: [0.18, 0.78], r: 0.38 }
