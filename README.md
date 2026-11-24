@@ -1,6 +1,6 @@
 # 🏎️ NFS Dubai Ultimate
 
-Jeu de conduite 3D en monde ouvert, en un seul fichier HTML (Three.js), en français. Tu roules librement dans un comté de **14 × 14 km** parcouru par **105 km de routes**, entouré de montagnes, dans une lumière de fin de journée après la pluie. Il n'y a plus de course : tu gagnes des SP en enchaînant les figures.
+Jeu de conduite 3D en monde ouvert, en un seul fichier HTML (Three.js), en français. Tu roules librement dans un comté de **14 × 14 km** parcouru par **105 km de routes**, entouré de montagnes, dans une lumière qui passe de la fin de journée à la nuit, sous le sec ou la pluie. Tu gagnes des SP en enchaînant les figures, en semant la police et dans des défis chronométrés.
 
 ## Jouer
 
@@ -17,6 +17,8 @@ Ouvre `index.html` dans un navigateur récent (Chrome, Edge, Firefox). Une conne
 | `Maj` ou `N` | Nitro |
 | `M` ou `Tab` | Ouvrir / fermer la carte (met le jeu en pause) |
 | `C` | Changer de caméra (poursuite / capot) |
+| `E` | Lancer le défi chronométré dont tu es sur le départ |
+| `P` | Mode photo |
 | `R` | Replacer la voiture sur la route la plus proche |
 | `X` | Couper / remettre le son |
 | `Échap` | Retour au garage |
@@ -25,7 +27,7 @@ Dans le garage : flèches `↑` `↓` pour naviguer, `Entrée` pour valider, `É
 
 ### Réglages (garage → Réglages)
 
-Sensibilité de la direction (1 à 10), réactivité du stick, vibrations, caméra au départ, volume, herbe en volume (désactivée / légère / dense), mini-carte (suit la voiture ou nord en haut). Les réglages sont mémorisés.
+Sensibilité de la direction (1 à 10), réactivité du stick, vibrations, caméra au départ, volume, herbe en volume (désactivée / légère / dense), mini-carte (suit la voiture ou nord en haut), heure (jour et nuit, toujours le jour, toujours la nuit) et météo (variable, toujours sec, pluie). Les réglages sont mémorisés.
 
 ### Carte (`M`)
 
@@ -44,6 +46,8 @@ Carte plein écran : molette, `+` / `-` ou gâchettes pour zoomer, glisser, `ZQS
 | Share / View | Carte |
 | Options / Menu | Retour au garage |
 | L1 / R1 | Changer de caméra |
+| Rond / B | Lancer le défi chronométré dont tu es sur le départ |
+| L3 (clic du stick gauche) | Mode photo |
 
 Dans le garage : croix ou stick pour naviguer, Croix / A pour valider, Rond / B pour revenir. La manette vibre sur les chocs, les glissades et le nitro.
 
@@ -56,6 +60,12 @@ Dans le garage : croix ou stick pour naviguer, Croix / A pour valider, Rond / B 
 - **Trafic** : 14 petites voitures du quotidien en 5 modèles (citadine, compacte, berline, break, ludospace), aux couleurs courantes, avec vitres, jantes, passages de roues, feux, rétroviseurs, joints de portes et plaques. Elles sont posées sur leurs 4 roues avec une ombre de contact : les roues tournent, les roues avant braquent et la caisse bouge sur sa suspension.
 - **Séries de points** : haute vitesse (plus de 250 km/h), drift, frôlement du trafic, contresens et radars alimentent une série. Le multiplicateur monte jusqu'à ×5, puis la série est encaissée en SP après 4 s sans figure. Un accident la fait perdre.
 - **Radars** : 20 radars à flasher, avec ta meilleure vitesse mémorisée.
+- **Police** : 2 voitures de police patrouillent dans le trafic (berlines noires et blanches, rampe de gyrophares). Si l'une d'elles te voit à plus de 140 km/h à moins de 120 m, si tu la percutes, ou parfois quand un radar te flashe à plus de 250 km/h, une poursuite commence. Le niveau de recherche (1 à 5) monte toutes les 45 s et fait venir des renforts plus rapides (jusqu'à 4 voitures). Pendant la poursuite, une prime grossit (avec la durée, le niveau, tes séries et les voitures de police neutralisées en les percutant fort). Reste à plus de 330 m de toutes les voitures de police assez longtemps pour les semer et encaisser la prime. Si tu restes presque à l'arrêt à côté d'elles, ou si ta voiture est détruite, tu es arrêté : prime perdue, amende en SP et retour au garage. Les planques sont fermées tant que la police te poursuit. Sirène, gyrophares (et leurs reflets la nuit), voitures de police sur la mini-carte et la grande carte.
+- **Défis chronométrés** : 6 défis repérés par une colonne de lumière (et sur les cartes) : 3 sprints avec points de passage, 2 zones de drift (60 s pour marquer un maximum de points sans sortir de la zone) et 1 radar de tronçon (vitesse moyenne sur 2 km, départ lancé). Arrête-toi sur le départ et appuie sur `E` : compte à rebours, portiques lumineux, parcours tracé sur la mini-carte, objectifs bronze / argent / or. Chaque médaille rapporte des SP (400, 800, 1 500), une seule fois ; le record est mémorisé.
+- **Jour, nuit et météo** : la lumière passe de la fin de journée au crépuscule, à la nuit (ciel étoilé, clair de lune, phares plus puissants) puis à l'aube (cycle de 14 minutes). La pluie arrive et repart : rideau de pluie, ciel couvert, brume plus épaisse et adhérence réduite de 20 %.
+- **Dégâts visibles** : chaque choc enfonce la carrosserie à l'endroit touché, avec la peinture arrachée autour ; rouler hors de la route (et sous la pluie) salit le bas de caisse ; une voiture très abîmée fume. Elle est réparée quand elle est détruite et au retour au garage.
+- **Mode photo** (`P`) : le jeu se fige, la caméra tourne librement autour de la voiture (souris, clavier ou manette), 6 filtres (naturel, noir et blanc, sépia, vif, cinéma, rétro), et `Entrée` enregistre la photo en PNG.
+- **Succès et défis du jour** (garage → « Succès et défis du jour ») : 16 succès qui rapportent des SP (semer la police au niveau 5, or à tous les défis, 100 km parcourus, 25 km de nuit…), et chaque jour 3 défis tirés au sort (distance, drift, poursuites, défis chronométrés…), comptés depuis minuit. Le même écran montre tes médailles et records des défis chronométrés.
 - **Planques** : 6 planques. En quittant le garage, tu pars d'une planque tirée au hasard, sur le parvis face à la route. Pour rentrer au garage, touche la ligne verte peinte au sol devant la porte d'une autre planque (ou de la même, une fois que tu t'en es éloigné de 70 m).
 - **GPS** : la mini-carte montre le relief, les forêts, les lacs, les villes et les routes, et trace en vert l'itinéraire par la route jusqu'à la planque la plus proche. Elle dézoome quand tu vas vite.
 - **Interface** : mini-carte GPS, compte-tours avec rapport et vitesse, jauge de nitro, état de la voiture, SP, série en cours et objectifs de la Speedliste.
@@ -66,12 +76,12 @@ Dans le garage : croix ou stick pour naviguer, Croix / A pour valider, Rond / B 
   - **McLaren P1** : `cars/p1.glb` ;
   - **Mercedes-AMG GT3** : `cars/amg-gt3.glb`.
 
-  Seule la voiture choisie est téléchargée. Au chargement, ses morceaux sont regroupés par matière pour rester fluide ; les roues tournent et braquent, les étriers restent fixes, les feux arrière s'allument au freinage et la peinture suit la couleur choisie au garage. La page doit être servie par un serveur (GitHub Pages, ou « Live Server » dans VS Code) : ouverte en double-cliquant, ou si le fichier manque, le jeu garde l'ancienne voiture dessinée (SAQR X1).
+  Les modèles 3D (voitures, trafic et ville) sont compressés (géométrie Meshopt sans perte, textures WebP) : le décodeur est dans `lib/meshopt_decoder.js`. Seule la voiture choisie est téléchargée. Au chargement, ses morceaux sont regroupés par matière pour rester fluide ; les roues tournent et braquent, les étriers restent fixes, les feux arrière s'allument au freinage et la peinture suit la couleur choisie au garage. La page doit être servie par un serveur (GitHub Pages, ou « Live Server » dans VS Code) : ouverte en double-cliquant, ou si le fichier manque, le jeu garde l'ancienne voiture dessinée (SAQR X1).
 - **Garage** : menu style NFS Rivals avec la voiture choisie en 3D, les Speedlistes (objectifs à remplir en roulant), les améliorations (moteur, turbo, pneus, nitro) à payer en SP, et deux pages : **Carte** (touche `A` ou L1) et **Garage** (touche `E` ou R1).
   - **Carte** : carte du comté avec un curseur en réticule ; clique sur une planque (ou vise-la au clavier et appuie sur Entrée), le jeu demande « Apparaître ici ? » et la sortie démarre dans cette planque. Molette pour zoomer, glisser pour déplacer.
   - **Personnaliser la voiture** (réglages propres à chaque voiture) : peinture (10 couleurs), finition (brillant, métallisé, nacré, satiné, mat, chrome), motif peint (double bande, bande centrale, bandes latérales, toit contrasté, bas de caisse) et sa couleur, couleur des étriers de frein, teinte des jantes, teinte des vitres, néons sous caisse (7 couleurs), et retour à l'origine.
   - **Plaque d'immatriculation** : texte de 8 caractères et style (Dubaï, européenne, américaine, noire, jaune de course), posée à l'arrière de toutes les voitures (et à l'avant de la McLaren).
-- **Sauvegarde** : SP, améliorations, Speedliste, radars et couleur sont mémorisés dans le navigateur (`localStorage`). Le bouton « Réinitialiser ma progression » du garage remet tout à zéro.
+- **Sauvegarde** : SP, améliorations, Speedliste, radars, couleur, statistiques, succès, défis du jour et records des défis chronométrés sont mémorisés dans le navigateur (`localStorage`). Le bouton « Réinitialiser ma progression » du garage remet tout à zéro.
 
 ## Régler le jeu
 
@@ -84,3 +94,7 @@ Dans le script de `index.html` :
 - `stepPlayer` : physique de la voiture (accélération, adhérence `mu`, braquage, frein à main).
 - `SPEEDLISTS` : objectifs et récompenses.
 - `spawnTraffic` : trafic.
+- `COP_V`, `copStep` et `copAI` : police (vitesse des poursuivants selon le niveau, détection, arrestation, semer).
+- `EVENT_DEFS` et `evSetup` : défis chronométrés (parcours, objectifs des médailles).
+- `CYCLE`, `dayOf` et `envStep` : jour, nuit et météo.
+- `ACH` et `DAILY_POOL` : succès et défis du jour.
