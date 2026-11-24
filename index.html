@@ -1226,8 +1226,8 @@
                 grime(g, w, h, 300, 0.08);
                 for(let i = 0; i < 40; i++) { const x = rnd() * w, q = g.createLinearGradient(0, 0, 0, h); q.addColorStop(0, 'rgba(90,45,20,0)'); q.addColorStop(0.6, 'rgba(90,45,20,0.25)'); q.addColorStop(1, 'rgba(60,30,15,0.05)'); g.fillStyle = q; g.fillRect(x, rr(0, h * 0.6), rr(1, 6), h); }   // rouille
             }, true);
-            const concreteMat = std({ map: concreteTex, color: 0x7c8592, roughness: 0.92, metalness: 0 });
-            const tinMat = std({ map: metalTex, color: 0x8893a3, roughness: 0.5, metalness: 0.65 });
+            const concreteMat = std({ map: concreteTex, color: 0x4e5866, roughness: 0.92, metalness: 0 });
+            const tinMat = std({ map: metalTex, color: 0x56606f, roughness: 0.5, metalness: 0.65 });
             const steelMat = std({ color: 0x262c35, roughness: 0.45, metalness: 0.75 });
             const darkMat = std({ color: 0x14171c, roughness: 0.6, metalness: 0.5 });
             const blackMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
@@ -1250,7 +1250,7 @@
             const fs = new THREE.Shape(); fs.moveTo(-HW, -FRONT); fs.lineTo(HW, -FRONT); fs.lineTo(HW, -BACK); fs.lineTo(-HW, -BACK); fs.lineTo(-HW, -FRONT);
             const hole = new THREE.Path(); hole.absarc(0, 0, PR + 0.12, 0, Math.PI * 2, true); fs.holes.push(hole);
             const floorGeo = new THREE.ShapeGeometry(fs, 64); floorGeo.rotateX(-Math.PI / 2);
-            const floorMat = std({ map: floorMap, roughnessMap: floorRough, roughness: 0.75, metalness: 0.15, color: 0x8a96a8, envMapIntensity: 1.4 });
+            const floorMat = std({ map: floorMap, roughnessMap: floorRough, roughness: 0.75, metalness: 0.15, color: 0x6a7588 });
             mesh(floorGeo, floorMat, 0, FY, 0);
 
             // --- Plateau tournant : dessus sombre et lisse (le reflet de la voiture se voit au travers), anneau LED froid ---
@@ -1340,23 +1340,24 @@
 
             // --- Dehors : route de montagne au coucher du soleil (peinte), sol éclairé de biais ---
             const sky = cv(2048, 1024, (g, w, h) => {
-                const hz = h * 0.62;
-                let q = g.createLinearGradient(0, 0, 0, hz); q.addColorStop(0, '#1b2346'); q.addColorStop(0.45, '#6b3b58'); q.addColorStop(0.78, '#e07a3a'); q.addColorStop(1, '#ffcc7a');
-                g.fillStyle = q; g.fillRect(0, 0, w, hz);
-                q = g.createRadialGradient(w * 0.44, hz - 20, 0, w * 0.44, hz - 20, h * 0.55); q.addColorStop(0, 'rgba(255,240,200,1)'); q.addColorStop(0.08, 'rgba(255,205,120,0.9)'); q.addColorStop(0.35, 'rgba(255,140,60,0.35)'); q.addColorStop(1, 'rgba(255,120,50,0)');
+                const hz = h * 0.655;   // horizon à hauteur d'œil
+                let q = g.createLinearGradient(0, 0, 0, hz); q.addColorStop(0, '#26244a'); q.addColorStop(0.35, '#7a3d4e'); q.addColorStop(0.7, '#e3793a'); q.addColorStop(1, '#ffd58e');
+                g.fillStyle = q; g.fillRect(0, 0, w, hz + 2);
+                q = g.createRadialGradient(w * 0.46, hz - 30, 0, w * 0.46, hz - 30, h * 0.6); q.addColorStop(0, 'rgba(255,248,220,1)'); q.addColorStop(0.05, 'rgba(255,225,150,0.95)'); q.addColorStop(0.25, 'rgba(255,160,70,0.45)'); q.addColorStop(1, 'rgba(255,120,50,0)');
                 g.fillStyle = q; g.fillRect(0, 0, w, h);
-                for(let i = 0; i < 9; i++) { g.fillStyle = 'rgba(255,170,110,' + rr(0.08, 0.2) + ')'; const y = rr(h * 0.12, hz * 0.8); g.fillRect(rr(-200, w), y, rr(300, 900), rr(4, 14)); }   // nuages étirés
-                const ridge = (base, amp, col, rough) => { g.fillStyle = col; g.beginPath(); g.moveTo(0, h); let y = base; for(let x = 0; x <= w; x += 8) { y += rr(-rough, rough); y += (base - y) * 0.02; g.lineTo(x, Math.min(hz + 40, y - amp * Math.max(0, Math.sin(x / w * 7 + 1.3)))); } g.lineTo(w, h); g.fill(); };
-                ridge(hz - 40, 160, '#5a3f5e', 6); ridge(hz + 10, 110, '#3a2a3e', 7); ridge(hz + 50, 60, '#1f1820', 5);
-                q = g.createLinearGradient(0, hz, 0, h); q.addColorStop(0, '#2c2024'); q.addColorStop(1, '#120d0e'); g.fillStyle = q; g.fillRect(0, hz + 40, w, h);
-                // route de montagne : lacets qui montent vers le col, rails qui brillent
-                g.strokeStyle = 'rgba(255,190,120,0.75)'; g.lineWidth = 5; g.beginPath();
-                const R = [[w * 0.5, h], [w * 0.47, hz + 160], [w * 0.62, hz + 90], [w * 0.5, hz + 45], [w * 0.58, hz + 10], [w * 0.52, hz - 30]];
-                g.moveTo(R[0][0], R[0][1]); for(let i = 1; i < R.length; i++) { const [x0, y0] = R[i - 1], [x1, y1] = R[i]; g.quadraticCurveTo(x0 + (x1 - x0) * 0.1 + (i % 2 ? 60 : -60), (y0 + y1) / 2, x1, y1); } g.stroke();
-                g.lineWidth = 1.5; g.strokeStyle = 'rgba(255,230,190,0.6)'; g.stroke();
-                for(let i = 0; i < 26; i++) { const x = rr(0, w), y = hz + rr(-10, 60); g.fillStyle = '#100c10'; g.beginPath(); g.moveTo(x, y - rr(20, 70)); g.lineTo(x - 9, y); g.lineTo(x + 9, y); g.fill(); }   // sapins en silhouette
+                for(let i = 0; i < 14; i++) { const y = rr(h * 0.15, hz * 0.85); g.fillStyle = 'rgba(' + (y < hz * 0.5 ? '120,60,80,' : '255,175,110,') + rr(0.15, 0.35) + ')'; g.fillRect(rr(-200, w), y, rr(300, 900), rr(3, 10)); }   // nuages étirés
+                const ridge = (base, amp, col, rough, f) => { g.fillStyle = col; g.beginPath(); g.moveTo(0, h); let y = base; for(let x = 0; x <= w; x += 6) { y += rr(-rough, rough); y += (base - y) * 0.03; g.lineTo(x, y - amp * Math.max(0, Math.sin(x / w * f + 1.3))); } g.lineTo(w, h); g.fill(); };
+                ridge(hz - 10, 150, 'rgba(150,80,90,0.75)', 5, 6); ridge(hz + 15, 110, '#4a2c3c', 6, 8); ridge(hz + 45, 60, '#22161d', 5, 11);
+                q = g.createLinearGradient(0, hz + 40, 0, h); q.addColorStop(0, '#22161d'); q.addColorStop(1, '#0c0809'); g.fillStyle = q; g.fillRect(0, hz + 44, w, h);
+                // route de montagne : fins lacets qui montent vers le col, éclairés par le soleil
+                g.lineCap = 'round';
+                const R = [[w * 0.51, h], [w * 0.5, hz + 120], [w * 0.57, hz + 80], [w * 0.52, hz + 52], [w * 0.56, hz + 30], [w * 0.53, hz + 8]];
+                const path = () => { g.beginPath(); g.moveTo(R[0][0], R[0][1]); for(let i = 1; i < R.length; i++) { const [x0, y0] = R[i - 1], [x1, y1] = R[i]; g.quadraticCurveTo(x1 + (i % 2 ? 50 : -50), y0 - (y0 - y1) * 0.2, x1, y1); } };
+                path(); g.strokeStyle = 'rgba(40,30,32,1)'; g.lineWidth = 7; g.stroke();
+                path(); g.strokeStyle = 'rgba(255,200,130,0.55)'; g.lineWidth = 1.6; g.stroke();
+                for(let i = 0; i < 60; i++) { const x = rr(0, w), y = hz + rr(20, 80); g.fillStyle = '#0d090b'; g.beginPath(); g.moveTo(x, y - rr(14, 46)); g.lineTo(x - 6, y); g.lineTo(x + 6, y); g.fill(); }   // sapins en silhouette
             });
-            const skyMesh = mesh(new THREE.PlaneGeometry(150, 75), new THREE.MeshBasicMaterial({ map: sky, fog: false, toneMapped: false }), 0, 14, BACK - 60);
+            const skyMesh = mesh(new THREE.PlaneGeometry(150, 75), new THREE.MeshBasicMaterial({ map: sky, fog: false, toneMapped: false }), 0, 2.5 + 75 * (0.655 - 0.5), BACK - 60);   // horizon à 2,5 m
             const outside = cv(256, 1024, (g, w, h) => {
                 let q = g.createLinearGradient(0, 0, 0, h); q.addColorStop(0, '#5a3a24'); q.addColorStop(0.5, '#2a1d17'); q.addColorStop(1, '#0d0a0a'); g.fillStyle = q; g.fillRect(0, 0, w, h);
                 g.fillStyle = 'rgba(30,26,26,0.95)'; g.beginPath(); g.moveTo(w * 0.47, 0); g.lineTo(w * 0.53, 0); g.lineTo(w * 0.86, h); g.lineTo(w * 0.14, h); g.fill();
@@ -1365,7 +1366,7 @@
             mesh(new THREE.PlaneGeometry(90, 60), new THREE.MeshBasicMaterial({ map: outside, fog: false, toneMapped: false, color: 0xb09080 }), 0, FY - 0.02, BACK - 30).rotation.x = -Math.PI / 2;
 
             // Lumière dorée qui entre par le rideau : projecteur chaud, faisceaux poussiéreux, traînée sur le sol mouillé
-            const sun = new THREE.SpotLight(0xffa25a, 4.2, 70, 0.62, 0.8, 1.2); sun.position.set(-1.5, 3.6, BACK - 8); sun.target.position.set(1, FY, 2); S.add(sun, sun.target);
+            const sun = new THREE.SpotLight(0xff9a50, 2.6, 60, 0.55, 0.85, 1.2); sun.position.set(-1.5, 3.6, BACK - 8); sun.target.position.set(1, FY, 2); S.add(sun, sun.target);
             const shaft = (x0, x1, top, len, op) => {   // nappe de lumière : de l'ouverture vers l'intérieur, en s'abaissant
                 const geo = new THREE.BufferGeometry();
                 const P = [[x0, top, BACK], [x1, top, BACK], [x1 * 1.3, FY, BACK + len], [x0 * 1.3, FY, BACK + len]];
@@ -1380,7 +1381,7 @@
                 const t = cv(64, 256, (g, W, H) => { const q = g.createLinearGradient(0, 0, 0, H); q.addColorStop(0, col + '0)'); q.addColorStop(0.15, col + '0.9)'); q.addColorStop(1, col + '0)'); g.fillStyle = q; g.fillRect(0, 0, W, H); const s = g.createLinearGradient(0, 0, W, 0); s.addColorStop(0, 'rgba(0,0,0,1)'); s.addColorStop(0.5, 'rgba(0,0,0,0)'); s.addColorStop(1, 'rgba(0,0,0,1)'); g.globalCompositeOperation = 'destination-out'; g.fillStyle = s; g.fillRect(0, 0, W, H); });
                 const m = mesh(new THREE.PlaneGeometry(w, len), glow({ map: t, opacity: op }), x, FY + 0.015, z + len / 2); m.rotation.x = -Math.PI / 2; m.renderOrder = 2; return m;
             };
-            streak(0, BACK, 2 * DOOR, 22, 'rgba(255,170,90,', 0.5);
+            streak(0, BACK, 2 * DOOR - 2, 22, 'rgba(255,150,70,', 0.2);
 
             // --- Spots du plafond : halo blanc froid sur la voiture, cônes de lumière visibles ---
             const spots = [];
@@ -1561,7 +1562,7 @@
                 g.fillStyle = 'rgba(95,210,255,0.5)'; g.fillRect(40, 86, W - 80, 2);
             }
             function scan(g, W, H) { g.fillStyle = 'rgba(0,0,0,0.18)'; for(let y = 0; y < H; y += 4) g.fillRect(0, y, W, 1); }
-            const statsH = holo(3.2, 2.0, 6.2, 2.7, -5.2, -0.42, () => ((document.getElementById('gx-carname') || {}).textContent || '') + JSON.stringify(upLv), (g, W, H) => {
+            const statsH = holo(3.0, 1.9, 2.6, 4.5, -9.5, -0.12, () => ((document.getElementById('gx-carname') || {}).textContent || '') + JSON.stringify(upLv), (g, W, H) => {
                 const name = (document.getElementById('gx-carname') || {}).textContent || '';
                 frame(g, W, H, name.toUpperCase());
                 const rows = [['VITESSE DE POINTE', 0, 'moteur'], ['ACCÉLÉRATION', 1, 'turbo'], ['MANIABILITÉ', 2, 'pneus'], ['NITRO', 3, 'nitro']];
@@ -1588,7 +1589,7 @@
                 hides.forEach(h => { const q = P(h.x, h.z); g.fillStyle = '#ff8a2a'; g.beginPath(); g.moveTo(q[0], q[1] - 9); g.lineTo(q[0] + 8, q[1]); g.lineTo(q[0], q[1] + 9); g.lineTo(q[0] - 8, q[1]); g.fill(); });
                 g.restore();
             });
-            const heatH = holo(2.6, 1.5, -6.1, 3.3, -6.8, 0.5, () => [GS.maxEscHeat, COP.lvl, GS.escapes, GS.busted, Math.round(GS.bestBounty)].join(), (g, W, H) => {
+            const heatH = holo(2.6, 1.5, -3.4, 4.6, -10.5, 0.18, () => [GS.maxEscHeat, COP.lvl, GS.escapes, GS.busted, Math.round(GS.bestBounty)].join(), (g, W, H) => {
                 frame(g, W, H, 'NIVEAU DE RECHERCHE');
                 const lvl = Math.max(COP.lvl || 0, 0), rec = GS.maxEscHeat || 0;
                 for(let i = 0; i < 5; i++) {
@@ -1602,7 +1603,7 @@
                 g.fillStyle = CY; g.fillText('Poursuites semées ' + (GS.escapes || 0) + '   ·   Arrestations ' + (GS.busted || 0), 60, 350);
                 g.fillText('Meilleure prime ' + Math.round(GS.bestBounty || 0) + ' SP', 60, 400);
             });
-            streak(6.2, -5.0, 2.6, 6, 'rgba(90,200,255,', 0.18);
+            streak(2.6, -9.3, 2.4, 6, 'rgba(90,200,255,', 0.14);
             streak(11.6, BACK + 1.3, 4.4, 10, 'rgba(90,200,255,', 0.16);
             const holoLight = new THREE.PointLight(0x4cc4ff, 1.0, 10, 2); holoLight.position.set(11.6, 4.6, BACK + 2.4); S.add(holoLight);
 
@@ -1626,29 +1627,21 @@
             }
 
             // --- Lumières de la scène : on remplace l'éclairage de l'ancien entrepôt ---
-            S.children.filter(o => o.isHemisphereLight).forEach(o => { o.color.set(0x6d7f9c); o.groundColor.set(0x1a1410); o.intensity = 0.55; });
-            keyLight.color.set(0xffa765); keyLight.intensity = 2.2; keyLight.position.set(-2, 4, -12);   // contre-jour doré du rideau
-            fillLight.color.set(0x7d97d6); fillLight.intensity = 1.0;
-            frontLight.color.set(0xe8f0ff); frontLight.intensity = 1.4;
-            topLight.color.set(0xe6efff); topLight.intensity = 1.6;
-
-            // Reflets sur la carrosserie : environnement précalculé à partir de l'atelier (sans la voiture)
-            let envDone = false;
-            function buildEnvMap() {
-                envDone = true;
-                try {
-                    const hidden = [previewCar, previewMirror, dust].concat(smoke).concat(HOLO.map(h => h.m)).filter(o => o.visible);
-                    hidden.forEach(o => o.visible = false);
-                    const pm = new THREE.PMREMGenerator(previewRenderer), rt = pm.fromScene(S, 0.02, 0.1, 100);
-                    hidden.forEach(o => o.visible = true);
-                    S.environment = rt.texture; pm.dispose();
-                } catch(e) { console.warn('atelier env', e); }
-            }
+            // Lumières de l'ancien entrepôt : les lumières directionnelles éclairaient toute la salle ; on les remplace par
+            // des projecteurs serrés sur le plateau, pour que la voiture ressorte et que le hangar reste dans l'ombre
+            S.children.filter(o => o.isHemisphereLight).forEach(o => { o.color.set(0x3a4a66); o.groundColor.set(0x0c0a08); o.intensity = 0.32; });
+            keyLight.visible = fillLight.visible = frontLight.visible = false;
+            topLight.color.set(0xe6efff); topLight.intensity = 1.2;
+            const carSpot = (col, I, x, y, z, ang) => { const l = new THREE.SpotLight(col, I, 40, ang, 0.5, 0); l.position.set(x, y, z); l.target.position.set(0, 0.5, 0); S.add(l, l.target); return l; };
+            carSpot(0xeef4ff, 2.0, 3, 5, 13, 0.3);      // face : la caisse côté caméra
+            carSpot(0x9db4ff, 1.1, -11, 4, 6, 0.3);     // rappel bleu acier
+            carSpot(0xffa25a, 2.6, -1, 3.2, -14, 0.32);  // contre-jour doré du rideau
+            const blue = (x, y, z, I) => { const l = new THREE.PointLight(0x3d66b8, I, 18, 1.5); l.position.set(x, y, z); S.add(l); };
+            blue(-14, 6, -12, 1.2); blue(14, 6, -6, 1.0); blue(0, 7, 6, 0.8);   // pénombre bleu nuit sur les murs
 
             let t = 0, holoT = 0;
             function step(dt) {
                 t += dt;
-                if(!envDone && t > 0.5) buildEnvMap();
                 const p = dgeo.attributes.position.array;
                 for(let i = 0; i < dustN; i++) {
                     p[i * 3] += (dv[i * 3] + Math.sin(t * 0.3 + i) * 0.02) * dt; p[i * 3 + 1] += dv[i * 3 + 1] * dt; p[i * 3 + 2] += dv[i * 3 + 2] * dt;
