@@ -1632,7 +1632,7 @@
             keyLight.visible = fillLight.visible = frontLight.visible = false;
             topLight.visible = false;   // remplacé par les 3 spots du plafond
             previewCar.traverse(o => { if(o.isSpotLight) o.visible = false; });   // phares de l'ancienne voiture dessinée : ils traçaient une bande blanche sur le sol
-            const carSpot = (col, I, x, y, z, ang, reach) => { const l = new THREE.SpotLight(col, I, reach, ang, 0.5, 1);   // s'éteint juste après la voiture : pas de tache sur le sol devant l.position.set(x, y, z); l.target.position.set(0, 0.5, 0); S.add(l, l.target); return l; };
+            const carSpot = (col, I, x, y, z, ang, reach) => { const l = new THREE.SpotLight(col, I, reach, ang, 0.5, 1); l.position.set(x, y, z); l.target.position.set(0, 0.5, 0); S.add(l, l.target); return l; };   // portée limitée : s'éteint juste après la voiture, pas de tache sur le sol devant
             carSpot(0xeef4ff, 2.6, 3, 5, 13, 0.3, 24);      // face : la caisse côté caméra
             carSpot(0x9db4ff, 1.5, -11, 4, 6, 0.3, 24);     // rappel bleu acier
             carSpot(0xffa25a, 3.6, -1, 3.2, -14, 0.32, 18.5);  // contre-jour doré du rideau
