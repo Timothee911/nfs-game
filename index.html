@@ -4170,7 +4170,7 @@
             const lineGlowTex = makeTex(64, 64, (g, w, hh) => { const gr = g.createLinearGradient(0, 0, 0, hh); gr.addColorStop(0, 'rgba(80,255,130,0)'); gr.addColorStop(0.5, 'rgba(80,255,130,0.55)'); gr.addColorStop(1, 'rgba(80,255,130,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, hh); }, 0, 0, true);
             const lineGlowMat = new THREE.MeshBasicMaterial({ map: lineGlowTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -7, polygonOffsetUnits: -7 });
             const atlLineMat = lineMat.clone(); atlLineMat.color.setRGB(1, 0.42, 0.05);   // ateliers : ligne orange
-            const atlGlowMat = lineGlowMat.clone(); atlGlowMat.color.setRGB(1, 0.55, 0.25);
+            const atlGlowMat = lineGlowMat.clone(); atlGlowMat.map = makeTex(64, 64, (g, w, hh) => { const gr = g.createLinearGradient(0, 0, 0, hh); gr.addColorStop(0, 'rgba(255,140,40,0)'); gr.addColorStop(0.5, 'rgba(255,140,40,0.6)'); gr.addColorStop(1, 'rgba(255,140,40,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, hh); }, 0, 0, true);
             sites.forEach(h => {
                 const R = h.R, i = h.i;
                 // Niveau du sol : le plus haut des coins, le soubassement en béton rattrape la pente
@@ -6013,7 +6013,8 @@
                 [(x, yy) => { g.fillStyle = '#cfc6b6'; g.strokeStyle = 'rgba(40,36,30,0.8)'; g.lineWidth = 1.2 * u; g.fillRect(x - 8 * u, yy - 6 * u, 7 * u, 12 * u); g.strokeRect(x - 8 * u, yy - 6 * u, 7 * u, 12 * u); g.fillStyle = '#8f9aa6'; g.fillRect(x + 1 * u, yy - 9 * u, 7 * u, 15 * u); g.strokeRect(x + 1 * u, yy - 9 * u, 7 * u, 15 * u); }, 'Ville : immeubles et tours']
             ];
             g.lineCap = 'round';
-            leg.forEach(([icon, s]) => { icon(lx + 10 * u, y - 5 * u); g.fillStyle = '#e8e8e4'; g.font = FONT(500, 17 * u); g.fillText(s, lx + 32 * u, y); y += 25 * u; });
+            const lh = Math.max(20 * u, Math.min(25 * u, (H - 118 * u - y) / leg.length));   // interligne : la légende s'arrête au-dessus des commandes
+            leg.forEach(([icon, s]) => { icon(lx + 10 * u, y - 5 * u); g.fillStyle = '#e8e8e4'; g.font = FONT(500, 17 * u); g.fillText(s, lx + 32 * u, y); y += lh; });
             // Commandes de la carte
             const cap = (t, x, yy) => { g.font = FONT(700, 13 * u); const w = g.measureText(t).width + 12 * u; g.fillStyle = '#e9e9e9'; roundRect(g, x, yy - 14 * u, w, 19 * u, 5 * u); g.fill(); g.fillStyle = '#111'; g.fillText(t, x + 6 * u, yy); return x + w + 6 * u; };
             const hint = (ks, label, yy) => { let x = lx; ks.forEach(k => { x = cap(k, x, yy); }); g.fillStyle = '#b9bcc0'; g.font = FONT(500, 16 * u); g.fillText(label, x + 4 * u, yy); };
