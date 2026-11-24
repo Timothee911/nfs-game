@@ -1631,6 +1631,7 @@
             S.children.filter(o => o.isHemisphereLight).forEach(o => { o.color.set(0x3a4a66); o.groundColor.set(0x0c0a08); o.intensity = 0.32; });
             keyLight.visible = fillLight.visible = frontLight.visible = false;
             topLight.visible = false;   // remplacé par les 3 spots du plafond
+            previewCar.traverse(o => { if(o.isSpotLight) o.visible = false; });   // phares de l'ancienne voiture dessinée : ils traçaient une bande blanche sur le sol
             const carSpot = (col, I, x, y, z, ang) => { const l = new THREE.SpotLight(col, I, 40, ang, 0.5, 0); l.position.set(x, y, z); l.target.position.set(0, 0.5, 0); S.add(l, l.target); return l; };
             carSpot(0xeef4ff, 2.0, 3, 5, 13, 0.3);      // face : la caisse côté caméra
             carSpot(0x9db4ff, 1.1, -11, 4, 6, 0.3);     // rappel bleu acier
