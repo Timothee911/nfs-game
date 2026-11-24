@@ -73,10 +73,10 @@
         .h-pos .p small { font-size: 1.5em; font-weight: 600; text-align: center; line-height: 1; }
         .h-pos .p small::after { content: ''; display: block; width: 1em; height: 0.8em; margin: 0.25em auto 0; background: #f4f4f0; clip-path: polygon(0 0, 100% 0, 100% 60%, 50% 100%, 0 60%); }
         .h-pos .p b { font-size: 5.6em; font-weight: 600; line-height: 1; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
-        .h-heat { position: absolute; right: 100%; top: 0; height: 7.6em; margin-right: 0.8em; display: flex; flex-direction: column-reverse; justify-content: space-between; padding: 0.35em 0; }
-        .h-heat i { display: block; width: 2.6em; height: 0.95em; transform: skewX(-14deg); background: rgba(205,212,220,0.3); transition: background 0.25s, box-shadow 0.25s; }
-        .h-heat i.on { background: #ff3b30; box-shadow: 0 0 0.6em rgba(255,59,48,0.75); }
-        .h-heat.flash i.on { animation: heat-blink 0.8s steps(2) infinite; }
+        .h-wanted { position: absolute; right: 100%; top: 0; height: 7.6em; margin-right: 0.8em; display: flex; flex-direction: column-reverse; justify-content: space-between; padding: 0.35em 0; }
+        .h-wanted i { display: block; width: 2.6em; height: 0.95em; transform: skewX(-14deg); background: rgba(205,212,220,0.3); transition: background 0.25s, box-shadow 0.25s; }
+        .h-wanted i.on { background: #ff3b30; box-shadow: 0 0 0.6em rgba(255,59,48,0.75); }
+        .h-wanted.flash i.on { animation: heat-blink 0.8s steps(2) infinite; }
         @keyframes heat-blink { 50% { background: #2f7bff; box-shadow: 0 0 0.6em rgba(47,123,255,0.75); } }
         .h-obj { position: absolute; right: 6.4em; top: 27.6em; list-style: none; display: flex; flex-direction: column; align-items: flex-end; gap: 0.35em; }
         .h-obj li { display: flex; align-items: center; gap: 0.9em; height: 2.5em; padding: 0 0.9em 0 1.4em; background: rgba(16,18,22,0.6); }
@@ -681,7 +681,7 @@
         <div class="h-top"><span class="h-heat" title="Niveau de la voiture"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-3 2-4 2-7 2 1 3 3 3 5 1-1 1-3 0-8z"/></svg><b id="h-heat">1</b></span><span class="h-sp"><b id="h-sp">0</b><i>SP</i></span></div>
         <div class="h-chain" id="h-chain"><span class="l"><b id="hc-label"></b><i id="hc-pts"></i></span><span class="x"><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="17" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="3"/><circle id="hc-ring" cx="20" cy="20" r="17" fill="none" stroke="#fff" stroke-width="3" stroke-dasharray="106.8" stroke-dashoffset="0" transform="rotate(-90 20 20)"/></svg><b id="hc-mult">×1</b></span><em id="hc-total"></em></div>
         <div id="mission-toast"><b id="mt-title"></b><span id="mt-text"></span><em id="mt-sp"></em></div>
-        <div class="h-pos"><div class="p"><small>KM</small><b id="h-km">0,0</b></div><div class="h-heat" id="h-heat" title="Niveau de poursuite"><i></i><i></i><i></i><i></i><i></i></div></div>
+        <div class="h-pos"><div class="p"><small>KM</small><b id="h-km">0,0</b></div><div class="h-wanted" id="h-wanted" title="Niveau de poursuite"><i></i><i></i><i></i><i></i><i></i></div></div>
         <ul class="h-obj" id="h-obj"></ul>
         <div class="h-dash"><svg id="dash" viewBox="0 0 300 220" aria-hidden="true"></svg></div>
         <div id="h-hint"></div>
@@ -7092,7 +7092,7 @@
         function gpHud() {
             // Poursuite
             const pu = COP.lvl > 0;
-            const heat = $('h-heat');
+            const heat = $('h-wanted');
             if(heat.dataset.l !== String(COP.lvl)) {
                 heat.dataset.l = String(COP.lvl);
                 heat.querySelectorAll('i').forEach((e, i) => e.classList.toggle('on', i < COP.lvl));
