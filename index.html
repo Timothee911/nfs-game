@@ -623,6 +623,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>window.THREE || document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"><\/script>');</script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="lib/meshopt_decoder.js"></script>
+    <script>function newGLTFLoader(){ const l = new THREE.GLTFLoader(); if(window.MeshoptDecoder) l.setMeshoptDecoder(window.MeshoptDecoder); return l; }</script>
     
     <script>
         if (typeof THREE === 'undefined') {
@@ -1786,7 +1788,7 @@
             const D = carDef(id);
             const p = new Promise((ok, ko) => {
                 if(!THREE.GLTFLoader) return ko(new Error('GLTFLoader absent'));
-                new THREE.GLTFLoader().load(D.url, (gltf) => { try { ok(prepCar(gltf, D)); } catch (e) { ko(e); } }, undefined, ko);
+                newGLTFLoader().load(D.url, (gltf) => { try { ok(prepCar(gltf, D)); } catch (e) { ko(e); } }, undefined, ko);
             });
             p.catch(e => { carCache.delete(id); console.warn(D.url + ' non chargé : ', e); });
             carCache.set(id, p);
@@ -2951,7 +2953,7 @@
             return max;
         }
         // Chargement du modèle : fusion des quelque 2 800 morceaux par matière, puis relevé du sol et des murs (grille de 2 m)
-        if(modelCity && THREE.GLTFLoader) new THREE.GLTFLoader().load('ville.glb', (gltf) => {
+        if(modelCity && THREE.GLTFLoader) newGLTFLoader().load('ville.glb', (gltf) => {
             const C = modelCity, root = gltf.scene, SC = 100;   // le modèle est en hectomètres
             root.updateMatrixWorld(true);
             const M = new THREE.Matrix4().makeScale(SC, SC, SC), lots = new Map(), bb = new THREE.Box3(), cc = new THREE.Vector3();
@@ -4910,7 +4912,7 @@
                 t.T = P.T;
                 t.m.children[0].scale.set(P.T.W + 0.4, 1, P.T.L + 0.6);   // ombre de contact
             }
-            if(THREE.GLTFLoader) CIVILS.forEach((C, ci) => new THREE.GLTFLoader().load(C.url, (gltf) => {
+            if(THREE.GLTFLoader) CIVILS.forEach((C, ci) => newGLTFLoader().load(C.url, (gltf) => {
                 try {
                     const P = prepCivil(gltf, C);
                     traffic.forEach((t, k) => { if(k % CIVILS.length === ci) dressCivil(t, P); });
