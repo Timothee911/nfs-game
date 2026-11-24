@@ -2237,6 +2237,7 @@
             g.restore();
             g.textAlign = 'center'; g.textBaseline = 'middle';
             cities.forEach(C => { const q = tr(C.x, C.z); g.font = FONT(700, (C.metro ? 20 : 16) * u); g.lineWidth = 4 * u; g.strokeStyle = 'rgba(8,10,12,0.85)'; g.strokeText(C.name.toUpperCase(), q[0], q[1]); g.fillStyle = '#fff'; g.fillText(C.name.toUpperCase(), q[0], q[1]); });
+            ateliers.forEach(h => { const q = tr(h.x, h.z); g.shadowColor = 'rgba(0,0,0,0.6)'; g.shadowBlur = 6 * u; atlIcon(g, q[0], q[1], 7 * u); g.shadowBlur = 0; });   // ateliers : repères seulement (on n'y apparaît pas)
             hides.forEach((h, k) => {
                 const q = tr(h.x, h.z), hov = k === gm.hover, pick = k === spawnPick, s = (hov ? 9.5 : 7.5) * u;
                 if(pick) { g.strokeStyle = '#e8b33c'; g.lineWidth = 2.5 * u; g.beginPath(); g.arc(q[0], q[1], 17 * u, 0, 7); g.stroke(); }
@@ -2998,7 +2999,7 @@
                 if(sw && ad > Q.R.hw + 0.15 && ad < Q.R.hw + 3.4 && (sw[Q.i] & (Q.d > 0 ? 2 : 1))) lift = LIFT + 0.14;
             }
             const h = hAt(x, z);
-            for(let k = 0; k < hides.length; k++) { const a = apronY(hides[k], x, z, h); if(a !== null) return Math.max(a, h + lift); }
+            for(let k = 0; k < sites.length; k++) { const a = apronY(sites[k], x, z, h); if(a !== null) return Math.max(a, h + lift); }
             if(modelCity && modelCity.fg) { const g = modelGround(modelCity, x, z); if(g !== null) return Math.max(g, h + lift); }
             return h + lift;
         }
@@ -3188,6 +3189,47 @@
             hides.push({ R, i, sd, name: HIDE_NAMES[k], x: R.px[i] - R.tz[i] * l, z: R.pz[i] + R.tx[i] * l, dist: routeField(R.g0 + i),
                 bx: R.px[i] + ox * (R.hw + HIDE_SET), bz: R.pz[i] + oz * (R.hw + HIDE_SET), ux: oz, uz: -ox, vx: -ox, vz: -oz });
         });
+        // Ateliers : même bâtiment qu'une planque, avec une ligne orange devant le rideau. La toucher répare la voiture
+        // et remplit la nitro, sans quitter la partie. Emplacements choisis automatiquement : ligne droite sans carrefour,
+        // terrain assez plat, loin des villes, des lacs, des autres routes, des planques et des autres ateliers.
+        const ateliers = [];
+        const ATL_NAMES = ['Atelier de la Rocade', 'Atelier des Pins', 'Atelier du Ravin', 'Atelier des Crêtes'];
+        {
+            const cand = [];
+            roads.forEach(R => {
+                if(R.len < 1200) return;
+                for(let i = 40; i < R.n - 40; i += 8) {
+                    let ok = true;
+                    for(let j = i - 36; j <= i + 36 && ok; j++) if(R.jn[j]) ok = false;
+                    if(!ok) continue;
+                    let da = Math.abs(Math.atan2(R.tx[i + 14], R.tz[i + 14]) - Math.atan2(R.tx[i - 14], R.tz[i - 14])); if(da > Math.PI) da = 2 * Math.PI - da;
+                    if(da > 0.2) continue;   // ligne droite
+                    for(const sd of [1, -1]) {
+                        const ox = -R.tz[i] * sd, oz = R.tx[i] * sd, bx = R.px[i] + ox * (R.hw + HIDE_SET), bz = R.pz[i] + oz * (R.hw + HIDE_SET);
+                        if(Math.hypot(bx, bz) > WORLD_R - 500) continue;
+                        if(urbanAt(bx, bz) > 0 || cities.some(C => Math.hypot(C.x - bx, C.z - bz) < (C.half || 300) * 2 + 400)) continue;
+                        if(lakes.some(L => Math.hypot(L.x - bx, L.z - bz) < L.r + 120)) continue;
+                        roadAt(bx, bz, R); if(Q.R && Q.dist < 60) continue;   // aucune autre route à côté
+                        let lo = 1e9, hi = -1e9;
+                        for(const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1], [0, 0], [0, 1.6]]) { const hh = hAt(bx + R.tx[i] * a * 10 + ox * b * 8, bz + R.tz[i] * a * 10 + oz * b * 8); lo = Math.min(lo, hh); hi = Math.max(hi, hh); }
+                        if(hi - lo > 5) continue;   // terrain trop pentu
+                        cand.push({ R, i, sd, ox, oz, bx, bz, slope: hi - lo });
+                    }
+                }
+            });
+            const taken = hides.map(H => [H.bx, H.bz]);
+            for(let k = 0; k < ATL_NAMES.length; k++) {
+                let best = null, bs = -1;
+                for(const c of cand) { let m = 1e9; for(const [x, z] of taken) m = Math.min(m, Math.hypot(x - c.bx, z - c.bz)); const sc = m - c.slope * 60; if(m > 1400 && sc > bs) { bs = sc; best = c; } }
+                if(!best) break;
+                const { R, i, sd, ox, oz } = best, l = sd * (R.hw + 1.9);
+                for(let j = Math.max(0, i - 14); j <= Math.min(R.n, i + 14); j++) R.rail[j] = 0;
+                ateliers.push({ R, i, sd, atl: true, cd: 0, name: ATL_NAMES[k], x: R.px[i] - R.tz[i] * l, z: R.pz[i] + R.tx[i] * l,
+                    bx: best.bx, bz: best.bz, ux: oz, uz: -ox, vx: -ox, vz: -oz });
+                taken.push([best.bx, best.bz]);
+            }
+        }
+        const sites = hides.concat(ateliers);   // planques et ateliers : terrain aplani, parvis, bâtiment, murs
         // Dévers : le terrain penche jusqu'à 6° en travers des routes ; une vraie route est presque plate (on garde 20 % de la pente).
         // Le côté amont reste au ras du terrain, le côté aval est rehaussé (remblai). Pas de correction aux carrefours ni devant les planques.
         roads.forEach(R => {
@@ -3195,7 +3237,7 @@
             for(let i = 0; i < N; i++) { const nx = -R.tz[i], nz = R.tx[i]; sl[i] = (hAt(R.px[i] + nx * hw, R.pz[i] + nz * hw) - hAt(R.px[i] - nx * hw, R.pz[i] - nz * hw)) / (2 * hw); }
             const lock = new Uint8Array(N);
             for(let i = 0; i < R.n; i++) if(R.jn[i]) lock[i] = 1;
-            hides.forEach(H => { if(H.R === R) for(let j = H.i - 20; j <= H.i + 20; j++) lock[R.closed ? (j + R.n) % R.n : clamp(j, 0, N - 1)] = 1; });
+            sites.forEach(H => { if(H.R === R) for(let j = H.i - 20; j <= H.i + 20; j++) lock[R.closed ? (j + R.n) % R.n : clamp(j, 0, N - 1)] = 1; });
             if(!R.closed) { lock[0] = lock[N - 1] = 1; }
             const at = (j) => R.closed ? lock[((j % R.n) + R.n) % R.n] : lock[clamp(j, 0, N - 1)];
             for(let i = 0; i < N; i++) { let d = 99; for(let k = 0; k <= 10 && d === 99; k++) if(at(i - k) || at(i + k)) d = k; f[i] = sstep(0, 10, d); }
@@ -3669,7 +3711,7 @@
                     g.stroke();
                 });
                 g.fillStyle = 'rgba(255,255,255,0.75)';
-                hides.forEach(H => { g.beginPath(); g.arc((H.bx / RM_SPAN + 0.5) * RM_N, (H.bz / RM_SPAN + 0.5) * RM_N, 22 * rmPx, 0, 7); g.fill(); });
+                sites.forEach(H => { g.beginPath(); g.arc((H.bx / RM_SPAN + 0.5) * RM_N, (H.bz / RM_SPAN + 0.5) * RM_N, 22 * rmPx, 0, 7); g.fill(); });
             }), 0);
             { const tmp = new Float32Array(RM_N * RM_N);   // deux flous en boîte séparables
                 for(let pass = 0; pass < 2; pass++) {
@@ -3972,7 +4014,7 @@
                             prevPole = cur;
                         }
                     }
-                    if(R.jn[i] || hides.some(H => H.R === R && Math.abs(H.i - i) < 16)) continue;   // rien sur le parvis des planques
+                    if(R.jn[i] || sites.some(H => H.R === R && Math.abs(H.i - i) < 16)) continue;   // rien sur le parvis des planques
                     if(i % 12 === 6 && !R.rail[i]) [-1, 1].forEach(sd => { const l = sd * (hw + 1.3); delin.push(R.px[i] + nx * l, R.pz[i] + nz * l, Math.atan2(R.tx[i], R.tz[i])); });
                     if(i % 6 === 0 && i >= 6 && i < R.n - 6) {
                         const turn = angDiff(Math.atan2(R.tx[i + 5], R.tz[i + 5]), Math.atan2(R.tx[i - 5], R.tz[i - 5])) / (10 * R.step);   // courbure (1/m), positive = virage à gauche
@@ -4055,6 +4097,11 @@
                 g.font = 'italic 800 58px "Barlow Condensed", "Arial Narrow", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
                 g.shadowColor = '#4dff7a'; g.shadowBlur = 18; g.fillStyle = '#7dffa0'; g.fillText('PLANQUE', w / 2, h / 2 + 3);
             });
+            const atlSignTex = T(512, 96, (g, w, h) => {
+                g.fillStyle = '#0d1012'; g.fillRect(0, 0, w, h); g.strokeStyle = '#3a2a1c'; g.lineWidth = 6; g.strokeRect(3, 3, w - 6, h - 6);
+                g.font = 'italic 800 58px "Barlow Condensed", "Arial Narrow", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+                g.shadowColor = '#ff7a1a'; g.shadowBlur = 18; g.fillStyle = '#ffb066'; g.fillText('ATELIER', w / 2, h / 2 + 3);
+            });
             const fenceTex = T(64, 64, (g, w, h) => { g.clearRect(0, 0, w, h); g.strokeStyle = 'rgba(170,176,180,1)'; g.lineWidth = 2.2; for(let k = -64; k < 128; k += 16) { g.beginPath(); g.moveTo(k, 0); g.lineTo(k + 64, 64); g.stroke(); g.beginPath(); g.moveTo(k + 64, 0); g.lineTo(k, 64); g.stroke(); } });
             const glowTex = radialTex([[0, 'rgba(255,240,210,1)'], [0.25, 'rgba(255,220,170,0.55)'], [1, 'rgba(255,200,140,0)']]);
             const poolTex = radialTex([[0, 'rgba(255,225,180,0.55)'], [0.5, 'rgba(255,215,165,0.2)'], [1, 'rgba(255,210,160,0)']]);
@@ -4072,6 +4119,7 @@
                 neon: new THREE.MeshBasicMaterial({ color: new THREE.Color(4, 3.8, 3.4) }),
                 lampOn: new THREE.MeshBasicMaterial({ color: new THREE.Color(5, 4.2, 3) }),
                 sign: new THREE.MeshBasicMaterial({ map: signTex, color: new THREE.Color(1.6, 1.6, 1.6) }),
+                atlSign: new THREE.MeshBasicMaterial({ map: atlSignTex, color: new THREE.Color(1.6, 1.6, 1.6) }),
                 win: new THREE.MeshBasicMaterial({ color: new THREE.Color(1.5, 1.1, 0.6) }),
                 dark: new THREE.MeshStandardMaterial({ color: lin(0x1a1c1e), roughness: 0.7 }),
                 fence: new THREE.MeshStandardMaterial({ map: fenceTex, alphaTest: 0.5, side: THREE.DoubleSide, metalness: 0.6, roughness: 0.5 }),
@@ -4121,7 +4169,9 @@
             const lineMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.1, 1, 0.3), toneMapped: false, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 });
             const lineGlowTex = makeTex(64, 64, (g, w, hh) => { const gr = g.createLinearGradient(0, 0, 0, hh); gr.addColorStop(0, 'rgba(80,255,130,0)'); gr.addColorStop(0.5, 'rgba(80,255,130,0.55)'); gr.addColorStop(1, 'rgba(80,255,130,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, hh); }, 0, 0, true);
             const lineGlowMat = new THREE.MeshBasicMaterial({ map: lineGlowTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -7, polygonOffsetUnits: -7 });
-            hides.forEach(h => {
+            const atlLineMat = lineMat.clone(); atlLineMat.color.setRGB(1, 0.42, 0.05);   // ateliers : ligne orange
+            const atlGlowMat = lineGlowMat.clone(); atlGlowMat.color.setRGB(1, 0.55, 0.25);
+            sites.forEach(h => {
                 const R = h.R, i = h.i;
                 // Niveau du sol : le plus haut des coins, le soubassement en béton rattrape la pente
                 let y0 = -1e9;
@@ -4170,7 +4220,7 @@
                     const c = add(grp, G.cone, M.cone, lx, DH + 1.0 - 2.3, D / 2 + 1.0); c.renderOrder = 3;
                     add(grp, G.pool, M.pool, lx, 0.07, D / 2 + 2.6);
                 });
-                add(grp, G.sign, M.sign, 0, DH + 1.55, D / 2 + 0.05);
+                add(grp, G.sign, h.atl ? M.atlSign : M.sign, 0, DH + 1.55, D / 2 + 0.05);
                 // Accessoires : fûts, palettes, pneus, benne, grillage, mât d'éclairage
                 add(grp, drums, M.props, -W / 2 - 1.2, 0, D / 2 - 1.5, 0, 0.4, 0, true);
                 add(grp, pallets, M.props, W / 2 + 1.5, 0, -1.5, 0, 0.2, 0, true);
@@ -4201,9 +4251,9 @@
                 const lz = D / 2 + HIDE_LINE, lw = h.bx + h.vx * lz, lzw = h.bz + h.vz * lz;
                 let ly = -1e9;
                 for(let a = -1; a <= 1; a++) for(let b = -1; b <= 1; b++) { const x = lw + h.ux * a * DW / 2 + h.vx * b * 0.4, z = lzw + h.uz * a * DW / 2 + h.vz * b * 0.4; ly = Math.max(ly, (apronY(h, x, z, hAt(x, z)) ?? hAt(x, z)) - y0 + 0.03); }
-                const line = new THREE.Mesh(new THREE.PlaneGeometry(DW - 0.4, 0.45).rotateX(-Math.PI / 2), lineMat);
+                const line = new THREE.Mesh(new THREE.PlaneGeometry(DW - 0.4, 0.45).rotateX(-Math.PI / 2), h.atl ? atlLineMat : lineMat);
                 line.position.set(0, ly, lz); line.renderOrder = 2; grp.add(line);
-                const glow = new THREE.Mesh(new THREE.PlaneGeometry(DW + 0.6, 2.2).rotateX(-Math.PI / 2), lineGlowMat);
+                const glow = new THREE.Mesh(new THREE.PlaneGeometry(DW + 0.6, 2.2).rotateX(-Math.PI / 2), h.atl ? atlGlowMat : lineGlowMat);
                 glow.position.set(0, ly + 0.005, lz); glow.renderOrder = 3; grp.add(glow);
                 h.lineX = lw; h.lineZ = lzw;
             });
@@ -4347,7 +4397,7 @@
                         if(Q.R && Q.dist < Q.R.hw + 4.1) return false;
                         if(C.model ? !inHole(...wToM(C, x, z)) : (Math.abs(a) === 2 || Math.abs(b) === 2) && cityUrban(C, x, z) < 0.7) return false;   // ville 3D : uniquement dans le trou du centre
                     }
-                    for(const H of hides) if(Math.hypot(H.bx - cx, H.bz - cz) < 50 + Math.max(W, D) / 2) return false;
+                    for(const H of sites) if(Math.hypot(H.bx - cx, H.bz - cz) < 50 + Math.max(W, D) / 2) return false;
                     return raster(rect(cx, cz, ux, uz, W / 2 + 1.2, D / 2 + 1.2), true);
                 };
                 const place = (cx, cz, ux, uz, W, D, H, kind) => {
@@ -4565,7 +4615,7 @@
                 if(!sparse && vnoise(x / 150, z / 150 + 9) < 0.22) return;                      // clairières
                 roadAt(x, z);
                 if(Q.R && Q.dist < Q.R.hw + 6.5) return;
-                for(let k = 0; k < hides.length; k++) { const H = hides[k]; if((Math.abs(H.x - x) < 28 && Math.abs(H.z - z) < 28) || Math.hypot(H.bx - x, H.bz - z) < 30) return; }
+                for(let k = 0; k < sites.length; k++) { const H = sites[k]; if((Math.abs(H.x - x) < 28 && Math.abs(H.z - z) < 28) || Math.hypot(H.bx - x, H.bz - z) < 30) return; }
                 for(let k = 0; k < lakes.length; k++) { const L = lakes[k]; if(Math.hypot(L.x - x, L.z - z) < L.r && hAt(x, z) < L.level + 0.8) return; }
                 const conif = rnd() < 0.15 + 0.7 * sstep(0.35, 0.65, vnoise(x / 420 + 7, z / 420)), q = rnd();
                 const vr = conif ? (q < 0.7 ? 0 : 1) : (q < 0.42 ? 2 : q < 0.66 ? 3 : q < 0.82 ? 4 : 5);
@@ -4589,7 +4639,7 @@
                 if(urbanAt(x, z) > 0) return;
                 roadAt(x, z);
                 if(Q.R && Q.dist < Q.R.hw + 3.6) return;
-                for(let k = 0; k < hides.length; k++) if(Math.hypot(hides[k].bx - x, hides[k].bz - z) < 26) return;   // rien ne pousse sur la planque
+                for(let k = 0; k < sites.length; k++) if(Math.hypot(sites[k].bx - x, sites[k].bz - z) < 26) return;   // rien ne pousse sur la planque
                 if(q < 0.5) { const hg = 0.65 + rnd() * 0.6; plant(x, z, hg, hg * (2.6 + rnd()), 7, 0.85 + rnd() * 0.3); }
                 else { const hg = 1.1 + rnd() * 1.5; plant(x, z, hg, hg * (2.4 + rnd() * 0.8), 6, 0.8 + rnd() * 0.4); }
             }); });
@@ -4685,7 +4735,7 @@
                     roadAt(x, z);
                     if(Q.R && Math.abs(Q.d) < Q.R.hw + 2.6 && Q.dist < Q.R.hw + 8) continue;
                     let skip = false;
-                    for(const H of hides) { const dx = x - H.bx, dz = z - H.bz, lx = dx * H.ux + dz * H.uz, lz = dx * H.vx + dz * H.vz; if(Math.abs(lx) < HIDE_W / 2 + 4 && lz > -HIDE_D / 2 - 4 && lz < HIDE_SET + 6) { skip = true; break; } }
+                    for(const H of sites) { const dx = x - H.bx, dz = z - H.bz, lx = dx * H.ux + dz * H.uz, lz = dx * H.vx + dz * H.vz; if(Math.abs(lx) < HIDE_W / 2 + 4 && lz > -HIDE_D / 2 - 4 && lz < HIDE_SET + 6) { skip = true; break; } }
                     if(skip) continue;
                     if(urbanAt(x, z) > 0.05) continue;
                     const y = hAt(x, z);
@@ -5288,7 +5338,7 @@
                     }
                 }
             }
-            for(const h of hides) {   // murs de la planque
+            for(const h of sites) {   // murs de la planque ou de l'atelier
                 const dx = PL.x - h.bx, dz = PL.z - h.bz, lx = dx * h.ux + dz * h.uz, lz = dx * h.vx + dz * h.vz, ex = HIDE_W / 2 + 1.1, ez = HIDE_D / 2 + 1.1;
                 if(Math.abs(lx) < ex && Math.abs(lz) < ez) {
                     const px = ex - Math.abs(lx), pz = ez - Math.abs(lz);
@@ -5462,6 +5512,19 @@
                     showBadge();
                 }
             }
+            // Atelier : toucher la ligne orange répare la voiture et remplit la nitro (puis 20 s d'attente pour cet atelier)
+            for(const h of ateliers) {
+                if(h.cd > 0) h.cd -= dt;
+                if(h.lineX === undefined || PL.wreck > 0 || Math.hypot(h.lineX - PL.x, h.lineZ - PL.z) > 12) { h.touch = false; continue; }
+                const fx = -Math.sin(PL.yaw), fz = -Math.cos(PL.yaw);
+                let on = false;
+                for(const e of [2.2, -2.2]) {
+                    const dx = PL.x + fx * e - h.bx, dz = PL.z + fz * e - h.bz, lx = dx * h.ux + dz * h.uz, lz = dx * h.vx + dz * h.vz;
+                    if(Math.abs(lx) < HIDE_DOOR / 2 && lz < HIDE_D / 2 + HIDE_LINE + 0.25) on = true;
+                }
+                if(on && !h.touch) atelierService(h);
+                h.touch = on;
+            }
             // Planque : s'y arrêter ramène au garage
             let near = 1e9;
             // Entrée au garage : l'avant ou l'arrière de la voiture touche la ligne verte devant la porte d'une planque
@@ -5588,7 +5651,7 @@
             for(const c of treeChunks) { const dx = c.cx - PL.x, dz = c.cz - PL.z, d2 = dx * dx + dz * dz; c.hi.visible = d2 < 810000; if(c.lo) c.lo.visible = d2 >= 810000 && d2 < 3300 * 3300; }
             for(const c of terrChunks) { const dx = c.cx - PL.x, dz = c.cz - PL.z, d2 = dx * dx + dz * dz, lv = d2 < 2250000 ? 0 : d2 < 11560000 ? 1 : 2; for(let k = 0; k < 3; k++) c.ms[k].visible = k === lv; }
             for(const c of roadChunks) { const dx = c.cx - PL.x, dz = c.cz - PL.z, near = dx * dx + dz * dz < 640000; c.hi.visible = near; c.lo.visible = !near; }
-            for(const h of hides) if(h.grp) { const dx = h.bx - PL.x, dz = h.bz - PL.z; h.grp.visible = dx * dx + dz * dz < 1800 * 1800; }
+            for(const h of sites) if(h.grp) { const dx = h.bx - PL.x, dz = h.bz - PL.z; h.grp.visible = dx * dx + dz * dz < 1800 * 1800; }
             for(const C of cities) if(C.palms) { const v = Math.hypot(C.x - PL.x, C.z - PL.z) < C.half * 4 + 900; C.palms[0].visible = C.palms[1].visible = v; }
             if(modelCity && modelCity.grp) modelCity.grp.visible = Math.hypot(modelCity.x - PL.x, modelCity.z - PL.z) < 4200;
             treeUni.uTime.value = time;   // le vent dans les arbres
@@ -5714,6 +5777,25 @@
                 g.shadowBlur = 0;
             }
         }
+        // Atelier : réparation complète, nitro pleine, dégâts visibles effacés
+        function atelierService(h) {
+            if(h.cd > 0) { toast(h.name, 'Disponible dans ' + Math.ceil(h.cd) + ' s', ''); return; }
+            const hp = PL.hp, n2o = PL.nitro;
+            if(hp >= 99.5 && n2o >= 99.5) { toast(h.name, 'Voiture en parfait état, nitro pleine', ''); return; }
+            PL.hp = 100; PL.nitro = 100;
+            if(typeof dmgRepair === 'function') dmgRepair();
+            h.cd = 20;
+            toast(h.name, 'Voiture réparée (+' + Math.round(100 - hp) + ' %) · nitro pleine', '');
+        }
+        const atlIcon = (g, x, y, s) => {   // repère d'atelier : pastille orange et clé plate
+            g.fillStyle = '#ff8a2a'; g.beginPath(); g.arc(x, y, s * 1.25, 0, 7); g.fill();
+            g.strokeStyle = '#111317'; g.lineWidth = s * 0.22; g.stroke();
+            g.save(); g.translate(x, y); g.rotate(-0.8); g.fillStyle = '#16181c';
+            g.fillRect(-s * 0.16, -s * 0.2, s * 0.32, s * 0.95);
+            g.beginPath(); g.arc(0, -s * 0.42, s * 0.42, 0, 7); g.fill();
+            g.fillStyle = '#ff8a2a'; g.fillRect(-s * 0.13, -s * 0.95, s * 0.26, s * 0.5);
+            g.restore();
+        };
         const pinIcon = (g, x, y, s, col) => {   // repère de planque
             g.fillStyle = col; g.strokeStyle = '#0b1a10'; g.lineWidth = s * 0.16;
             g.beginPath(); g.moveTo(x, y); g.bezierCurveTo(x - s * 0.9, y - s * 1.1, x - s * 0.7, y - s * 2.1, x, y - s * 2.1); g.bezierCurveTo(x + s * 0.7, y - s * 2.1, x + s * 0.9, y - s * 1.1, x, y); g.fill(); g.stroke();
@@ -5772,6 +5854,7 @@
                 if(k < 1 && !dest) continue;
                 pinIcon(g, c + dx * k, c + dy * k + (k < 1 ? 5 : 0), dest ? 7.5 : 6, '#52e06c');
             }
+            for(const h of ateliers) { const q = tr(h.x, h.z); if(Math.hypot(q[0] - c, q[1] - c) < RAD - 8) atlIcon(g, q[0], q[1], 5.5); }
             g.fillStyle = '#ffffff'; g.strokeStyle = '#101216'; g.lineWidth = 1.8; g.lineJoin = 'round';
             g.save(); g.translate(c, cy); g.rotate(rot - PL.yaw);
             g.beginPath(); g.moveTo(0, -13); g.lineTo(8.5, 9); g.lineTo(0, 4.5); g.lineTo(-8.5, 9); g.closePath(); g.fill(); g.stroke();
@@ -5866,6 +5949,16 @@
                 g.strokeStyle = dest ? '#52e06c' : 'rgba(120,230,140,0.55)'; g.lineWidth = 1.3 * u; g.stroke();
                 g.fillStyle = '#eafaee'; g.fillText(h.name, q[0], ty + 1 * ic);
             });
+            ateliers.forEach(h => {
+                const q = tr(h.x, h.z), s = 7 * ic;
+                if(q[0] < panel * 0.6 || q[0] > W + 60 || q[1] < -60 || q[1] > H + 60) return;
+                g.shadowColor = 'rgba(0,0,0,0.6)'; g.shadowBlur = 6 * u; atlIcon(g, q[0], q[1], s); g.shadowBlur = 0;
+                g.font = FONT(600, 15 * ic);
+                const tw = g.measureText(h.name).width + 18 * ic, ty = q[1] - s * 2.1 - 12 * ic;
+                g.fillStyle = 'rgba(20,12,6,0.86)'; roundRect(g, q[0] - tw / 2, ty - 11 * ic, tw, 22 * ic, 11 * ic); g.fill();
+                g.strokeStyle = 'rgba(255,150,70,0.6)'; g.lineWidth = 1.3 * u; g.stroke();
+                g.fillStyle = '#fff1e4'; g.fillText(h.name, q[0], ty + 1 * ic);
+            });
             gpBigMap(g, tr, ic, u, panel, W, H);   // défis chronométrés, police en poursuite
             // Voiture : halo pulsé, cône de vision, flèche
             const q = tr(PL.x, PL.z), pr = (now * 0.9) % 1;
@@ -5904,11 +5997,12 @@
             });
             g.textAlign = 'left';
             // Légende
-            y = Math.max(y + 24 * u, H - 355 * u);
+            y = Math.max(y + 24 * u, H - 385 * u);
             g.fillStyle = '#f4f4f0'; g.font = FONT(600, 15 * u); g.fillText('LÉGENDE', lx, y); y += 30 * u;
             g.font = FONT(500, 17 * u);
             const leg = [
                 [(x, yy) => pinIcon(g, x, yy + 7 * u, 6 * u, '#52e06c'), 'Planque : retour au garage'],
+                [(x, yy) => atlIcon(g, x, yy, 6 * u), 'Atelier : réparation et nitro'],
                 [(x, yy) => radarIcon(g, x, yy, 6.5 * u, false), 'Radar à flasher'],
                 [(x, yy) => { g.fillStyle = EV_TYPES.sprint.css; g.beginPath(); g.arc(x, yy, 7 * u, 0, 7); g.fill(); g.fillStyle = '#0d0f12'; g.font = FONT(700, 11 * u); g.textAlign = 'center'; g.fillText('S', x, yy + 4 * u); g.textAlign = 'left'; g.font = FONT(500, 17 * u); }, 'Défi chronométré (E pour lancer)'],
                 [(x, yy) => { g.strokeStyle = 'rgba(22,25,29,0.9)'; g.lineWidth = 9 * u; g.beginPath(); g.moveTo(x - 10 * u, yy); g.lineTo(x + 10 * u, yy); g.stroke(); g.strokeStyle = '#f5d273'; g.lineWidth = 5 * u; g.stroke(); }, 'Rocade à quatre voies'],
