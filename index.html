@@ -696,7 +696,7 @@
         <div class="ph-top"><b>Mode photo</b><span>Filtre : <em id="ph-fil">Naturel</em></span><small id="ph-msg"></small></div>
         <div class="ph-keys"><span><kbd>Souris</kbd><kbd>Q</kbd><kbd>D</kbd><kbd>Z</kbd><kbd>S</kbd> tourner</span><span><kbd>Molette</kbd><kbd>+</kbd><kbd>-</kbd> zoom</span><span><kbd>F</kbd><kbd>Carré / X</kbd> filtre</span><span><kbd>Entrée</kbd><kbd>Croix / A</kbd> photo</span><span><kbd>P</kbd><kbd>Rond / B</kbd> quitter</span></div>
     </div>
-    <canvas id="bigmap" aria-label="Carte du comté"></canvas>
+    <canvas id="bigmap" aria-label="Carte du territoire"></canvas>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>window.THREE || document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"><\/script>');</script>
@@ -2186,7 +2186,7 @@
         });
         $('pl-styles').onclick = (e) => { const b = closest(e, 'button[data-s]'); if(!b) return; plateSet.sty = +b.dataset.s; store('nfsPlate', plateSet); renderPlate(); };
         // --- Carte : choisir sa planque de départ ---
-        const gm = { zoom: 1, cx: 0, cz: 0, mx: -1, my: -1, hover: -1, drag: null, ask: -1, img: null, roads: null };
+        const gm = { zoom: 1, cx: 500, cz: 100, mx: -1, my: -1, hover: -1, drag: null, ask: -1, img: null, roads: null };
         let spawnPick = -1;   // planque choisie sur la carte : départ de la prochaine sortie
         function gmImage() {
             const MN = 1024, HN = 256, c = document.createElement('canvas'); c.width = c.height = MN;
@@ -2201,13 +2201,19 @@
                 const nx = -gx * 3, nz = -gz * 3, nl = Math.hypot(nx, 1, nz), sh = clamp(0.62 + 0.5 * (nx * -0.55 + 0.7 + nz * -0.45) / nl, 0.45, 1.25);
                 let col = mix([96, 120, 74], [140, 140, 94], clamp(sstep(0.38, 0.72, vnoise(x / 900 + 5, z / 900)) * 0.7, 0, 1));
                 const ub = urbanAt(x, z); if(ub > 0) col = mix(col, [200, 194, 182], ub * 0.9);
-                const f = forestAt(x, z) * (1 - ub); if(f > 0.02) col = mix(col, [70, 96, 62], sstep(0.3, 0.7, f) * 0.75);
-                if(h > 80) col = mix(col, [150, 142, 130], sstep(80, 420, h));
+                const zv = zoneW(x, z), zV = zv[0], zM = zv[1], zD = zv[2], zF = zv[3];
+                const f = Math.min(1, forestAt(x, z) * (zV + zM * 0.9 * (h < 520 ? 1 : 0)) + zF * (0.55 + 0.45 * sstep(0.25, 0.6, vnoise(x / 500 + 2, z / 500)))) * (1 - ub);
+                if(f > 0.02) col = mix(col, [70, 96, 62], sstep(0.3, 0.7, f) * 0.75);
+                if(zD > 0.01) col = mix(col, SAND_MAP, zD * (1 - ub) * 0.95);
+                if(zM > 0.01) col = mix(col, SNOW_MAP, zM * (1 - ub * 0.6) * (0.9 - 0.35 * f));
+                if(h > 80) col = mix(col, [150, 142, 130], sstep(80, 420, h) * (1 - zM * 0.5));
                 col = mix(col, [240, 243, 247], sstep(840, 1000, h));
                 let r = col[0] * sh, g2 = col[1] * sh, b = col[2] * sh;
                 for(const L of lakes) { if(Math.hypot(L.x - x, L.z - z) < L.r && h < L.level) { r = 52; g2 = 110; b = 150; } }
-                const out = sstep(WORLD_R + 150, WORLD_R + 900, Math.hypot(x, z)) * 0.45;
-                const o = (j * MN + i) * 4; d[o] = r * (1 - out) * 0.78; d[o + 1] = g2 * (1 - out) * 0.78; d[o + 2] = (b * (1 - out) + out * 20) * 0.8; d[o + 3] = 255;
+                const sd = sdfAt(x, z), out = sstep(0, 500, -sd) * 0.7, ln = sd > 40 ? cellLine(x, z) * 0.5 : 0, edge = 1 - sstep(0, 1, Math.abs(sd) / (mc * 1.4));
+                const o = (j * MN + i) * 4; d[o] = (r * (1 - out) * 0.78) * (1 - ln) + 255 * ln; d[o + 1] = (g2 * (1 - out) * 0.78) * (1 - ln) + 255 * ln; d[o + 2] = ((b * (1 - out) + out * 20) * 0.8) * (1 - ln) + 255 * ln;
+                if(edge > 0) { d[o] += (255 - d[o]) * edge; d[o + 1] += (240 - d[o + 1]) * edge; d[o + 2] += (200 - d[o + 2]) * edge; }
+                d[o + 3] = 255;
             }
             g.putImageData(im, 0, 0);
             return c;
@@ -2216,10 +2222,10 @@
             const c = $('gmap'), dpr = Math.min(window.devicePixelRatio || 1, 2), W = Math.floor(c.clientWidth * dpr) || 1, H = Math.floor(c.clientHeight * dpr) || 1;
             if(c.width !== W) c.width = W;
             if(c.height !== H) c.height = H;
-            const sc0 = Math.min(W * 0.96, H * 0.8) / (2 * WORLD_R * 1.04);
+            const sc0 = Math.min(W * 0.96 / 27800, H * 0.8 / 20900);
             return { c, W, H, dpr, sc: sc0 * gm.zoom, ox: W / 2, oy: H * 0.52 };
         }
-        const gmClamp = () => { gm.zoom = clamp(gm.zoom, 1, 8); const lim = WORLD_R * (1 - 1 / gm.zoom); gm.cx = clamp(gm.cx, -lim, lim); gm.cz = clamp(gm.cz, -lim, lim); };
+        const gmClamp = () => { gm.zoom = clamp(gm.zoom, 1, 8); const k = 1 - 1 / gm.zoom; gm.cx = clamp(gm.cx, 500 - 13900 * k, 500 + 13900 * k); gm.cz = clamp(gm.cz, 100 - 10300 * k, 100 + 10300 * k); };
         function drawGMap() {
             if(screen !== 'map') return;
             const v = gmView(), g = v.c.getContext('2d'), { W, H, dpr, sc, ox, oy } = v, u = dpr;
@@ -2233,9 +2239,9 @@
             g.strokeStyle = 'rgba(20,16,10,0.85)'; g.lineWidth = 5.5 * u / sc; g.stroke(gm.roads[1]); g.lineWidth = 7.5 * u / sc; g.stroke(gm.roads[0]);
             g.strokeStyle = '#e9e4d8'; g.lineWidth = 2.6 * u / sc; g.stroke(gm.roads[1]);
             g.strokeStyle = '#f2c14e'; g.lineWidth = 4 * u / sc; g.stroke(gm.roads[0]);
-            g.strokeStyle = 'rgba(255,255,255,0.35)'; g.lineWidth = 1.4 * u / sc; g.setLineDash([10 * u / sc, 8 * u / sc]); g.beginPath(); g.arc(0, 0, WORLD_R, 0, 7); g.stroke(); g.setLineDash([]);
-            g.restore();
+                        g.restore();
             g.textAlign = 'center'; g.textBaseline = 'middle';
+            zoneLabels(g, tr, u, 1 + gm.zoom * 0.0, gm.zoom < 3.2);
             cities.forEach(C => { const q = tr(C.x, C.z); g.font = FONT(700, (C.metro ? 20 : 16) * u); g.lineWidth = 4 * u; g.strokeStyle = 'rgba(8,10,12,0.85)'; g.strokeText(C.name.toUpperCase(), q[0], q[1]); g.fillStyle = '#fff'; g.fillText(C.name.toUpperCase(), q[0], q[1]); });
             hides.forEach((h, k) => {
                 const q = tr(h.x, h.z), hov = k === gm.hover, pick = k === spawnPick, s = (hov ? 9.5 : 7.5) * u;
@@ -2570,7 +2576,8 @@
         // ====== MONDE OUVERT : relief, réseau routier, décor ======
         const LIFT = 0.24;        // la chaussée est posée 24 cm au-dessus du terrain
         const COUNTY_R = 6900;    // rayon du comté (plaine, villes, réseau d'origine)
-        const WORLD_R = 10600;    // rayon de la zone où l'on peut rouler (m) : le comté puis un massif traversé par des routes de col ; au-delà, la haute chaîne
+        const WORLD_R = 10600;    // rayon NORMALISÉ du territoire (m) : le comté puis un massif traversé par des routes de col. Le vrai contour est celui de la carte (sdfAt) ; rnAt() ramène chaque point à ce rayon
+        const WEXT = 14500;       // demi-côté du carré qui contient tout le territoire (m)
         const GRAV = 9.81;
         let seed = 20240611;
         const rnd = () => { seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
@@ -2584,6 +2591,99 @@
         const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
         const sstep = (a, b, v) => { const t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
         const angDiff = (a, b) => { let d = (a - b) % (Math.PI * 2); if(d > Math.PI) d -= Math.PI * 2; if(d < -Math.PI) d += Math.PI * 2; return d; };
+        // ====== CARTE : contour et zones du monde, tirés du dessin (une cellule = 2 px du dessin = 56 m) ======
+        // Valeur d'une cellule : bit 0 = dans le territoire, bit 1 = trait de frontière du dessin, bits 2-3 = zone (0 villes, 1 montagne et hiver, 2 désert, 3 forêt).
+        const CARTE = { w: 482, h: 360, x0: 18, y0: 6, px: 2, mpp: 28, cx: 480, cy: 360, b64: 'AP8AIAUEAP8A3gcFBQIA/wDbBwgFAQD/ANkHCwD/ANcHDQD/ANUFAQcGBQEHBwD/ANMFAQcFBQUHBgD/ALgFAgcCBQIAEwUBBwUFBwcGAP8AtgUBBwYFAQARBQEHBQUJBwYA/wC0BwkFAQAOBQEHBgULBwYA/wCyBwsFAQALBQEHCAUMBwYA/wCwBw0ACQUCBwgFDgcFBQEA/wCuBQEHBgUCBwUFAQAHBQEHCQUQBwUFAQD/AKwFAQcGBQQHBQUBAAQFAQcJBRIHBgUBAP8AqwUBBwQFBwcFBQMHCQUVBwYA/wCqBQEHBQUHBw8FGAcFBQEA/wCVBQgADAUBBwQFCQcMBRoHBgD/AJQFAQcIBQEACgUBBwUFCgcKBRwHBgUBAP8AkQUBBwoFAQAJBQEHBAUMBwcFHwcGBQcA/wCJBQEHDQAIBQEHBAUzBwwFBAD/AIUFAQcOAAcFAQcEBTQHDwUDAP8AggUBBwQFBQcFBQEABQUBBwUFNQcSBQQA/wB9BQEHBQUFBwUFAQAEBQEHBAU4BxUFAgAOBQUA/wBnBQEHBgUFBwQFAQAEBQEHBAU/BxAFAgAJBQMHBQUCADAFBwD/AC8FAQcGBQQHBQUBAAMFAQcEBUIHDwUBAAcFAQcLBQEALAUCBwgFAQD/AC4FAQcGBQQHBQACBQEHBQVFBw4ABAUBBw4FAQAqBQEHDAD/AC4FAQcHBQIHBgUBBwUFRwcDBQEHCgUDBxAFAQAoBw8A/wAvBwcFAgcLBUYHBAUFBxAFAwcHBQEAJgcRAP8ALwUBBwUFAwcJBUcHBAUGBwwFCAcFBQEAJQUBBwYFBQcHAP8ALwUBBwUFAwcHBUgHAwUJBwgFCwcFBQEAJAcFBQkHBgD/AC4FAQcGBQMHBQVJBwMFCgcGBQ0HBAUBACQHBQUKBwYA/wAtBQEHCAVPBwMFGgcHBQEAJAUBBwQFCwcFBQEA/wAqBQIHCwVNBwMFGQcIBQEAJAUBBwQFDAcFAP8AKA0CBw8FSgcDBRoHCAUBACMFAQcFBQwHBQUBAP8AJQ0CDwUHAwUEBwYFSQcDBRkHCQAkBQEHBQUMBwUFAQD/ACQNAQ8IBwEFBwcFBUYHBQUZBwUFAwAjBQEHBwUMBwUA/wAkDQEPBw0CBQkHBAVABwoFGgcEBQEAIwUCBwgFDAcFBQEA/wAjDwgNAwUIBwUFPAcNBRsHBAUBACAFAwcJBQwHBgD/ACMNAQ8GDQUFBwcFBTsHDQUdBwQFAQAbBQQHDAUMBwYA/wAjDQEPBQ0HBQQHBwU8BwgFIgcEBQEAGQUBBw4FDgcGAP8AJA0BDwQNCAUBBwkFPAcEBScHBQAWBQIHDgUPBwYA/wAkDQEPBA0FDwQHBwU+BwQFKQcEBQEAEwUCBw4FEQcFAP8AJQ0BDwQNAw8HBwQFQAcDBSoHBAUBABIFAQcMBRUHBAUBAP8AJQ0BDwQNAg8JBwYFPQcDBSoHBAUBABAFAQcJBRoHBAUBAP8AJQ0BDwQNAQ8KBwcFPAcDBSoHBQAPBQEHCAUcBwUFAQD/ACQNAQ8EDQEPCgcGBT0HAwUrBwQFAQAMBQEHCAUfBwUFAQD/ACMNAQ8EDQIPCQcGBT0HAwUrBwQFAQALBQEHBwUhBwYFAQD/ACINAQ8EDQkPAgcDBUAHAwUrBwQFAQAKBQEHBwUjBwYFAQD/ACENAQ8FDQcPAgcCBUIHAwUsBwQFAQAIBQEHBwUlBwYFAQD/ACENAQ8EDQcPAgcCBUIHAwUsBwUABwUBBwYFKAcGBQEA/wAgDQEPBQ0GDwIHAgVCBwMFLQcFBQIAAwUBBwYFKgcGBQEA/wAgDQEPBA0HDwIHAgVBBwMFLQcHBQIHBwUsBwYA/wASDQMACw0BDwUNBw8CBwIFQAcDBS4HDgUuBwYA/wAODQMPAw0CAAoNAQ8EDQgPAgcCBT8HAwUvBwwFMAcFBQEA/wAMDQEPCQ0BAAgNAQ8EDQkPAgcDBT0HAwUwBwoFMgcFBQEA/wAKDQEPDA0BAAYNAQ8EDQoPAgcDBTwHAwUyBwYFNQcEBQEA/wAJDQEPDg0BAAUNAQ8EDQsPAgcDBTsHAwVtBwUA/wAJDwcNAQ8JDQIAAQ0BDwUNDQ8CBwIFOgcDBW4HBAUBAP8ABw0BDwUNBQ8JDQEPBg0ODwIHAgU5BwMFbgcEBQEA/wAHDQEPBA0IDw0NEA8BBwIFOQcEBW0HBAUBAL8NAwBDDQEPBQ0KDwsNEA8CBwIFOQcDBW0HBAUBAL0NAQ8FAEINAQ8EDQ0PBw0TDwEHAgU5BwQFbAcEBQEAvA0BDwYNAQBBDQEPBA0PDwMNFQ8CBwIFOQcEBWoHBQC8DQEPCA0BAEANAQ8EDSgPAQcCBToHBAVnBwYFAQC7DwoNAQBADQEPBA0oDwIHAQU7BwQFZAcHBQEAuw0BDwsNAQA/DQEPBA0oDwIHAgU6BwUFXwcLAJQNBQAjDwcNAQ8FDQIAPA0BDwQNKQ8CBwIFOwcEBV0HCwUBAJQNAQ8FDQEAEA0DAA4NAQ8HDQEPCAAXDQQAIA0BDwQNKg8BBwIFPAcEBVkHDQUBAJQNAQ8IAAwNAw8DDQIADA0BDwgNAQ8IABUPBQ0BAB8PBQ0qDwIHAgU8BwQFVgcMBQIAlQ8LAAkNAg8IDQEACw0BDwgNAg8HDQEABA0EAAsPCA0BABwNAQ8EDSwPAQcCBTwHBAVVBwoFAwAFBQkAiA0BDwwABw0BDwsNAQALDQEPCA0EDwUNBA8EDQMABw8KDQEADg0IAAMNAg8FDSwPAgcCBTwHBAVTBwcFAwAGBQMHCQUBAIYPBw0CDwYNAgABDQIPDg0BAAsNAQ8IDQMPEA0BAAUNAQ8LDQEADA0BDwkNAg8GDS4PAgcCBTwHBAVRBwYFAgAHBQEHDwCEDQEPBQ0FDwcNAQ8RDQEACw0BDwgNAw8RDQEAAg0BDwUNAg8GDQEACQ0BDxINMA8BBwIFPQcEBVAHBAUCAAUFAwcSAHwNBw8FDQcPDg0GDwQNAQANDQEPBg0DDxINAg8FDQUPBQ0CAAUNAQ8TDTEPAgcCBT0HBAVPBwQFBwcVBQEAeg0BDwsNCQ8LDQkPBA0BAA0PBg0EDwgNAQ8ODQcPBg0FDxQNMg8CBwEFPgcEBU4HFQUHBwUFAQB3DQEPDA0LDwkNCg8FAA0NAQ8FDQUPBA0IDwoNCA8QDQUPBg02DwEHAgU9BwQFTgcRBQwHBAUBAHYNAQ8MDQ4PBA0ODwUADA0BDwYNBA8DDQoPCA0KDw4NQg8BBwIFPgcDBU8HDQUPBwQFAQB1DQEPDQ0gDwYACw0BDwYNBA8DDQwPBQ0MDwsNRA8BBwIFPgcEBVAHCAUSBwQFAQBkDQQADA0BDwcNAg8EDSIPBQ0BAAoNAQ8GDQQPAw0fDwgNRA8CBwIFPgcEBWoHBAUBAGMNAQ8EDQIACQ0BDwYNKg8GDQEACQ0BDwYNAw8DDSIPAw1HDwIHAQU/BwMFagcFBQEAYg8JDQEABQ0BDwcNLA8FDQEACQ0BDwYNAw8DDWwPAQcCBT8HAwVqBwQFAQBiDQEPCg0EDwgNLg8EDQEACQ0BDwYNAw8DDWsPAgcCBT4HBAVqBwQFAQBhDQEPFQ0wDwUNAQAIDQEPBw0CDwMNaw8CBwEFPgcEBWoHBQUBAGEPBQ0CDw4NMg8EDQEABw0BDwgNAg8DDWoPAgcCBT0HBAVrBwQFAQBhDQEPBA0FDwsNMw8EDQEABw0BDwQNAQ8DDQIPAw1qDwIHAQU9BwUFawcEBQEAYQ0BDwQNBw8HDTUPBA0BAAcNAQ8EDQEPAw0CDwMNaQ8CBwIFPAcFBWwHBAUBAGENAQ8EDQkPBA02DwQNAQAGDQEPBA0CDwQNAQ8DDWkPAQcCBTwHBQVsBwQFAQBiDQEPBA1DDwQNAQAGDQEPBA0DDwMNAQ8DDWgPAgcCBTsHBQVtBwQFAQBiDQEPBA1DDwQNAQAFDQEPBQ0DDwMNAQ8DDWcPAgcCBTsHBQVuBwQFAQBiDQEPBA1DDwQNAQAFDQEPBA0EDwMNAQ8DDWcPAgcCBToHBQVvBwQFAQBiDQEPBA1DDwUNAQADDQEPBQ0EDwMNAQ8DDWcPAQcCBTsHBAVwBwQFAQBiDQEPBA1DDwUNAQADDQEPBA0FDwcNZg8CBwIFOgcEBXEHBAUBAGINAQ8EDUQPBA0BAAINAQ8FDQYPBg1mDwIHAQU7BwQFcQcEBQEAYw8FDUMPBA0BAAINAQ8EDQcPBg1mDwIHAQU7BwMFcgcEBQEAYw0BDwQNQw8FDQIPBQ0IDwUNZg8CBwIFOQcEBXMHAwUBAFwNAgAFDQEPBA1EDwUNAQ8EDQkPBQ1nDwEHAwU4BwMFdAcDBQEAWg0CDwINAgADDQEPBQ1DDwoNCg8FDWYPAgcEBTUHBAV0BwQFAQBYDQEPBg0BAAINAQ8FDUQPCQ0KDwUNZw8DBwMFNAcDBXUHBAUBAFcNAQ8IDQEAAQ0BDwYNRA8HDQwPBQ1oDwIHAwUyBwQFdgcEBQEAVg0BDwoAAQ0BDwUNRQ8FDQ4PBQ1oDwIHAwUwBwQFdwcFBQEAVQ0BDwoNAg8FDUYPAw0PDwUNaQ8CBwMFLwcEBXgHBQUCAFINAQ8EDQMPBQ0BDwUNWQ8FDWkPAgcDBS0HBAV5BwgFBQBMDQEPBA0EDwoNWg8FDWkPAgcDBSsHBAV7Bw0FBAABBQMABAUMADMNAQ8EDQUPCQ1bDwUNaQ8CBwMFKQcEBX0HFAUEBw0FAQAwDQEPBA0GDwgNXA8GDWkPAgcDBSgHBAV/ByQFAgAuDQEPBA0IDwUNXg8FDWoPAgcCBScHBAWDByQALQ0BDwQNCg8BDWEPBA1rDwIHAgUmBwQFiAcfBQEALA0BDwQNbA8FDWsPAgcCBSQHBAWOBwoFCgcGBQEALA0BDwQNaw8FDW0PAgcCBSMHAwWRBwMFEAcGBQEAKw0BDwQNaQ8HDW0PAgcCBSMHAwWlBwUFAQArDwUNaA8IDW4PAgcCBSEHBAWlBwYAKg0BDwQNaA8IDXAPAQcCBRwHCAWlBwcFAQAoDQEPBQ1oDwcNRw8CDSgPAgcCBRgHCgWmBwgFAQAlDQEPBg1pDwYNRQ8HDSYPAgcCBRYHCgWnBwMFAgcFACQNAQ8GDWkPBQ1HDwgNJg8CBwIFEwcIBasHAwUDBwQFAQAiDwcNaQ8GDUgPAQ0DDwMNJg8CBwMFDgcJBa0HAwUEBwUFAQAgDwcNaQ8HDUwPAw0lDwMHBAUKBwoFrQcGBQQHBAUBAB8NAQ8GDWoPBw1MDwMNJQ8DBQEHBQUFBwwFrAcJBQMHBAUBAB8NAQ8FDWoPBw1MDwMNJA8FBQIHEgWrBw8FAQcEBQEAHw0BDwQNDg8DDVoPBw1MDwMNIw8FDQEFAwcLBa0HCwUEBwkFAQAfDQEPBg0JDwgNWA8GDU0PAw0hDwYFBgcHBasHDQUJBwYFAQAgDQEPGA1WDwcNTQ8DDR8PBgUEBwkFqgcNBQ0HBQUBACENAQ8YDVUPBw0CDwUNRg8DDRwPBwcOBakHCwURBwQFAQAjDQEPFw1VDw8NRQ8DDRkPBwcOBasHBwUWBwQFAQAkDQIPDQ0EDwQNVQ8DDQEPCw1GDwMNFg8FBw4FrgcFBRkHBAUBACYNBQ8BDQYABA0BDwUNVA8DDQIPBg0BDwQNRQ8EDRMPBAcLBbQHBAUaBwUANg0BDwQNVQ8RDUQPBA0RDwMHBwW6BwQFGwcFBQEANQ0BDwQNVg8GDQEPCg1EDwQNDQ8EBwUFvgcDBR0HBQA0DQEPBQ1XDwQNBQ8IDUQPBA0KDwQHBAXABwQFHQcFBQEAMg0BDwUNYw8GDUQPBQ0IDwMHBAXCBwMFHwcFBQEAMA0BDwYNZA8GDTkPBQ0GDwUNBg8DBwMFxAcDBR8HBgAuDQEPBw1lDwcNNg8KDQQPDAcCBcYHAwUgBwUFAQArDQEPCA1nDwYNNQ8DAwYPBA0DDwoHAgXHBwMFIQcFBQEAKQ8JDWkPBg0zDwMDAgEDAwUPBA0CDwcHAgXIBwMFIgcFACgPCQ1qDwYNMw8CAwIBBwMEDwIDAgEBDQQHBAXIBwMFIgcFBQEAJg8KDWsPBg0xDwIDAgEKAwkNAQUBBwMFyQcDBSMHBQUBACQPDA1qDwYNMA8CAwIBDgMHBwQFyQcDBSMHBQUBACMPBw0DDwQNDw8DDVgPBg0uDwIDAgESAwQHAwXKBwMFEwcEBQ0HBAUBACINAQ8FDQYPBA0MDwYNWA8ODSQPAgMCARYDAwcDBcgHAwURBwgFCwcFBQEAIA0BDwUNCA8EDQoPCQ1WDxANIQ8DAwIBFQMFBwQFxgcDBQ8HDAUJBwUAIA0BDwUNCg8EDQgPBQ0BDwQNVg8SDR4PAwMCARYDAwEBAwMHBAXEBwMFDgcOBQgHBAUBACAPBg0LDwQNBQ8FDQQPBA1VDwYNCA8GDRsPAwMCARYDBAEDAwMHAwXDBwMFDQcGBQMHCAUFBwUFAQAfDQEPBQ0NDwQNAw8FDQYPBA1TDwYNCQ8HDRkPAgMDARcDAwEGAwMHBAXABwMFDAcGBQEAAwUCBwgFAQcHAB8NAQ8FDQ8PCg0IDwQNUg8GDQkPAw0BDwQNFw8CAwMBFwMEAQcDBAcNBbUHBAULBwUFAQAHBw4FAQAfDQEPBQ0QDwcNCw8EDVAPBg0KDwMNAg8DDRUPAwMCARkDAwELAwUHDwUkBwUFhgcEBQsHBAUBAAkFAQcLBQEAHw0BDwUNEg8FDQwPBA0PDwUNOw8HDQUBBQMBDwINAg8DDRQPAwMCARkDBAENAxAHAwUiBwIDAgcDBYYHAwULBwQFAQAKBQEHCQUBACANAQ8FDSQPBA0MDwkNOQ8DDQEPAw0BAQkDAw8BDQIPAw0SDwMDAgEaAwMBGQMHBwMFHwcCAwQHAgWGBwMFCwcEBQEADAUCBwMFAgAiDwUNJg8EDQoPDA02DwgBCwMCDwENAg8DDQ4PBgMCARoDBAEfAwMHAgUdBwIDAgECAwIHAgWFBwQFCgcFBQEADgUBACQNAQ8FDScPBA0IDwUNBA8HDTMPBwEMAwMPAQ0CDwMNDA8GAwIBGwMDASIDAgcCBRsHAgMCAQMDAgcCBYYHAwULBwYAMg0BDwQNKA8FDQUPBg0HDwsNFQ8JDQ8PBgEIAwkNAg8DDQsPBQMDARsDBAEjAwIHAQUMBwUFCAcDAwIBBAMCBwIFhgcDBQwHBgAwDQEPBQ0pDw0NCg8MDQ0PEA0ODwUDAQEFAwwBAQ0BDwQNCQ8FAwMBHAMDASUDAQcCBQkHEAMDAQUDAgcBBYgHAwUMBwUFAQAvDQEPBQ0rDwoNDg8LDQgPEw0ODwUDAQEBAxENAg8EDQgPBAMDARwDBAElAwIHAgUHBwIDEAEGAwIHAgWIBwMFDQcFBQEALg0BDwQNLQ8HDRcPBQ0GDwwNBg8DDQ0PBQMJAQYDBQ0CDwQNBg8EAwQBHAMDAScDAgcCBQUHAgMDAQUDBwEHAwIHAgUPBwIFeAcDBQ4HBQAtDQEPBQ1MDw8NDQ8DDQ4PBAMGAQoDBQ0CDwQNBA8EAQEDAwEcAwQBKAMCBwMFAQcDAwIBFAMDBwIFDQcGBXYHBAUOBwQFAQAsDQEPBA1PDwsNDw8DDQ8PAwMDAQ4DBQ0CDwMNAw8EAQEDAwEdAwQBKQMDBwMDAwEVAwIHAgUNBwIDAwcDBXYHAwUOBwUALA0BDwQNUA8IDREPAw0PDwIDAgERAwUNAQ8EDQIPBAEBAwMBHQMDASsDBwEVAwIHAgUNBwIDAgECAwEHAgV2BwMFDgcFBQEAKg0BDwUNaQ8DDQ4PAgMCARMDBQ0BDwMNAQ8EAQEDBAEcAwQBLQMDARcDAgcBBQ0HAgMCAQMDAgcCBXUHAwUPBwQFAQAqDQEPBA1qDwMNDg8CAwEBFQMFDwcNAQEBAwMBHQMEAUYDAgcBBQ4HAQMCAQUDAgcBBXUHAwUPBwQFAQAqDQEPBA1qDwMNDg8BAwIBFgMFDwUNAQECAwMBHQMEAUYDAgcBBQ0HAgMCAQUDAgcBBXUHAwUOBwUFAQApDQEPBA1qDwMNDw8BAwIBGAMEDwMNAQEDAwMBHQMEAUYDAgcBBQwHAgMCAQYDAgcBBXUHAwUOBwQFAQAqDQEPBA1qDwQNDg8CAwIBFwMEAQENAgEDAwMBHgMEAUYDAgcBBQwHAgMCAQYDAgcBBXUHAwUOBwQFAQApDQEPBQ1rDwMNDg8CAwMBFwMEAQUDAwEfAwMBRgMCBwEFCwcCAwIBBwMCBwEFdQcDBQ0HBQAqDQEPBA1sDwQNDg8CAwMBFwMFAQEDBQEfAwQBRQMCBwEFCgcCAwIBCAMCBwEFdQcDBQ0HBAUBACoPBQ1tDwQNDg8CAwIBGAMJASEDBQFDAwIHAQUJBwIDAgEJAwIHAgV0BwMFDAcFACoNAQ8EDW4PBA0PDwIDAgEYAwcBIwMGAUEDAgcBBQgHAgMCAQsDAgcBBXQHAwULBwUFAQAqDwUNbw8EDQ4PAgMCARsDAgElAwkBPgMCBwEFBwcDAwIBCwMCBwEFcwcEBQoHBQUBACoNAQ8FDXAPBA0NDwIDAQFFAw4BNwMCBwEFBwcCAwIBDAMCBwIFcgcDBQoHBgArDQEPBA1xDwQNDQ8CAwEBRwMPATQDAgcBBQYHAgMCAQ0DAgcDBQcHAgVnBwQFCQcGACsNAQ8FDXIPAw0MDwIDAgFLAw0BMgMCBwEFBQcCAwIBDwMDBwwFZAcEBQkHBgAsDQEPBA1zDwQNCg8CAwIBUgMHATIDAgcBBQUHAgMBAREDDAcDBWIHBQUIBwYALA0BDwUNdA8DDQkPAgMCAVcDBAExAwIHAQUEBwIDAgETAwsHAgVhBwUFCQcFBQEALA0BDwUNcw8EDQkPAgMBAVkDAwExAwIHAQUDBwIDAgEeAwIHAQVgBwUFCQcFBQEALA0BDwUNcw8EDQkPAgMCAVkDAwExAwIHAQUDBwIDAQEfAwIHAQVdBwcFCgcEBQEALA0BDwYNcQ8GDQkPAQMCAVkDBAExAwIHAQUCBwIDAgEfAwIHAQVZBwoFCwcEBQEAKg0CDwYNZA8JDQMPBg0KDwIDAgFWAwcBMQMCBwEFAgcBAwIBHwMCBwEFVAcOBQ0HBAUBACcNAw8HDWQPEg0CDwoDAgFSAwsBMgMCBwEFAQcCAwIBHgMCBwIFTAcTBRAHBAUBACQNAg8LDWIPEQ0EDwoDAwFRAwsBMgMDBQIHAQMCAR4DAwcBBUkHEwUUBwQFAQAiDQEPDA1kDwUNBg8EDQQDDgFRAwkBNQMDBQEHAQMDAR4DAgcCBUcHDwUZBwQFAQAiDw0NZA8EDQ4BAQMFAVoDBQE6AwMBAQMDAR4DAgcCBUYHCQUgBwUFAQAhDwwNZg8DDQUPAg0GDwEDBgFbAwMBOwMEAQEDAwEeAwIHAQVFBwcFHQcMACEPCA1rDwMNAw8KAwYBXAMDATsDAwEBAwMBHgMCBwIFQwcGBR4HDQUBACANAQ8FDW4PDwMGAV0DAwE6AwQBAQMDAR4DAgcBBUIHBgUTBwIFCgcNBQEAIQ8FDXAPDgMFAV4DAwE6AwMBAgMDAR0DAgcCBUEHBgURBwcFBwcNBQEAIQ0BDwUNcQ8FDQUPAg0BAwQBXwMDATkDBAECAwMBHAMCBwIFQAcGBREHCgUGBwUFBwAjDQEPBA18DwMDAwFgAwMBOQMDAQMDAwEcAwIHAQU/BwYFEgcMBQQHBQUBACoNAQ8EDXwPAwMCAWEDAwE4AwQBAwMCARwDAgcDBT0HBgURBw8FAwcEBQEALA0BDwMNfA8CAwIBYgMEATcDBAECAwMBGwMDCwEHAwU6BwYFEgcIBQIAAQUBBwUFAgcEBQEALA0BDwQNeg8CAwIBZAMDATcDAwEDAwMBGgMDCwMHAgU5BwYFEQcIBQEABQUBBwQFAQcEBQEALQ0BDwQNeQ8CAwIBZQMEATYDAwEDAwMBGgMCCwIJAQsCBwIFNwcFBREHCAUCAAYFAQcJBQEALQ0BDwQNeQ8CAwIBZQMEATUDBAEDAwMBGQMCCwIJAwsBBwIFNQcFBREHCQUBAAkHCAUBAC8PBQ14DwEDAgFnAwMBNgMDAQIDBAEZAwILAQkECwEHAgU1BwQFDQcMBQEADAcHADANAQ8EDXgPAQMCAWcDAwE2AwgBGQMCCwIJBAsBBwIFNAccBQIADgUBBwMFAQAxDQEPBQ13DwEDAgFnAwQBNQMHARkDAgsCCQULAQcCBTMHGwUCABEFAgA0DwUNdw8BAwIBZwMEATcDAwEbAwILAgkECwIHAQUzBxkFAgBKDQEPBQ12DwIDAgFnAwMBVAMCCwIJBQsBBwIFMgcXBQMATA0BDwUNdw8CAwMBZQMDAVMDAwsBCQYLAQcCBTEHCAUPAFENAQ8FDXcPAgMFAWIDAwFTAwILAgkGCwEHAgUwBwcFAQBhDQEPBQ14DwMDEQFUAwMBUgMCCwIJBgsCBwEFMAcIAGMNAQ8EDXkPBQMPAVMDAwFRAwILAgkHCwIHAQUvBwgAZA0BDwUNfA8HAwkBUwMEAVADAgsBCQgLAgcBBS0HCQUBAGUNAQ8EDYMPAgMHAVQDAwFPAwILAgkICwIHAQUWBwQFEgcJBQEAZw8FDYAPBAMHAVQDAwFPAwILAQkJCwIHAQUUBwgFDwcKAGgNAQ8EDWwPAw0QDwcDAwFWAwMBTgMCCwEJCgsCBwEFEwcDCwQHAwUNBwoAaQ0BDwQNag8DCwEPAw0NDwUNBQEBAwYBUAMDAU4DAgsBCQoLAgcBBREHAwsDCQILAgcCBQwHBAUBBwUFAQBpDQEPBA1pDwILBA8DDQwPDQMFAU8DAwFOAwILAQkKCwIHAQUPBwQLAgkFCwIHAgUJBwUFAQcFBQEAag8FDWgPAgsCCQILAg8CDQ0PEAMCAU4DAwFOAwILAQkKCwIHAgUJBwcLAgkICwIHAgUHBwUFAQcFBQEAag8GDWgPAgsBCQQLAg8CDQ0PCg0EDwEDAgFOAwMBTgMCCwEJCwsBBw8LBAkKCwEHDQUBBwUFAQBqDwYNaQ8CCwEJBAsCDwINGw8CAwEBTgMDAU4DAgsBCQsLAwcICwYJDQsCBwoFAQcGBQEAag8GDWoPAQsCCQULAg8BDRsPAgMBAU4DAwFOAwILAgkLCwsJEgsDBw8FAQBqDQEPBQ1rDwILAQkGCwEPAg0aDwIDAQFOAwMBTgMCCwIJKAsDCQEHDQUBAGsNAQ8EDWwPAgsBCQYLAg8BDRoPAgMBAU4DAwFPAwILAQkoCwMJAQsBBwQFBAcEBQIAag8FDW0PAQsCCQULAg8CDRkPAgMBAU4DAwFPAwILAgknCwUHBQUDBwYFAgBnDQEPBQ1tDwELAgkGCwIPAQ0YDwIDAgFOAwMBUAMCCwEJJwsGBwYFAgcIBQEAZQ0BDwUNbQ8BCwIJBgsCDwINCQ8FDQkPAgMBAU8DAwFQAwILAgkmCwcHBgUCBwgFAQABBQQAYA0BDwkNaA8CCwIJBgsCDwENCA8CCwIPAw0IDwEDAgFPAwMBUQMCCwIJJQsIBwYFAgcIBQEHBAUBAGAPDQ1kDwILAgkGCwIPAQ0HDwILBQ8CDQcPAQMCAU4DBAFRAwILAgkkCwYJAgABBQEHBQUFBwoAYg8NDWQPAQsCCQYLAg8CDQYPAgsBCQMLAQ8CDQcPAQMCAU4DBAFSAwILAQkjCwYJAQAEBQEHBgUDBwgFAQBkDw4NYg8BCwIJBwsCDwENBg8BCwIJBAsBDwENBw8BAwIBTgMDAVMDAgsBCSILBgAHBQEHDwUBAGYNAg8MDWEPAgsBCQcLAg8CDQUPAQsCCQQLAQ8CDQYPAgMBAQ8DDQEyAwMBSwMJCwIJIAsHAAkHDQUCAGkNBg8HDWEPAQsBCQgLAg8BDQUPAQsCCQQLAg8BDQYPAgMCAQwDEgEvAwMBSQMKCwMJHwsHCQEACgUBBwkFAgByDwYNYQ8BCwIJBwsCDwINBA8BCwIJBAsCDwENBw8CAwEBCwMDCw0DBgEsAwMBSAMDCwoJHwsHCQEADAUDBwIFAwB2DwYNYA8BCwIJCAsCDwENBA8BCwIJBQsBDwINBg8CAwIBCgMCCwIJCwsEAwUBKgMDAUgDAgsCCScLBwkBABAFAQB7DwYNXw8BCwIJCAsCDwINAw8BCwIJBQsCDwENBw8CAwEBCQMCCwIJDwsEAwgBJAMDAUcDAgsCCScLBwkBAI0NAQ8FDV8PAQsCCQkLAg8FCwIJBQsCDwINBg8CAwIBCAMCCwEJEgsEAwcBIwMDAUcDAgsBCScLBwkBAI8NAQ8FDV4PAgsBCQoLAg8DCwIJBwsCDwMNBQ8BAwIBBwMCCwIJFgsGAwIBCAMDARYDBAFHAwILAQkmCwcAkg0BDwUNXg8BCwIJCgsFCQkLAg8HAwMBBwMCCwEJHAsCAwIBBgMFARUDAwFIAwILAQklCwcAlA8GDV0PAQsCCRkLCAMDAQYDAgsCCR0LAgMBAQQDAwsDAwIBFAMDAUgDAgsBCSQLBwCVDQEPBg1cDwELAgkbCwcDAwEEAwILAgkfCwEDBwsCCQELAgMBARQDAwFIAwILAQkjCwYJAQCXDQEPBg1bDwILAgkgCwIDAgEEAwILAgkfCwMDAwsDCQILAgMBARQDAwFHAwILAgkjCwUJAQCZDQEPBg1bDwELAgkhCwEDAgEDAwILAgkhCwYJBAsCAwEBEwMEAUcDAgsBCSMLBQkBAJsNAQ8GDVoPAQsCCSELAgMBAQIDAgsCCS0LAQMBARMDAwFIAwILAQkMCwUJEQsFCQEAnQ0BDwYNWQ8CCwIJIAsCAwQLAgkuCwEDAgESAwMBSAMCCwEJCwsHCQ8LBQkBAJ8NAQ8GDVkPAQsCCSELAwMBCwIJLwsBAwIBEQMEAUgDAgsBCQoLCQkOCwUAoQ0BDwYNWA8CCwEJIgsDCTELAgMBAREDAwFIAwILAgkJCwQJAwsDCQ0LBQkBAKINAQ8FDS0PBA0oDwELAglVCwIDAQERAwMBSAMCCwEJCQsECQULAwkLCwUJAQCkDQEPBQ0qDwcNJw8BCwIJVgsBAwIBDwMEAUgDAgsBCQgLBAkGCwMJCwsECQEApg0BDwQNKQ8DCwQPAg0mDwELAglWCwEDAgEPAwMBSAMCCwIJBgsFCQcLAwkKCwUJAQCmDQEPBA0oDwILAwkCCwIPAQ0mDwILAQlWCwEDAgEOAwQBNgMHAQsDAgsBCQYLBQkICwMJCgsECQEAqA8FDSUPAwsCCQQLAg8BDSYPAgsBCVULAgMCAQ0DBAE1AwwBBwMCCwIJBAsFCQoLAwkJCwUJAQCoDQEPBA0iDwQLAwkFCwIPAQ0mDwILAQlUCwIDAgEOAwQBEgMEAR4DAwsHAwsLAgkECwUJCwsDCQkLBAkBAKkNAQ8EDSAPBAsECQYLAg8BDSYPAgsBCVMLAgMDAQ0DBAESAwcBGwMDCwIJBgsDAwcLAgkECwUJDAsDCQgLBQkBAKkNAQ8EDR0PBAsFCQgLAg8BDSYPAgsBCVELAwMDAQ0DBQERAwILBAMDARoDAgsCCQoLAgMDCwMJBQsMCQULBAkHCwUJAQCpDQEPBA0cDwMLBQkLCwEPAg0lDwILAQlQCwMDAgEPAwQBEQMCCwIJAgsCAwMBGAMCCwIJDAsFCQgLDgkDCwMJBwsECQEAqg0BDwQNGg8DCwQJDgsCDwENJQ8CCwEJTwsDAwIBDwMEAREDAgsCCQQLAgMCARgDAgsBCQ0LAwkLCw0JAwsDCQcLBAkBAKoNAQ8FDRgPAwsCCRELAg8BDSUPAgsBCU8LAgMBARADBQEQAwILAgkGCwIDAgEWAwILAgkNCwMJFQsECQILAwkGCwUJAQCqDQEPBQ0YDwILAgkSCwIPAQ0kDwILAglPCwEDAgEPAwUBEQMCCwIJBwsCAwIBFAMCCwIJDgsDCRYLAwkCCwMJBgsFCQEAqg0BDwUNFw8CCwIJEwsCDwENJA8CCwEJTwsCAwEBDwMFAREDAgsCCQkLAQMCARQDAgsBCQ8LAwkVCwMJAwsDCQYLBQkBAKoNAQ8FDRUPAwsCCRQLAg8CDSIPAgsCCVALAQMCAQ0DBgERAwILAQkKCwIDAgESAwILAgkPCwMJFAsECQMLAwkFCwYJAQCqDQEPBQ0UDwILAwkWCwIPAg0gDwILAglRCwEDAgELAwcBEQMCCwIJCwsCAwIBDwMDCwIJEQsDCRILBAkECwMJBQsGCQEAqg0BDwUNEg8DCwMJGAsCDwwNFA8CCwIJUgsCAwIBCQMIARADAgsCCQ0LAgMEAQoDBAsCCRILAwkRCwQJBAsDCQYLBgkBAKoNAQ8FDRAPAwsDCRoLDA8EDREPAgsCCVQLAgMCAQYDCQERAwILAgkOCwIDDwsDCRMLBAkMCwcJBQsDCQYLBgkBAKoNAQ8FDQ4PAwsDCR4LBwkCCwMPAw0PDwILAglWCwIDAgEEAwoBEAMCCwIJEQsDAwoLAwkWCxUJBAsECQYLBwkBAKoNAQ8FDQ0PAwsDCSoLAg8DDQ0PAgsCCVgLAgMDAQEDCwEQAwILAQkUCwsJGgsSCQULBQkGCwcJAQCrDQEPBA0LDwMLAwktCwIPAw0LDwILAglaCwIDBgEBAwcBDwMCCwIJNQsECQELDgkHCwQJCAsHCQEAqw0BDwQNCQ8ECwIJMAsCDwMNCg8CCwIJWwsCAwQBAQMIAQ8DAgsBCTQLCAkSCwUJCQsHCQEAqw0BDwQNBw8ECwMJMgsCDwMNCA8CCwIJXQsDAwYBAQMDAQ8DAgsCCTQLCgkNCwcJCgsHCQEAqw0BDwQNBg8ECwMJNAsCDwINBw8CCwIJXgsGAwIBAQMEAQ8DAgsBCTULAwkCCwcJBwsJCQwLCACrDQEPBA0FDwULAwk1CwIPAg0EDwMLAgleCwcDAgEBAwQBDwMCCwEJNQsFCQILEwkOCwgJAQCrDQEPBA0DDwUJAQsDCTYLAg8DDQEPAwsCCV8LAwkBCwMDBgEPAwILAgk2CwUJAwsPCQ8LCQkBAKsNAQ8EDQIPBA0BCQILAwk3CwIPBAsDCWALAwkBCwMDBgEPAwILAQk4CwYJBAsHCRQLCQkBAKsNAQ8EDQEPBA0CCQILAwk4CwYJYQsDCQELAwkBCwQDAgEOAwILAgk6CwUJHgsKAKwPCQ0BCQMLAwmfCwcJAQsFAwIBDQMCCwEJPAsFCRwLAwkBCwcJAQCrDQEPBg0DCQMLAwmfCwYJAQsECQELAgMDAQoDAgsCCT4LBQkZCwQJAQsHCQEArA8FDQMJBAsECZ0LCwkDCwIDBAEHAwILAglACwUJFwsNCQEACQkEAAQJBACXDQEPBQ0CCQULAwmdCwoJBgsCAwoLAwlBCwUJFQsPCQEABgkBCwUJAwsGAJYNAQ8FDQIJBQsECZwLCQkICwMDBwsCCUULBQkRCwcJAgsDCQELBQAFCQELEACVDQEPBQ0CCQYLBAmaCwgJDAsICUgLBQkOCwcJBAsDCQILBQkECxEJAQCVDQEPBA0CCQYLBQmZCwcJXgsHCQkLBwkGCwMJAwsUCQILBAkBAJMNAQ8FDQIJBwsFCZcLBwlhCxYJBQsDCQQLCwkDCwQJAwsECQEAkw0BDwUNAgkICwUJlgsGCWQLFAkFCwMJBQsICQwLBAkBAJMNAQ8EDQMJCQsGCZMLBQloCxIJBQsECQULBQkOCwQJAQCTDQEPBA0DCQsLBQmRCwUJdgsGCQQLBAkYCwQJAQCTDQEPBA0DCQwLBgmMCwcJeQsMCRgLBAkBAJMNAQ8EDQMJBwsGCQELBwmACw8JewsNCRYLBAkBAJMNAQ8HCxcJeQsSCX8LBAkBCwgJFAsECQEAlA0BDwYLJQlpCxIJggsECQELCQkSCwQJAQCVDwYLJwllCwsJjAsDCQELAwkBCwoJDQsECQEAlg0BDwQLCgkGCxgJYgsJCZELBgkDCwoJCwsEAJkNAwkJAAcJBgsUCWALBgmUCwYJBwsHCQoLBAkBALEJBAsICQILCQlcCwUJlwsFCQsLBAkJCwUJAwCyCQMLBAkBAAMJAQsPCVMLBAmZCwYJCwsECQkLBwkCALQJAwAFCQELEAlQCwUJmQsGCQwLAwkKCwgJAQC9CQELEAlOCwQJmgsGCQ0LAwkKCwgJAQC+CQQLDQlLCwQJmwsGCQ0LBAkMCwYAwgkFCwEPBQsECUkLAwmdCwUJDgsECQ0LBAkBAMQNAQ8EDQIPAwsFCUULBAmdCwUJDwsDCQ0LBAkBAMQPBQ0EDwMLBglCCwMJngsFCQ8LAwkMCwUJAQDDDQEPBQ0GDwQLCgk6CwQJnwsECRALAgkMCwQJAQDDDQEPBQ0JDwULDQkzCwQJoAsECQ8LAwkLCwUJAQDDDwUNDg8ICwoJLwsECaALBAkPCwMJCwsECQEAww8GDRQPCAsJCSkLBQmgCwQJDgsECQoLBAkBAMMNAQ8FDRoPBwsMCSILBAmhCwMJDwsDCQsLBAkBAMINAQ8FDSAPBwsMCRwLBQmhCwMJDgsECQsLBAkBAMEPBg0nDwgLCQkYCwUJoAsECQ4LAwkLCwQJAQDBDwcNLA8ICwcJFAsGCaALBAkOCwMJCwsECQEAwA0BDwYNMg8ECwgJEQsHCZ8LBAkQCwMJCQsECQEAwA0BDwYNNg8DCwkJDQsJCZ4LBAkQCwcJBAsFCQEAwA0BDwUNNg8ECxkJAQsGCZwLBAkSCwgJAQsFCQEAwQ0BDwYNNA8FCwEJAgsVCQILCAmZCwUJFAsLCQEAww0BDwcNMA8HDQEAAgkDCxAJBAsCCQILBgmXCwQJGAsHCQEAxQ0BDwcNLQ8IDQEABgkDCw0JBAsCCQMLCQmSCwQJGAsHCQEAxw0BDwcNKw8IDQEACgkECw8JBAsOCW0LAwkaCwYJFwsGCQIAyg0BDwYNKA8IDQEAEQkDCyAJaQsGCRcLBgkYCwQJAgDNDQEPBg0lDwgNAgAVCQQLHwlmCwgJFAsGCRkLAwkBANEPBg0iDwgNAgAbCQILIAlmCwsJDAsGCRsLAwkBANIPBg0fDwkNAQAfCQELCAkHCxMJZQsLCQgLBwkcCwQA0w8GDRwPCQ0BACELCAkLCxEJZQsXCR4LBAkBANINAQ8GDRoPCA0CACEJAQsHCRILDgljCwIJBAsPCSALAwkBANMNAQ8HDRYPCA0CACMJAQsGCRYLAwkBCwgJIwsECTsLAgkGCwsJIgsDCQEA1A0BDwgNEg8IDQIAJAkBCwYJFwsDCQMLCQkeCwgJOQsDCQcLCAkjCwMJAQDVDQEPCQ0ODwkNAQAmCQELBgkXCwMJBQsJCRoLDAk3CwMJBQsJCSQLAwkBANcNAQ8KDQgPCg0BACgJAQsGCRgLAgkHCwkJFgsPCTYLAwkECwkJJAsECQEA2A0CDxgNAQApCQELBgkZCwIJCQsJCRILCAkFCwYJNAsDCQILCgklCwQJAQDaDQIPFA0BACsJAQsGCRkLAwkKCwkJDwsHCQkLBAk1Cw0JJQsECQEA3Q0CDxANAQAtCwYJGgsDCQwLCQkLCwcJDAsECTQLBwkBCwQJJQsFAOENAw8JDQIALgkBCwYJGgsDCQ8LCgkECwkJDgsECTILBwkBCwQJJAsGCQEA5A0JADAJAQsGCRoLAwkRCxMJEAsECS8LCAkCCwQJIwsHCQEA/wAeCQELBgkbCwMJEwsPCRMLBAkrCwsJAgsDCSILCAkBAP8AHwkBCwYJGwsDCRYLCgkWCwMJKAsKCQELAwkCCwMJIAsICQIA/wAgCwYJHAsDCTYLBAkkCw4JAQsCCQELAwkfCwgJAgD/ACEJAQsGCRwLAgk4CwQJIAsYCR0LCAkCAP8AIwkBCwYJGwsDCTgLBAkdCxoJHQsHCQIA/wAlCQELBQkbCwQJOQsECRkLEAkGCwcJGwsHCQIA/wAnCwYJFwsHCToLBQkVCxAJAwAGCQELBgkaCwYJAgD/ACgJAQsGCQYLCwkDCwkJPAsFCRALEgkCAAoLBQkaCwYJAQD/ACoJAQsFCQQLGAk/CwcJCQsTCQIADQkBCwQJGQsFCQEA/wAsCQELBQkCCwgJBAsKCUQLGAkDCwUJAgAOCQELBAkJCwYJCwsECQEA/wAnCQYLBQkCCwYJCgsECUkLEwkFCwUJAQAQCQELBAkICwgJCQsECQEA/wAnCwwJAQsFCVsLDQkJCwQJAQARCQELBAkHCwoJCAsEAP8AJwkBCwsJAQsECWMLAQkOCwQJAQATCQELBAkFCwsJBwsECQEA/wAoCQELCAkCCwQJcwsEABQJAQsNCQEAAQkBCwUJBgsECQEA/wApCQELDAl0CwMJAQAVCQELCwkBAAMJAQsECQYLBAkBAP8AKQkBCwsJdQsDCQEAFgsKCQEABQsHCQELBQkBAP8AKQkBCwoJdgsECQEAFwkBCwYJAgAHCwwJAQD/ACoLCQl3CwQJAQAYCQYACgsKCQEA/wAsCxMJbAsECQEAKQkBCwcJAQD/AC4JAQsTCWoLBAkBACsJBgD/ADAJAgsTCWgLBAkBAP8AZAkMCwcJZgsFAP8AcgkBCwYJZAsFCQEA/wB0CQELBQliCwUJAQD/AHYJAQsECWALBgkBAP8AeAsFCV4LBgD/AHoJAQsECVQLAwkGCwYA/wB8CwUJUgsOCQEA/wB9CQELBQkNCw0JNgsOCQEA/wB/CQELBQkKCxEJCQsFCSYLDQkBAP8AgQkBCwcJBQsTCQcLCAkSCwcJCwsECQILBgkBAP8AhAkBCwkJAQsJCQYLBgkECwsJDwsKCQoLAwkBAAMJBQD/AIYJAQsOCQMACAkBCwQJAwsMCQ4LDAkICwQJAQD/AI8JAQsMCQEACwkBCwwJBAsECQwLBgkDCwUJBwsECQEA/wCRCQQLBgAOCQELCQkCAAQLBQkKCwUJAgADCQELBQkFCwQJAQD/AJcJAgsBCQEAEAsICQEABgkBCwQJCQsFCQEABgkBCw0JAQD/AKwJAQsDCQIACQkBCwQJBgsGAAkJAQsLCQEA/wCuCQMADAsPAAsJAQsJCQEA/wC/Cw0ADQkCCwYJAQD/AMELCgkBABEJBAD/AMQJAQsHCQEA/wDcCQUA/wD/ANY=' };
+        const ZONES = ['Villes', 'Montagne enneigée', 'Désert', 'Forêt'], ZONE_ID = ['villes', 'montagne', 'desert', 'foret'];
+        const CM = CARTE.px * CARTE.mpp, CPAD = 80;                       // taille d'une cellule (m), marge autour du dessin (cellules)
+        const CGW = CARTE.w + 2 * CPAD, CGH = CARTE.h + 2 * CPAD;
+        const cgX0 = (CARTE.x0 - CARTE.cx) * CARTE.mpp - CPAD * CM, cgZ0 = (CARTE.y0 - CARTE.cy) * CARTE.mpp - CPAD * CM;   // coin de la grille (m)
+        const CG = new Uint8Array(CGW * CGH);
+        { const by = atob(CARTE.b64); let o = 0;
+          for(let k = 0; k < by.length; k += 2) { const v = by.charCodeAt(k), n = by.charCodeAt(k + 1); for(let q = 0; q < n; q++, o++) CG[(CPAD + Math.floor(o / CARTE.w)) * CGW + CPAD + o % CARTE.w] = v; }
+          delete CARTE.b64; }
+        // Distance signée au contour (m, positive à l'intérieur) : transformée en distance exacte (Felzenszwalb), puis un léger flou
+        const SDF = new Float32Array(CGW * CGH);
+        function edt2(f, n, d, v, z, out) {   // transformée 1D de distance au carré
+            let k = 0; v[0] = 0; z[0] = -1e20; z[1] = 1e20;
+            for(let q = 1; q < n; q++) {
+                let s = ((f[q] + q * q) - (f[v[k]] + v[k] * v[k])) / (2 * q - 2 * v[k]);
+                while(s <= z[k]) { k--; s = ((f[q] + q * q) - (f[v[k]] + v[k] * v[k])) / (2 * q - 2 * v[k]); }
+                k++; v[k] = q; z[k] = s; z[k + 1] = 1e20;
+            }
+            k = 0; for(let q = 0; q < n; q++) { while(z[k + 1] < q) k++; const p = v[k]; out[q] = (q - p) * (q - p) + f[p]; }
+        }
+        function dist2(seed) {   // pour chaque cellule : distance (en cellules) à la cellule germe la plus proche
+            const n = Math.max(CGW, CGH), f = new Float64Array(n), o = new Float64Array(n), v = new Int32Array(n), z = new Float64Array(n + 1), g = new Float64Array(CGW * CGH);
+            for(let i = 0; i < CGW; i++) { for(let j = 0; j < CGH; j++) f[j] = seed[j * CGW + i] ? 0 : 1e10; edt2(f, CGH, 0, v, z, o); for(let j = 0; j < CGH; j++) g[j * CGW + i] = o[j]; }
+            for(let j = 0; j < CGH; j++) { for(let i = 0; i < CGW; i++) f[i] = g[j * CGW + i]; edt2(f, CGW, 0, v, z, o); for(let i = 0; i < CGW; i++) g[j * CGW + i] = Math.sqrt(o[i]); }
+            return g;
+        }
+        { const inn = new Uint8Array(CGW * CGH), out = new Uint8Array(CGW * CGH);
+          for(let i = 0; i < inn.length; i++) { inn[i] = CG[i] & 1; out[i] = inn[i] ? 0 : 1; }
+          const dOut = dist2(out), dIn = dist2(inn);   // dOut : distance à l'extérieur (cellules intérieures) ; dIn : distance à l'intérieur
+          const raw = new Float32Array(CGW * CGH);
+          for(let i = 0; i < raw.length; i++) raw[i] = (inn[i] ? dOut[i] - 0.5 : -(dIn[i] - 0.5)) * CM;
+          for(let pass = 0; pass < 2; pass++) { const src = pass ? SDF.slice() : raw;
+              for(let j = 0; j < CGH; j++) for(let i = 0; i < CGW; i++) { let s = 0, n = 0; for(let b = -1; b <= 1; b++) for(let a = -1; a <= 1; a++) { const ii = i + a, jj = j + b; if(ii >= 0 && jj >= 0 && ii < CGW && jj < CGH) { s += src[jj * CGW + ii]; n++; } } SDF[j * CGW + i] = s / n; } } }
+        function sdfAt(x, z) {   // > 0 : dans le territoire. Hors de la grille : distance au bord de la grille + marge.
+            const u = (x - cgX0) / CM - 0.5, v = (z - cgZ0) / CM - 0.5;
+            if(u < 0 || v < 0 || u > CGW - 1.001 || v > CGH - 1.001) { const du = Math.max(-u, u - (CGW - 1), 0), dv = Math.max(-v, v - (CGH - 1), 0); return -(CPAD * CM * 0.9 + Math.hypot(du, dv) * CM); }
+            const i = Math.floor(u), j = Math.floor(v), fu = u - i, fv = v - j, o = j * CGW + i;
+            return (SDF[o] * (1 - fu) + SDF[o + 1] * fu) * (1 - fv) + (SDF[o + CGW] * (1 - fu) + SDF[o + CGW + 1] * fu) * fv;
+        }
+        // Zones : poids de chaque zone (grille floue, bords irréguliers), prolongés vers l'extérieur du contour
+        const ZW = [0, 1, 2, 3].map(() => new Float32Array(CGW * CGH));
+        { const z0 = new Uint8Array(CGW * CGH).fill(255);
+          for(let i = 0; i < z0.length; i++) if(CG[i] & 1) z0[i] = CG[i] >> 2 & 3;
+          for(let it = 0; it < 14; it++) { const nx = z0.slice();   // dilatation : chaque cellule vide prend la zone d'un voisin
+              for(let j = 1; j < CGH - 1; j++) for(let i = 1; i < CGW - 1; i++) { const o = j * CGW + i; if(z0[o] !== 255) continue; const c = z0[o - 1] !== 255 ? z0[o - 1] : z0[o + 1] !== 255 ? z0[o + 1] : z0[o - CGW] !== 255 ? z0[o - CGW] : z0[o + CGW]; if(c !== undefined && c !== 255) nx[o] = c; }
+              z0.set(nx); }
+          for(let i = 0; i < z0.length; i++) if(z0[i] !== 255) ZW[z0[i]][i] = 1; else ZW[0][i] = 1;
+          const tmp = new Float32Array(CGW * CGH);
+          ZW.forEach(W => { for(let pass = 0; pass < 3; pass++) {
+              for(let j = 0; j < CGH; j++) for(let i = 0; i < CGW; i++) { const o = j * CGW + i; tmp[o] = (W[o] + W[j * CGW + Math.max(0, i - 1)] + W[j * CGW + Math.min(CGW - 1, i + 1)]) / 3; }
+              for(let j = 0; j < CGH; j++) for(let i = 0; i < CGW; i++) { const o = j * CGW + i; W[o] = (tmp[o] + tmp[Math.max(0, j - 1) * CGW + i] + tmp[Math.min(CGH - 1, j + 1) * CGW + i]) / 3; } } }); }
+        const BW = [1, 0, 0, 0];   // résultat de zoneW : poids des 4 zones (somme = 1)
+        function zoneW(x, z) {
+            x += (vnoise(x / 230 + 3.1, z / 230) - 0.5) * 300; z += (vnoise(x / 230, z / 230 - 7.7) - 0.5) * 300;   // frontières irrégulières
+            const u = clamp((x - cgX0) / CM - 0.5, 0, CGW - 1.001), v = clamp((z - cgZ0) / CM - 0.5, 0, CGH - 1.001), i = Math.floor(u), j = Math.floor(v), fu = u - i, fv = v - j, o = j * CGW + i;
+            let s = 0;
+            for(let k = 0; k < 4; k++) { const W = ZW[k]; const w = (W[o] * (1 - fu) + W[o + 1] * fu) * (1 - fv) + (W[o + CGW] * (1 - fu) + W[o + CGW + 1] * fu) * fv; BW[k] = w; s += w; }
+            for(let k = 0; k < 4; k++) BW[k] /= s || 1;
+            return BW;
+        }
+        const zoneOf = (x, z) => { zoneW(x, z); let b = 0; for(let k = 1; k < 4; k++) if(BW[k] > BW[b]) b = k; return b; };
+        // Distance radiale normalisée : vaut RBN au bord du territoire (rayon « équivalent » d'un monde rond de 10,6 km, comme au départ)
+        const RBN = 10600, NRB = 720, RB = new Float32Array(NRB);
+        { const raw = new Float32Array(NRB);
+          for(let k = 0; k < NRB; k++) { const a = k / NRB * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a); let last = 0; for(let r = 0; r < 20000; r += 40) { if(sdfAt(ca * r, sa * r) > 0) last = r; else if(r - last > 1500) break; } raw[k] = last; }
+          const mn = new Float32Array(NRB); for(let k = 0; k < NRB; k++) { let m = 1e9; for(let q = -8; q <= 8; q++) m = Math.min(m, raw[(k + q + NRB) % NRB]); mn[k] = m; }   // minimum sur ±4° : on reste à l'intérieur
+          for(let k = 0; k < NRB; k++) { let s = 0, w = 0; for(let q = -20; q <= 20; q++) { const e = Math.exp(-q * q / 200); s += mn[(k + q + NRB) % NRB] * e; w += e; } RB[k] = s / w; } }
+        const rbAt = (a) => { const t = ((a / (Math.PI * 2)) % 1 + 1) % 1 * NRB, i = Math.floor(t), f = t - i; return RB[i % NRB] * (1 - f) + RB[(i + 1) % NRB] * f; };
+        const rnAt = (x, z) => Math.hypot(x, z) * RBN / rbAt(Math.atan2(z, x));
+        const toNorm = (th) => rbAt(th) / RBN;
+        const cellLine = (x, z) => { const i = Math.floor((x - cgX0) / CM), j = Math.floor((z - cgZ0) / CM); return i >= 0 && j >= 0 && i < CGW && j < CGH ? CG[j * CGW + i] >> 1 & 1 : 0; };   // trait de frontière du dessin
+        const SAND_MAP = [214, 184, 122], SNOW_MAP = [226, 232, 241];
+        // Centre de chaque zone (la cellule de la zone la plus proche du centre de gravité), pour écrire son nom sur les cartes
+        const ZCEN = [0, 1, 2, 3].map(k => {
+            let sx = 0, sz = 0, n = 0;
+            for(let j = 0; j < CGH; j++) for(let i = 0; i < CGW; i++) { const v = CG[j * CGW + i]; if(v & 1 && (v >> 2 & 3) === k) { sx += cgX0 + (i + 0.5) * CM; sz += cgZ0 + (j + 0.5) * CM; n++; } }
+            sx /= n || 1; sz /= n || 1;
+            let best = [sx, sz], bd = 1e18;
+            for(let j = 0; j < CGH; j++) for(let i = 0; i < CGW; i++) { const v = CG[j * CGW + i]; if(v & 1 && (v >> 2 & 3) === k) { const x = cgX0 + (i + 0.5) * CM, z = cgZ0 + (j + 0.5) * CM, d = (x - sx) ** 2 + (z - sz) ** 2; if(d < bd) { bd = d; best = [x, z]; } } }
+            return best;
+        });
+        const ZONE_COL = ['#e9e4d8', '#dfe9f7', '#f2d28a', '#9fdc8c'];
+        function zoneLabels(g, tr, u, k, show) {   // noms des zones en grandes lettres espacées, discrètes
+            if(!show) return;
+            g.save(); g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
+            for(let z = 0; z < 4; z++) {
+                const q = tr(ZCEN[z][0], ZCEN[z][1]), t = ZONES[z].toUpperCase().split('').join('\u200A');
+                g.font = FONT(700, 27 * u * k); g.lineWidth = 5 * u; g.strokeStyle = 'rgba(8,10,12,0.55)'; g.globalAlpha = 0.8; g.strokeText(t, q[0], q[1] + 24 * u); g.fillStyle = ZONE_COL[z]; g.fillText(t, q[0], q[1] + 24 * u);
+            }
+            g.restore();
+        }   // rayon réel / rayon normalisé dans la direction th
         // Relief : collines et vallons dans le comté, lacs dans les cuvettes, chaîne de montagnes tout autour
         const lakes = [], cities = [], CORR = new Map();   // CORR : terrain retaillé sous les routes de raccordement de la ville 3D
         function hills(x, z) { return 34 * Math.sin(x / 640 + 0.7) * Math.cos(z / 700 - 0.4) + 10 * Math.sin(x / 300 + 0.7) * Math.cos(z / 340 - 0.4) + 6 * Math.sin((x + z) / 210 + 2) + 4 * Math.cos((x - z) / 170 + 1); }
@@ -2606,24 +2706,30 @@
                 if(d2 < L.r * L.r) { const d = Math.sqrt(d2) / L.r, w = 1 - sstep(0.6, 1, d); h += (L.level - 9 + 9.8 * sstep(0.3, 0.72, d) - h) * w; }
             }
             if(CORR.size) h = corrAt(x, z, h);
-            const r2 = x * x + z * z;
-            if(r2 > (COUNTY_R + 150) * (COUNTY_R + 150)) h += mtnRaw(x, z, Math.sqrt(r2));
+            h += zoneRelief(x, z);
             if(MCORR.size) h = mcorrAt(x, z, h);
             return h;
         }
-        // Massif : contreforts dès le bord du comté (crêtes adoucies, 4 octaves), puis la haute chaîne au-delà de la zone où l'on roule.
-        // Les routes de col y sont posées sur un profil en long régulier : le terrain est retaillé autour (MCORR, plus bas).
-        function mtnRaw(x, z, r) {
+        // Relief des zones : dunes dans le désert, ondulations dans la forêt, contreforts dès le bord du comté (surtout dans la zone de montagne),
+        // puis la haute chaîne au-delà du contour du territoire (là où l'on ne roule plus).
+        // Les routes de col sont posées sur un profil en long régulier : le terrain est retaillé autour (MCORR, plus bas).
+        function zoneRelief(x, z) {
+            const W = zoneW(x, z), wM = W[1], wD = W[2], wF = W[3];
             let h = 0;
-            const m1 = sstep(COUNTY_R + 150, COUNTY_R + 2300, r);
-            if(m1 > 0) h += m1 * (30 + ridged(x, z, 4) * (480 + 380 * vnoise(x / 7000 + 5, z / 7000 - 2)));
-            const m2 = sstep(WORLD_R + 250, WORLD_R + 3900, r) * (1 - sstep(19000, 21500, r));
-            if(m2 > 0) h += m2 * (140 + ridged(x, z) * (1100 + 1800 * vnoise(x / 9000 + 3, z / 9000)));
+            if(wD > 0.005) h += wD * (11 * Math.sin(x / 210 + 1.3 + 2.2 * vnoise(x / 700, z / 700)) * Math.cos(z / 260 - 0.6 + 2 * vnoise(x / 650 + 9, z / 650)) + 7 * Math.sin((x * 0.8 + z) / 120 + 4) + 6 * (vnoise(x / 400 + 2, z / 400) - 0.5));
+            if(wF > 0.005) h += wF * 26 * (vnoise(x / 520 + 4, z / 520 - 1) - 0.5);
+            const sd = sdfAt(x, z);
+            if(sd < 4300) {
+                const out = -sd, rn = rnAt(x, z), m1 = sstep(COUNTY_R + 150, COUNTY_R + 2300, rn);
+                if(m1 > 0) h += m1 * (0.14 + 0.86 * wM) * (30 + ridged(x, z, 4) * (480 + 380 * vnoise(x / 7000 + 5, z / 7000 - 2)));
+                const m2 = sstep(250, 3900, out) * (1 - sstep(8600, 11000, out));
+                if(m2 > 0) h += m2 * (140 + ridged(x, z) * (1100 + 1800 * vnoise(x / 9000 + 3, z / 9000)));
+            }
             return h;
         }
         const MCORR = new Map();   // cellules de 32 m → [x, z, hauteur du lit de la route]… (routes de col, un point tous les 8 m)
         const MC_BED = 10, MC_L = 100;   // lit plat jusqu'à 10 m de l'axe, puis raccord au relief sur 100 m
-        const MC_N = 720, MNEAR = new Uint8Array(MC_N * MC_N);   // cellules de 32 m à moins de 4 cellules d'un point de MCORR (test rapide)
+        const MC_N = 1024, MNEAR = new Uint8Array(MC_N * MC_N);   // cellules de 32 m à moins de 4 cellules d'un point de MCORR (test rapide)
         function mcorrAt(x, z, h) {
             const cx = Math.floor(x / 32), cz = Math.floor(z / 32), rr = MC_BED + MC_L, rr2 = rr * rr, gi = cx + MC_N / 2, gj = cz + MC_N / 2;
             if(gi < 0 || gj < 0 || gi >= MC_N || gj >= MC_N || !MNEAR[gj * MC_N + gi]) return h;
@@ -2644,12 +2750,16 @@
             return h + (sy / sw - h) * w;
         }
         const forestAt = (x, z) => sstep(0.44, 0.60, vnoise(x / 380, z / 380 + 3)) * (vnoise(x / 150, z / 150 + 9) < 0.22 ? 0.25 : 1);
-        // Forêts du massif : par taches sur les contreforts, plus de résineux, rien au-dessus de 600 m (roche, puis neige)
-        function forestMt(x, z, r) {
-            const f = forestAt(x, z), m = sstep(COUNTY_R + 150, COUNTY_R + 900, r);
-            if(m <= 0) return f;
-            const alt = hAt(x, z);
-            return Math.max(f, sstep(0.36, 0.6, vnoise(x / 600 + 11, z / 600 - 4)) * 0.95 * m) * (1 - sstep(380, 600, alt));
+        // Forêts : épaisses dans la zone de forêt, par taches de résineux dans la montagne (rien au-dessus de 600 m : roche, puis neige), absentes du désert
+        function forestMt(x, z) {
+            const W = zoneW(x, z), wV = W[0], wM = W[1], wD = W[2], wF = W[3], f0 = forestAt(x, z);
+            let f = f0 * wV + wF * (0.5 + 0.5 * sstep(0.25, 0.6, vnoise(x / 500 + 2, z / 500))) * (vnoise(x / 150, z / 150 + 9) < 0.22 ? 0.35 : 1);
+            f = Math.max(f, f0 * wD * 0.04);
+            if(wM > 0.01) {
+                const mt = sstep(COUNTY_R + 150, COUNTY_R + 900, rnAt(x, z)), alt = hAt(x, z);
+                f += wM * Math.max(f0, sstep(0.36, 0.6, vnoise(x / 600 + 11, z / 600 - 4)) * 0.95 * mt) * (1 - sstep(380, 600, alt));
+            }
+            return Math.min(1, f);
         }
 
         // --- Réseau routier : rocade, deux boucles, radiales sinueuses et traversantes (environ 100 km) ---
@@ -2673,9 +2783,18 @@
             roads.push(R);
             return R;
         }
-        const ringPts = (cnt, r0, amp, k, ph, jit) => {
+        // Part de zone de montagne dans chaque direction (vers 75 % du rayon) : les rocades restent près du centre côté montagne (les cols montent au-delà) et s'écartent vers le contour ailleurs
+        const MSEC = new Float32Array(360);
+        for(let k = 0; k < 360; k++) { let sm = 0; for(let q = -6; q <= 6; q++) { const a = (k + q * 2) / 360 * Math.PI * 2, rb = rbAt(a); sm += zoneW(Math.cos(a) * rb * 0.75, Math.sin(a) * rb * 0.75)[1]; } MSEC[k] = sm / 13; }
+        const mtnSector = (th) => { const t = ((th / (Math.PI * 2)) % 1 + 1) % 1 * 360, i = Math.floor(t), f = t - i; return MSEC[i % 360] * (1 - f) + MSEC[(i + 1) % 360] * f; };
+        const ringPts = (cnt, r0, amp, k, ph, jit, open) => {
             const a = [];
-            for(let i = 0; i < cnt; i++) { const th = i / cnt * Math.PI * 2, r = r0 + amp * Math.sin(k * th + ph) + (rnd() - 0.5) * jit; a.push([Math.cos(th) * r, Math.sin(th) * r]); }
+            for(let i = 0; i < cnt; i++) {
+                const th = i / cnt * Math.PI * 2, c = Math.cos(th), sn = Math.sin(th);
+                let r = (r0 + amp * Math.sin(k * th + ph) + (rnd() - 0.5) * jit) * toNorm(th) * (1 + (open || 0) * (1 - mtnSector(th)));   // rayons normalisés : le réseau épouse le contour de la carte
+                for(let q = 0; q < 30 && sdfAt(c * r, sn * r) < 700; q++) r *= 0.96;   // jamais trop près du contour
+                a.push([c * r, sn * r]);
+            }
             return a;
         };
         const ptAt = (R, u) => { const i = Math.floor((u % 1 + 1) % 1 * R.n); return [R.px[i], R.pz[i]]; };
@@ -2686,8 +2805,8 @@
             pts.push(b);
             return makeRoad(pts, false, 1);
         };
-        const outerRoad = makeRoad(ringPts(30, 5750, 420, 3, 1, 300), true, 0);
-        const midRoad = makeRoad(ringPts(20, 3400, 300, 4, 2.2, 260), true, 1);
+        const outerRoad = makeRoad(ringPts(30, 5750, 420, 3, 1, 300, 0.48), true, 0);
+        const midRoad = makeRoad(ringPts(20, 3400, 300, 4, 2.2, 260, 0.3), true, 1);
         const innerRoad = makeRoad(ringPts(12, 1350, 200, 2, 0.5, 180), true, 1);
         for(let k = 0; k < 5; k++) { const u = (k + 0.3) / 5; linkRoad(ptAt(innerRoad, u), ptAt(midRoad, u + (rnd() - 0.5) * 0.03), 200); }
         for(let k = 0; k < 8; k++) { const u = (k + 0.62) / 8; linkRoad(ptAt(midRoad, u), ptAt(outerRoad, u + (rnd() - 0.5) * 0.02), 230); }
@@ -2755,7 +2874,7 @@
                 let bad = 0;
                 for(let q = 0; q < cells.length && bad < 40; q += 2) {
                     const w = mToW(C, cells[q], cells[q + 1]);
-                    if(Math.hypot(w[0], w[1]) > COUNTY_R - 150) { bad += 5; continue; }
+                    if(rnAt(w[0], w[1]) > COUNTY_R - 150) { bad += 5; continue; }
                     for(let r = 0; r < rp.length; r += 4) { const dx = w[0] - rp[r], dz = w[1] - rp[r + 1]; if(Math.abs(dx) < 90 && Math.abs(dz) < 90 && dx * dx + dz * dz < (rp[r + 2] + (rp[r + 3] ? 40 : 60)) ** 2) { bad++; break; } }
                 }
                 cities.forEach(O => { if(Math.hypot(O.x - (C.tx + VG_C[0] * C.c + VG_C[1] * C.s), O.z - (C.tz - VG_C[0] * C.s + VG_C[1] * C.c)) < 1100) bad += 100; });
@@ -2797,10 +2916,26 @@
         let cSeed = 90210;
         const crnd = () => { cSeed = cSeed + 0x6D2B79F5 | 0; let t = Math.imul(cSeed ^ cSeed >>> 15, 1 | cSeed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
         const CITY_CS = 28;
-        [{ name: 'Saqr City', R: innerRoad, u: 0.76, half: 96, B: 112, metro: true },
-         { name: 'Al Waha', R: midRoad, u: 0.14, half: 70, B: 96 },
-         { name: 'Port Rimal', R: midRoad, u: 0.39, model: true },
-         { name: 'Qasr Al Sahra', R: outerRoad, u: 0.64, half: 58, B: 100 }].forEach(D => {
+        // Emplacement d'une ville sur une rocade : au cœur de la zone voulue (le plus loin possible des villes déjà posées)
+        const cTaken = [];
+        const pickU = (R, zone, minD) => {
+            const cand = [];
+            for(let q = 0; q < 400; q++) {
+                const u = q / 400, i = Math.floor(u * R.n), x = R.px[i], z = R.pz[i];
+                let sc = 1; for(const [dx, dz] of [[0, 0], [320, 0], [-320, 0], [0, 320], [0, -320]]) sc = Math.min(sc, zoneW(x + dx, z + dz)[zone]);
+                if(cTaken.every(t => Math.hypot(t[0] - x, t[1] - z) >= minD)) cand.push({ u, sc, x, z });
+            }
+            const top = cand.reduce((m, c) => Math.max(m, c.sc), 0), good = cand.filter(c => c.sc >= top - 0.04);
+            let best = good[Math.floor(good.length / 2)];
+            if(cTaken.length) { let bd = -1; good.forEach(c => { const d = Math.min(...cTaken.map(t => Math.hypot(t[0] - c.x, t[1] - c.z))); if(d > bd) { bd = d; best = c; } }); }
+            cTaken.push([best.x, best.z]);
+            console.log('Ville en zone ' + ZONE_ID[zone] + ' : u = ' + best.u.toFixed(3) + ', poids de zone ' + best.sc.toFixed(2));
+            return best.u;
+        };
+        [{ name: 'Saqr City', R: innerRoad, u: pickU(innerRoad, 0, 0), half: 96, B: 112, metro: true },
+         { name: 'Port Rimal', R: midRoad, u: pickU(midRoad, 0, 2600), model: true },
+         { name: 'Al Waha', R: midRoad, u: pickU(midRoad, 0, 3000), half: 70, B: 96 },
+         { name: 'Qasr Al Sahra', R: outerRoad, u: pickU(outerRoad, 2, 4000), half: 58, B: 100 }].forEach(D => {
             if(D.model) { cities.push(placeModelCity(D)); return; }
             const R = D.R, n = R.n, i0 = Math.floor(D.u * n), wrap = (j) => ((j % n) + n) % n, K = Math.floor(D.half / CITY_CS);
             const off = (j, l) => { const k = wrap(j); return [R.px[k] - R.tz[k] * l, R.pz[k] + R.tx[k] * l]; };
@@ -2929,7 +3064,7 @@
                     for(let s = 30; s < L - 50 && ok; s += 12) {
                         const t = s / L, x = S.E[0] + (A1[0] - S.E[0]) * Math.min(1, s / 35) + (s > 35 ? (T.x - A1[0]) * (s - 35) / (L - 35) : 0), z = S.E[1] + (A1[1] - S.E[1]) * Math.min(1, s / 35) + (s > 35 ? (T.z - A1[1]) * (s - 35) / (L - 35) : 0);
                         const Lm = wToM(C, x, z);
-                        if((s > 150 ? urbanAt(x, z) > 0 : bldAt(Lm[0], Lm[1])) || x * x + z * z > (COUNTY_R - 80) ** 2 || nearRoad(x, z, 28, s > L - 90 ? T.R : null)) ok = false;
+                        if((s > 150 ? urbanAt(x, z) > 0 : bldAt(Lm[0], Lm[1])) || rnAt(x, z) > COUNTY_R - 80 || nearRoad(x, z, 28, s > L - 90 ? T.R : null)) ok = false;
                         for(const H of hideSpots) if(Math.hypot(H[0] - x, H[1] - z) < 80) ok = false;
                     }
                     if(ok) best = { S, T, A1, L, hT, score };
@@ -2966,12 +3101,12 @@
         // Profil en long lissé (pente ≤ 9 %), puis le terrain est retaillé autour (MCORR : lit plat, talus de raccord vers le relief).
         const mtnRoads = [];
         (() => {
-            const G = 80, N = Math.ceil(2 * (WORLD_R + 300) / G), O = N / 2, NN = N * N;
+            const G = 80, N = Math.ceil(2 * WEXT / G), O = N / 2, NN = N * N;
             const cX = (i) => (i - O + 0.5) * G, toC = (v) => clamp(Math.floor(v / G + O), 0, N - 1);
             const hg = new Float32Array(NN).fill(NaN), blk = new Uint8Array(NN);
             const H = (o) => { let v = hg[o]; if(v !== v) v = hg[o] = hAt(cX(o % N), cX(Math.floor(o / N))); return v; };
             const mark = (x, z, r, val, arr) => { const i0 = toC(x - r), i1 = toC(x + r), j0 = toC(z - r), j1 = toC(z + r); for(let j = j0; j <= j1; j++) for(let i = i0; i <= i1; i++) { const dx = cX(i) - x, dz = cX(j) - z; if(dx * dx + dz * dz < r * r) arr[j * N + i] = val; } };
-            for(let o = 0; o < NN; o++) { const x = cX(o % N), z = cX(Math.floor(o / N)); if(x * x + z * z > (WORLD_R - 260) ** 2) blk[o] = 1; }
+            for(let o = 0; o < NN; o++) { const x = cX(o % N), z = cX(Math.floor(o / N)); if(sdfAt(x, z) < 260) blk[o] = 1; }
             cities.forEach(C => mark(C.x, C.z, C.half * 4 + C.B + 260, 1, blk));
             const blockRoad = (R) => { for(let i = 0; i < R.n; i += 3) mark(R.px[i], R.pz[i], R.hw + 70, 1, blk); };
             roads.forEach(blockRoad);
@@ -3007,18 +3142,28 @@
             }
             const near = (o, x, z, r) => { const dx = cX(o % N) - x, dz = cX(Math.floor(o / N)) - z; return dx * dx + dz * dz < r * r; };
             const R0 = outerRoad, MTN_NAMES = ['Col du Grand Serre', 'Col des Aiguilles', 'Col de la Brèche', 'Col du Mont Sauvage'];
-            [[0.03, 0.085], [0.27, 0.325], [0.455, 0.51], [0.80, 0.855]].forEach(([ua, ub], k) => {
+            // Les 4 cols partent de la rocade extérieure, dans la zone de montagne : on cherche le plus long arc de rocade en zone de montagne et on le partage en 4
+            const mArc = (() => {
+                const NQ = 400, mz = []; for(let q = 0; q < NQ; q++) { const i = Math.floor(q / NQ * R0.n); mz.push(zoneW(R0.px[i], R0.pz[i])[1] > 0.7); }
+                let best = { len: 0, s: 0 };
+                for(let q0 = 0; q0 < NQ; q0++) { if(!mz[q0] || mz[(q0 - 1 + NQ) % NQ]) continue; let l = 0; while(l < NQ && mz[(q0 + l) % NQ]) l++; if(l > best.len) best = { len: l, s: q0 }; }
+                const u0 = best.s / NQ, span = best.len / NQ, w = Math.min(0.06, span / 4 * 0.78), arcs = [];
+                for(let k = 0; k < 4; k++) { const c = u0 + span * (k + 0.5) / 4; arcs.push([(c - w / 2 + 1) % 1, (c + w / 2 + 1) % 1]); }
+                console.log('Rocade en zone de montagne : ' + (span * 100).toFixed(0) + ' % de la rocade, cols de ' + (w * 100).toFixed(1) + ' %');
+                return arcs;
+            })();
+            mArc.forEach(([ua, ub], k) => {
                 const iA = Math.floor(ua * R0.n), iB = Math.floor(ub * R0.n);
                 const end = (i) => { let nx = -R0.tz[i], nz = R0.tx[i]; if(nx * R0.px[i] + nz * R0.pz[i] < 0) { nx = -nx; nz = -nz; } return { x: R0.px[i], z: R0.pz[i], nx, nz }; };
                 const A = end(iA), B = end(iB), PA = [A.x + A.nx * 90, A.z + A.nz * 90], PB = [B.x + B.nx * 90, B.z + B.nz * 90];
                 // col : deux points en haut du massif (environ 600 m d'écart), à l'altitude la plus proche de 560 m
                 const th = Math.atan2(PA[1] + PB[1], PA[0] + PB[0]);
                 let best = null;
-                for(let r = 8700; r <= 9800; r += 100) for(let da = -0.05; da <= 0.0501; da += 0.01) {
-                    const a = th + da, x = Math.cos(a) * r, z = Math.sin(a) * r, o = toC(z) * N + toC(x);
+                for(let r = 8300; r <= 9800; r += 100) for(let da = -0.05; da <= 0.0501; da += 0.01) {
+                    const a = th + da, rr = r * toNorm(a), x = Math.cos(a) * rr, z = Math.sin(a) * rr, o = toC(z) * N + toC(x);
                     if(blk[o]) continue;
                     const sc = Math.abs(H(o) - 560) + Math.abs(da) * 800;
-                    if(!best || sc < best.sc) best = { sc, a, r };
+                    if(!best || sc < best.sc) best = { sc, a, r: rr };
                 }
                 if(!best) { console.warn('Col ' + k + ' : pas de sommet'); return; }
                 const cell = (p) => toC(p[1]) * N + toC(p[0]);
@@ -3373,7 +3518,7 @@
                     if(da > 0.2) continue;   // ligne droite
                     for(const sd of [1, -1]) {
                         const ox = -R.tz[i] * sd, oz = R.tx[i] * sd, bx = R.px[i] + ox * (R.hw + HIDE_SET), bz = R.pz[i] + oz * (R.hw + HIDE_SET);
-                        if(Math.hypot(bx, bz) > WORLD_R - 500) continue;
+                        if(sdfAt(bx, bz) < 500) continue;
                         if(urbanAt(bx, bz) > 0 || cities.some(C => Math.hypot(C.x - bx, C.z - bz) < (C.half || 300) * 2 + 400)) continue;
                         if(lakes.some(L => Math.hypot(L.x - bx, L.z - bz) < L.r + 120)) continue;
                         roadAt(bx, bz, R); if(Q.R && Q.dist < 60) continue;   // aucune autre route à côté
@@ -3442,10 +3587,14 @@
         const MX = (x, y, z, rx, ry, rz, sx, sy, sz) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx || 0, ry || 0, rz || 0)), new THREE.Vector3(sx || 1, sy || 1, sz || 1));
         const dummy = new THREE.Object3D(), tmpCol = new THREE.Color();
         const buildings = [], bHash = new Map();   // immeubles des villes : emprise (collisions, carte)
+        let zoneTick = 0, curZone = -1;
+        const ZTW = [1, 0, 0, 0], ZTT = [1, 0, 0, 0];
+        const cactusChunks = [];
+        const ZONE_DESC = ['Rues, immeubles et palmiers', 'Neige, sapins givrés et cols en lacets', 'Dunes, cactus et pistes de sable', 'Forêt dense et routes ombragées'];
         const treeHash = new Map(), treeChunks = [], terrChunks = [], roadChunks = [], treeUni = { uTime: { value: 0 } };
         const roadPaths = [null, null];   // tracés des routes (rocade / autres) pour la mini-carte et la carte
         let mapImg = null, waterTex = null, updateTufts = null;
-        const MAP_HALF = WORLD_R + 400;    // demi-côté couvert par l'image de la carte (m)
+        const MAP_HALF = WEXT;    // demi-côté couvert par l'image de la carte (m)
 
         // Bruit fractal périodique (se répète sans raccord) : sert de base aux textures du terrain
         function tileNoise(size) {
@@ -3856,18 +4005,19 @@
             // Moyenne de chaque texture (couleurs mises au carré comme dans le shader) : le détail module la teinte sans la décaler
             const texAvg = (t) => { const d = t.image.getContext('2d').getImageData(0, 0, t.image.width, t.image.height).data, s = [0, 0, 0]; for(let i = 0; i < d.length; i += 4) for(let c = 0; c < 3; c++) s[c] += (d[i + c] / 255) ** 2; const n = d.length / 4; return new THREE.Vector3(s[0] / n, s[1] / n, s[2] / n); };
             const gAvg = texAvg(grassTex), dAvg = texAvg(dirtTex);
-            const LAND_N = 512, LAND_SPAN = 42000, landD = new Uint8Array(LAND_N * LAND_N * 4);
+            // Carte d'occupation du sol : R = forêt, G = désert (sable), B = zone de montagne (neige partout)
+            const LAND_N = 512, LAND_SPAN = 32000, landD = new Uint8Array(LAND_N * LAND_N * 4);
             for(let j = 0; j < LAND_N; j++) for(let i = 0; i < LAND_N; i++) {
-                const x = ((i + 0.5) / LAND_N - 0.5) * LAND_SPAN, z = ((j + 0.5) / LAND_N - 0.5) * LAND_SPAN, r = Math.hypot(x, z);
-                let f = forestAt(x, z);
-                if(r > WORLD_R + 250) { const alt = hAt(x, z); f = Math.max(f, sstep(60, 200, alt) * 0.9) * (1 - sstep(380, 600, alt)); }
-                else if(r > COUNTY_R + 150) f = forestMt(x, z, r);
-                landD[(j * LAND_N + i) * 4] = f * 255; landD[(j * LAND_N + i) * 4 + 3] = 255;
+                const x = ((i + 0.5) / LAND_N - 0.5) * LAND_SPAN, z = ((j + 0.5) / LAND_N - 0.5) * LAND_SPAN, sd = sdfAt(x, z), W = zoneW(x, z), zM = W[1], zD = W[2], o = (j * LAND_N + i) * 4;
+                let f;
+                if(sd < -250) { const alt = hAt(x, z); f = Math.max(forestAt(x, z), sstep(60, 200, alt) * 0.9) * (1 - sstep(380, 600, alt)); }
+                else f = forestMt(x, z);
+                landD[o] = f * 255; landD[o + 1] = zD * 255; landD[o + 2] = zM * 255; landD[o + 3] = 255;
             }
             const landTex = new THREE.DataTexture(landD, LAND_N, LAND_N, THREE.RGBAFormat);
             landTex.magFilter = landTex.minFilter = THREE.LinearFilter; landTex.needsUpdate = true;
             // Abords des routes et des planques (≈ 7 m par pixel, adouci) : bande de terre battue et d'herbe rase au-delà de l'accotement
-            const RM_N = 3072, RM_SPAN = 2 * (WORLD_R + 400), rmPx = RM_N / RM_SPAN;
+            const RM_N = 3584, RM_SPAN = 2 * (WEXT - 100), rmPx = RM_N / RM_SPAN;
             const rmD = chan(canvasData(RM_N, RM_N, (g) => {
                 g.fillStyle = '#000'; g.fillRect(0, 0, RM_N, RM_N);
                 g.strokeStyle = '#fff'; g.lineJoin = g.lineCap = 'round';
@@ -3943,7 +4093,8 @@
                         vec2 p = wp.xz;
                         float n1 = texture2D( uNz, p / 2600.0 ).r, n2 = texture2D( uNz, p / 640.0 ).g, n3 = texture2D( uNz, p / 150.0 ).r, n4 = texture2D( uNz, p / 31.0 ).g, n5 = texture2D( uNz, p / 9.0 ).b;
                         float slope = 1.0 - wn.y, alt = wp.y;
-                        float forest = texture2D( uLand, p / ${LAND_SPAN.toFixed(1)} + 0.5 ).r;
+                        vec3 land = texture2D( uLand, p / ${LAND_SPAN.toFixed(1)} + 0.5 ).rgb;
+                        float forest = land.r, zDes = land.g, zMnt = land.b;
                         float verge = texture2D( uRoadM, p / ${RM_SPAN.toFixed(1)} + 0.5 ).r, urban = texture2D( uUrban, p / ${RM_SPAN.toFixed(1)} + 0.5 ).r;
                         vec3 gA = sq( texture2D( uGrass, p / 1.7 ).rgb ) / uGAvg, gB = sq( texture2D( uGrass, p / 6.9 + 0.37 ).rgb ) / uGAvg, gC = sq( texture2D( uGrass, p / 29.0 + 0.71 ).rgb ) / uGAvg;
                         vec3 dA = sq( texture2D( uDirt, p / 2.4 ).rgb ) / uDAvg, dB = sq( texture2D( uDirt, p / 11.0 + 0.23 ).rgb ) / uDAvg;
@@ -3965,6 +4116,15 @@
                         float sl = 880.0 + n2 * 260.0 - n1 * 120.0;
                         float snow = smoothstep( sl - 40.0, sl + 140.0, alt + ( n3 - 0.5 ) * 170.0 ) * ( 1.0 - smoothstep( 0.50, 0.82, slope + ( n4 - 0.5 ) * 0.22 ) );
                         col = mix( col, vec3( 0.80, 0.84, 0.90 ), snow );
+                        // Désert : sable fin et chaud, plaques plus claires ; zone de montagne : neige au sol partout (la roche perce sur les pentes raides, la lisière des routes reste boueuse)
+                        float zDs = zDes * ( 1.0 - urban );
+                        vec3 sand = mix( vec3( 0.44, 0.31, 0.155 ), vec3( 0.58, 0.43, 0.23 ), smoothstep( 0.3, 0.7, n2 ) ) * ( 0.86 + 0.28 * n3 ) * ( 0.92 + 0.16 * n5 ) * mix( vec3( 1.0 ), dA, 0.22 );
+                        sand = mix( sand, rock * vec3( 1.5, 1.2, 0.85 ), smoothstep( 0.2, 0.42, slope + ( n4 - 0.5 ) * 0.1 ) * 0.8 );
+                        col = mix( col, sand, zDs * 0.97 );
+                        bl = mix( bl, 0.8, zDs );
+                        float gSnow = zMnt * ( 1.0 - 0.6 * smoothstep( 0.55, 0.92, verge ) ) * ( 1.0 - 0.75 * smoothstep( 0.34, 0.55, slope + ( n4 - 0.5 ) * 0.12 ) ) * ( 1.0 - urban * 0.6 );
+                        col = mix( col, vec3( 0.80, 0.84, 0.90 ) * ( 0.93 + 0.14 * n4 ) * ( 0.96 + 0.08 * n5 ), gSnow * 0.94 );
+                        snow = max( snow, gSnow * 0.8 );
                         float wet = 0.0;
                         for( int i = 0; i < 3; i++ ) { vec4 L = uLakes[ i ]; if( L.z > 0.0 && distance( p, L.xy ) < L.z ) wet = max( wet, 1.0 - smoothstep( L.w + 0.1, L.w + 1.6, alt ) ); }
                         col = mix( col, vec3( 0.06, 0.05, 0.038 ) * dA, wet * 0.85 );
@@ -3984,9 +4144,9 @@
                         normal = bumpN( -vViewPosition, normal, vec2( terrH( tp + tdx, tBl ) - th0, terrH( tp + tdy, tBl ) - th0 ) * tFade, 1.0 );
                     }`);
             };
-            // Terrain proche : 484 dalles de 1 km en trois niveaux de détail (mailles de 25, 50 et 100 m) ; les deux plus fins sont calculés à la demande.
+            // Terrain proche : 784 dalles de 1 km en trois niveaux de détail (mailles de 25, 50 et 100 m) ; les deux plus fins sont calculés à la demande.
             // Les niveaux lointains sont posés un peu plus bas (ils ne recouvrent jamais la route) et chaque dalle a une jupe qui cache les raccords.
-            const NCH = 22, CS = 1024, half = NCH * CS / 2, idxCache = {};
+            const NCH = 28, CS = 1024, half = NCH * CS / 2, idxCache = {};
             const grid2 = (n) => { if(idxCache[n]) return idxCache[n]; const a = []; for(let i = 0; i < n; i++) for(let j = 0; j < n; j++) { const p = i * (n + 1) + j, q = p + n + 1; a.push(p, q, p + 1, p + 1, q, q + 1); } return idxCache[n] = a; };
             const terrGeo = (x0, z0, n, drop) => {
                 const V = n + 3, cs = CS / n, pos = new Float32Array(V * V * 3), nor = new Float32Array(V * V * 3), uv = new Float32Array(V * V * 2);
@@ -4831,13 +4991,16 @@
             // --- Végétation : arbres peints sur des plans croisés, buissons et herbes hautes au bord des routes ---
             const atlas = paintTreeAtlas();
             const patchTree = (sh) => {
-                sh.uniforms.uTime = treeUni.uTime;
-                sh.vertexShader = 'attribute float aVar;\nuniform float uTime;\n' + sh.vertexShader
+                sh.uniforms.uTime = treeUni.uTime; sh.uniforms.uLandT = { value: landTex };
+                sh.vertexShader = 'attribute float aVar;\nuniform float uTime;\nuniform sampler2D uLandT;\nvarying float vSnow;\nvarying float vYn;\n' + sh.vertexShader
                     .replace('#include <uv_vertex>', '#ifdef USE_UV\n\tvUv = vec2( ( uv.x + aVar ) / 8.0, 1.0 - uv.y * ( aVar > 5.5 ? 0.4 : 1.0 ) );\n#endif')
-                    .replace('#include <begin_vertex>', '#include <begin_vertex>\n#ifdef USE_INSTANCING\n\tfloat swP = instanceMatrix[ 3 ].x * 0.31 + instanceMatrix[ 3 ].z * 0.17, swA = position.y * position.y * ( aVar > 5.5 ? 0.05 : 0.014 );\n\ttransformed.x += sin( uTime * 1.6 + swP ) * swA;\n\ttransformed.z += cos( uTime * 1.25 + swP * 1.3 ) * swA * 0.7;\n#endif');
+                    .replace('#include <begin_vertex>', '#include <begin_vertex>\n#ifdef USE_INSTANCING\n\tfloat swP = instanceMatrix[ 3 ].x * 0.31 + instanceMatrix[ 3 ].z * 0.17, swA = position.y * position.y * ( aVar > 5.5 ? 0.05 : 0.014 );\n\ttransformed.x += sin( uTime * 1.6 + swP ) * swA;\n\ttransformed.z += cos( uTime * 1.25 + swP * 1.3 ) * swA * 0.7;\n\tvec4 swW = modelMatrix * instanceMatrix * vec4( transformed, 1.0 );\n\tvSnow = texture2D( uLandT, swW.xz / ' + LAND_SPAN.toFixed(1) + ' + 0.5 ).b;\n#else\n\tvSnow = 0.0;\n#endif\n\tvYn = position.y;');
             };
             const treeMat = new THREE.MeshLambertMaterial({ map: atlas, alphaTest: 0.42, vertexColors: true });
-            treeMat.onBeforeCompile = patchTree;
+            treeMat.onBeforeCompile = (sh) => {   // dans la zone de montagne, les arbres sont givrés (neige sur le haut des branches)
+                patchTree(sh);
+                sh.fragmentShader = 'varying float vSnow;\nvarying float vYn;\n' + sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n\tif( vSnow > 0.02 ) { float snw = vSnow * ( 0.3 + 0.7 * smoothstep( 0.08, 0.9, vYn ) ) * ( 0.72 + 0.28 * sin( vUv.x * 47.0 + vUv.y * 31.0 ) * sin( vUv.y * 83.0 + 1.3 ) ); diffuseColor.rgb = mix( diffuseColor.rgb, vec3( 0.74, 0.80, 0.90 ), clamp( snw * 0.9, 0.0, 0.6 ) ); }');
+            };
             const treeDepth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: atlas, alphaTest: 0.42 });
             treeDepth.onBeforeCompile = patchTree;
             const hiGeo = crossGeo(3, 2), loGeo = crossGeo(2, 1), bSphere = new THREE.Sphere(new THREE.Vector3(0, 8, 0), 430);
@@ -4850,8 +5013,9 @@
                 a.push(x, z, hgt, wid, vr, tint);
             };
             const tryTree = (x, z, sparse) => {
-                const r2 = x * x + z * z, mt = r2 > (COUNTY_R + 150) ** 2;
-                if(r2 > (WORLD_R + 150) ** 2) return;
+                if(sdfAt(x, z) < 100) return;
+                const W = zoneW(x, z), zM = W[1], zD = W[2], zF = W[3], mt = rnAt(x, z) > COUNTY_R + 150;
+                if(zD > 0.7) return;   // pas d'arbres dans le désert (cactus à part)
                 if(mt && hAt(x, z) > 500 + 140 * vnoise(x / 300, z / 300)) return;   // limite des arbres dans le massif
                 if(urbanAt(x, z) > 0) return;
                 if(!sparse && vnoise(x / 150, z / 150 + 9) < 0.22) return;                      // clairières
@@ -4859,7 +5023,7 @@
                 if(Q.R && Q.dist < Q.R.hw + 6.5) return;
                 for(let k = 0; k < sites.length; k++) { const H = sites[k]; if((Math.abs(H.x - x) < 28 && Math.abs(H.z - z) < 28) || Math.hypot(H.bx - x, H.bz - z) < 30) return; }
                 for(let k = 0; k < lakes.length; k++) { const L = lakes[k]; if(Math.hypot(L.x - x, L.z - z) < L.r && hAt(x, z) < L.level + 0.8) return; }
-                const conif = rnd() < (mt ? 0.88 : 0.15 + 0.7 * sstep(0.35, 0.65, vnoise(x / 420 + 7, z / 420))), q = rnd();
+                const conif = rnd() < (zM > 0.4 ? 0.93 : zF > 0.5 ? 0.3 + 0.45 * sstep(0.35, 0.65, vnoise(x / 420 + 7, z / 420)) : mt ? 0.88 : 0.15 + 0.7 * sstep(0.35, 0.65, vnoise(x / 420 + 7, z / 420))), q = rnd();
                 const vr = conif ? (q < 0.7 ? 0 : 1) : (q < 0.42 ? 2 : q < 0.66 ? 3 : q < 0.82 ? 4 : 5);
                 const hgt = vr < 2 ? 12 + rnd() * 11 : vr === 5 ? 9 + rnd() * 5 : 8.5 + rnd() * 7;
                 plant(x, z, hgt, hgt * (vr < 2 ? 0.8 + rnd() * 0.25 : vr === 5 ? 0.85 + rnd() * 0.2 : 1.05 + rnd() * 0.35), vr, 0.82 + rnd() * 0.36);
@@ -4879,13 +5043,14 @@
                 const q = rnd(), l = q < 0.5 ? R.hw + 4 + rnd() * rnd() * 10 : R.hw + 5 + rnd() * 15, x = R.px[i] + nx * l + R.tx[i] * (rnd() - 0.5) * 4, z = R.pz[i] + nz * l + R.tz[i] * (rnd() - 0.5) * 4;
                 if(q > 0.5 && q < 0.8) return;
                 if(urbanAt(x, z) > 0) return;
+                { const zr = zoneW(x, z); if(zr[2] > 0.6 || (zr[1] > 0.6 && rnd() < 0.7)) return; }   // sable nu ; peu d'herbe dans la neige
                 roadAt(x, z);
                 if(Q.R && Q.dist < Q.R.hw + 3.6) return;
                 for(let k = 0; k < sites.length; k++) if(Math.hypot(sites[k].bx - x, sites[k].bz - z) < 26) return;   // rien ne pousse sur la planque
                 if(q < 0.5) { const hg = 0.65 + rnd() * 0.6; plant(x, z, hg, hg * (2.6 + rnd()), 7, 0.85 + rnd() * 0.3); }
                 else { const hg = 1.1 + rnd() * 1.5; plant(x, z, hg, hg * (2.4 + rnd() * 0.8), 6, 0.8 + rnd() * 0.4); }
             }); });
-            for(let k = 0; k < 460000; k++) { const x = (rnd() - 0.5) * 2 * (WORLD_R + 200), z = (rnd() - 0.5) * 2 * (WORLD_R + 200), rr = Math.hypot(x, z); if(rr > WORLD_R + 200) continue; const f = rr > COUNTY_R + 150 ? forestMt(x, z, rr) : forestAt(x, z); if(f > 0.5) tryTree(x, z); else if(rnd() < 0.012) tryTree(x, z, true); }
+            for(let k = 0; k < 700000; k++) { const x = -13000 + rnd() * 27000, z = -10100 + rnd() * 20500; if(sdfAt(x, z) < 100) continue; const f = forestMt(x, z); if(f > 0.5) tryTree(x, z); else if(rnd() < 0.012) tryTree(x, z, true); }
             groups.forEach((list, key) => {
                 const [cx, cz] = key.split(':').map(Number), ox = (cx + 0.5) * TC, oz = (cz + 0.5) * TC, n = list.length / 6;
                 let nLo = 0;
@@ -4911,6 +5076,51 @@
                 if(lo) scene.add(lo.im);
                 treeChunks.push({ hi: hi.im, lo: lo ? lo.im : null, cx: ox, cz: oz });
             });
+
+            // --- Cactus du désert : tronc et deux bras (géométrie fusionnée, un maillage par bloc de 512 m, visible à moins de 1,3 km) ---
+            const cactusGeo = (() => {
+                const parts = [[0, 0.5, 0, 0.5, 1, 0.5, 0], [0.8, 0.45, 0, 0.35, 1.6, 0.35, Math.PI / 2], [1.6, 0.6, 0, 0.34, 0.3, 0.34, 0], [-0.7, 0.58, 0, 0.3, 1.4, 0.3, Math.PI / 2], [-1.4, 0.72, 0, 0.3, 0.28, 0.3, 0]];
+                const pos = [], nor = [], idx = [];
+                parts.forEach(([px, py, pz, sx, sy, sz, rz]) => {
+                    const g = new THREE.CylinderGeometry(0.5, 0.5, 1, 7, 1), m = new THREE.Matrix4().compose(new THREE.Vector3(px, py, pz), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, rz)), new THREE.Vector3(sx, sy, sz));
+                    g.applyMatrix4(m); const b = pos.length / 3, p = g.attributes.position.array, n = g.attributes.normal.array;
+                    for(let i = 0; i < p.length; i++) { pos.push(p[i]); nor.push(n[i]); }
+                    g.index.array.forEach(v => idx.push(v + b));
+                });
+                const g = new THREE.BufferGeometry();
+                g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setIndex(idx);
+                g.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0.5, 0), 6);
+                return g;
+            })();
+            const cactusMat = new THREE.MeshLambertMaterial({ color: 0x4d7a3c });
+            {
+                const cacti = new Map();
+                for(let k = 0; k < 330000; k++) {
+                    const x = -13000 + rnd() * 27000, z = -10100 + rnd() * 20500;
+                    if(rnd() > 0.2 || sdfAt(x, z) < 150 || zoneW(x, z)[2] < 0.8 || urbanAt(x, z) > 0) continue;
+                    roadAt(x, z);
+                    if(Q.R && Q.dist < Q.R.hw + 7) continue;
+                    let bad = false;
+                    for(let q = 0; q < sites.length && !bad; q++) { const H = sites[q]; if((Math.abs(H.x - x) < 28 && Math.abs(H.z - z) < 28) || Math.hypot(H.bx - x, H.bz - z) < 30) bad = true; }
+                    if(bad) continue;
+                    const key = Math.floor(x / TC) + ':' + Math.floor(z / TC);
+                    let a = cacti.get(key); if(!a) cacti.set(key, a = []);
+                    a.push(x, z, 2.4 + rnd() * rnd() * 4.6, 0.55 + rnd() * 0.3, 0.8 + rnd() * 0.4);
+                    const hk = (Math.floor(x / 16) + 512) * 1024 + Math.floor(z / 16) + 512;
+                    let t = treeHash.get(hk); if(!t) treeHash.set(hk, t = []); t.push(x, z);
+                }
+                cacti.forEach((list, key) => {
+                    const [cx, cz] = key.split(':').map(Number), ox = (cx + 0.5) * TC, oz = (cz + 0.5) * TC, n = list.length / 5, im = new THREE.InstancedMesh(cactusGeo, cactusMat, n);
+                    im.position.set(ox, 0, oz); im.frustumCulled = true;
+                    for(let k = 0; k < n; k++) {
+                        const x = list[k * 5], z = list[k * 5 + 1], w = list[k * 5 + 3];
+                        dummy.position.set(x - ox, hAt(x, z) - 0.2, z - oz); dummy.rotation.set(0, rnd() * 6.28, 0); dummy.scale.set(w, list[k * 5 + 2], w); dummy.updateMatrix();
+                        im.setMatrixAt(k, dummy.matrix); tmpCol.setRGB(list[k * 5 + 4], list[k * 5 + 4], list[k * 5 + 4]); im.setColorAt(k, tmpCol);
+                    }
+                    im.castShadow = true; im.visible = false; scene.add(im);
+                    cactusChunks.push({ im, cx: ox, cz: oz });
+                });
+            }
 
             // --- Touffes d'herbe en volume autour de la voiture (dalles de 16 m calculées à la demande, fondues au-delà de 40 m) ---
             const tuftTex = (() => {
@@ -4972,8 +5182,9 @@
                 const r = () => { sd = sd + 0x6D2B79F5 | 0; let q = Math.imul(sd ^ sd >>> 15, 1 | sd); q = q + Math.imul(q ^ q >>> 7, 61 | q) ^ q; return ((q ^ q >>> 14) >>> 0) / 4294967296; };
                 const m = new Float32Array(TCAP * 16), c = new Float32Array(TCAP * 3);
                 let n = 0;
-                if(Math.hypot((tx + 0.5) * TT, (tz + 0.5) * TT) < WORLD_R + 300) for(let k = 0; k < TCAP; k++) {
-                    const x = (tx + r()) * TT, z = (tz + r()) * TT, pr = r(), s1 = r(), s2 = r();
+                if(sdfAt((tx + 0.5) * TT, (tz + 0.5) * TT) > -300) for(let k = 0; k < TCAP; k++) {
+                    const x = (tx + r()) * TT, z = (tz + r()) * TT, pr = r(), s1 = r(), s2 = r(), zw = zoneW(x, z);
+                    if(pr < Math.max(zw[2] * 0.995, zw[1] * 0.9)) continue;   // ni herbe dans le sable, ni dans la neige
                     roadAt(x, z);
                     if(Q.R && Math.abs(Q.d) < Q.R.hw + 2.6 && Q.dist < Q.R.hw + 8) continue;
                     let skip = false;
@@ -5332,14 +5543,17 @@
                 let col = mix3(LUSH, DRY, clamp(dry, 0, 1));
                 const ub = urbanAt(x, z);
                 if(ub > 0) col = mix3(col, [204, 198, 186], ub * 0.9);
-                const f = forestAt(x, z) * (1 - ub);
+                const zv = zoneW(x, z), zV = zv[0], zM = zv[1], zD = zv[2], zF = zv[3];
+                const f = Math.min(1, forestAt(x, z) * (zV + zM * 0.9 * (h < 520 ? 1 : 0)) + zF * (0.55 + 0.45 * sstep(0.25, 0.6, vnoise(x / 500 + 2, z / 500)))) * (1 - ub);
                 if(f > 0.02) {
                     // Cimes d'arbres : petit grain de taches claires et sombres
                     const cell = hash2(Math.floor(x / 22), Math.floor(z / 22)), ring = vnoise(x / 9, z / 9);
                     const fc = mix3(FOREST, FOREST2, clamp(ring * 0.9 + cell * 0.3 - 0.2, 0, 1));
                     col = mix3(col, fc, sstep(0.25, 0.6, f));
                 }
-                if(h > 80) { const k = sstep(80, 420, h) * (0.7 + 0.3 * sstep(0.15, 0.5, Math.hypot(gx, gz))); col = mix3(col, mix3(ROCK, ROCK2, vnoise(x / 300, z / 300)), k); }
+                if(zD > 0.01) col = mix3(col, SAND_MAP, zD * (1 - ub) * 0.95 * (1 - 0.5 * sstep(0.15, 0.5, Math.hypot(gx, gz))));
+                if(zM > 0.01) col = mix3(col, SNOW_MAP, zM * (1 - ub * 0.6) * (0.9 - 0.35 * f) * (1 - 0.6 * sstep(0.25, 0.6, Math.hypot(gx, gz))));
+                if(h > 80) { const k = sstep(80, 420, h) * (0.7 + 0.3 * sstep(0.15, 0.5, Math.hypot(gx, gz))) * (1 - zM * 0.45); col = mix3(col, mix3(ROCK, ROCK2, vnoise(x / 300, z / 300)), k); }
                 const sn = sstep(840, 1000, h + (vnoise(x / 400, z / 400) - 0.5) * 200) * (1 - sstep(0.9, 1.6, Math.hypot(gx, gz)));
                 col = mix3(col, SNOW, sn);
                 let r = col[0] * shade, g2 = col[1] * shade, b = col[2] * shade;
@@ -5354,8 +5568,10 @@
                     else if(h < L.level + 0.6) { r = 214; g2 = 224; b = 210; }
                 }
                 // Hors de la zone jouable : un voile qui fait ressortir le comté
-                const rr = Math.hypot(x, z), out = sstep(WORLD_R + 150, WORLD_R + 900, rr) * 0.35;
-                md[o * 4] = clamp(r * (1 - out), 0, 255); md[o * 4 + 1] = clamp(g2 * (1 - out), 0, 255); md[o * 4 + 2] = clamp(b * (1 - out) + out * 18, 0, 255); md[o * 4 + 3] = 255;
+                const sd = sdfAt(x, z), out = sstep(0, 500, -sd) * 0.35, ln = sd > 40 ? cellLine(x, z) * 0.5 : 0, edge = 1 - sstep(0, 1, Math.abs(sd) / (mcell * 1.5));
+                r = (r * (1 - out)) * (1 - ln) + 255 * ln; g2 = (g2 * (1 - out)) * (1 - ln) + 255 * ln; b = ((b * (1 - out) + out * 18)) * (1 - ln) + 255 * ln;
+                if(edge > 0) { r += (255 - r) * edge; g2 += (240 - g2) * edge; b += (200 - b) * edge; }
+                md[o * 4] = clamp(r, 0, 255); md[o * 4 + 1] = clamp(g2, 0, 255); md[o * 4 + 2] = clamp(b, 0, 255); md[o * 4 + 3] = 255;
             }
             mg.putImageData(im, 0, 0);
             // Ville 3D : sol de la ville (clair) puis emprise de ses immeubles (cellules de 4 m relevées dans le modèle)
@@ -5614,12 +5830,18 @@
                     if(vn < 0) { PL.vx -= nx * vn * 1.3; PL.vz -= nz * vn * 1.3; hit(-vn, -nx, -nz); PL.vx *= 0.7; PL.vz *= 0.7; }
                 }
             }
-            const rr = Math.hypot(PL.x, PL.z);
-            if(rr > WORLD_R) {
-                const nx = PL.x / rr, nz = PL.z / rr, vn = PL.vx * nx + PL.vz * nz;
-                PL.x = nx * WORLD_R; PL.z = nz * WORLD_R;
-                if(vn > 0) { PL.vx -= nx * vn * 1.4; PL.vz -= nz * vn * 1.4; }
-                if(edgeWarn <= 0) { toast('Limite du comté', 'Fais demi-tour', ''); edgeWarn = 6; }
+            const sdP = sdfAt(PL.x, PL.z);
+            if(sdP < 0) {   // hors du territoire : on repousse la voiture vers l'intérieur du contour
+                let gx = sdfAt(PL.x + 30, PL.z) - sdfAt(PL.x - 30, PL.z), gz = sdfAt(PL.x, PL.z + 30) - sdfAt(PL.x, PL.z - 30); const gl = Math.hypot(gx, gz) || 1; gx /= gl; gz /= gl;
+                const vn = PL.vx * -gx + PL.vz * -gz;   // composante vers l'extérieur
+                PL.x -= gx * sdP; PL.z -= gz * sdP;
+                if(vn > 0) { PL.vx += gx * vn * 1.4; PL.vz += gz * vn * 1.4; }
+                if(edgeWarn <= 0) { toast('Limite du territoire', 'Fais demi-tour', ''); edgeWarn = 6; }
+            }
+            zoneTick -= 1;
+            if(zoneTick <= 0) {   // changement de zone : petit message
+                zoneTick = 20; const W = zoneW(PL.x, PL.z); for(let k = 0; k < 4; k++) ZTT[k] = W[k]; let b = 0; for(let k = 1; k < 4; k++) if(W[k] > W[b]) b = k;
+                if(W[b] > 0.75 && b !== curZone) { if(curZone >= 0) toast('Zone : ' + ZONES[b], ZONE_DESC[b], ''); curZone = b; }
             }
             if(modelCity && modelCity.fg) modelWalls(modelCity);
             PL.y = groundY(PL.x, PL.z);
@@ -5899,6 +6121,7 @@
             sky.position.set(PL.x, 0, PL.z);
             sunLight.position.set(PL.x + SUN_OFFSET.x, PL.y + SUN_OFFSET.y, PL.z + SUN_OFFSET.z);
             sunLight.target.position.set(PL.x, PL.y, PL.z);
+            for(const c of cactusChunks) { const dx = c.cx - PL.x, dz = c.cz - PL.z; c.im.visible = dx * dx + dz * dz < 1300 * 1300; }
             for(const c of treeChunks) { const dx = c.cx - PL.x, dz = c.cz - PL.z, d2 = dx * dx + dz * dz; c.hi.visible = d2 < 810000; if(c.lo) c.lo.visible = d2 >= 810000 && d2 < 3300 * 3300; }
             let tBud = 2;   // dalles fines calculées par image (sans limite sous la voiture)
             for(const c of terrChunks) {
@@ -6168,10 +6391,9 @@
             g.translate(ox, oy); g.scale(sc, sc); g.translate(-bm.cx, -bm.cz);
             g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
             if(mapImg) g.drawImage(mapImg, -MAP_HALF, -MAP_HALF, 2 * MAP_HALF, 2 * MAP_HALF);
-            g.strokeStyle = 'rgba(255,255,255,0.4)'; g.lineWidth = 1.4 * u / sc; g.setLineDash([12 * u / sc, 9 * u / sc]);
-            g.beginPath(); g.arc(0, 0, WORLD_R, 0, 7); g.stroke(); g.setLineDash([]);
-            if(roadPaths[0]) drawRoadsOn(g, sc, 0.5 * u * (0.85 + bm.zoom * 0.12), 14 * u);
+                        if(roadPaths[0]) drawRoadsOn(g, sc, 0.5 * u * (0.85 + bm.zoom * 0.12), 14 * u);
             g.restore();
+            zoneLabels(g, tr, u, 1, bm.zoom < 4.5);
             // Noms des villes
             g.textAlign = 'center'; g.textBaseline = 'middle';
             cities.forEach(C => {
@@ -6216,8 +6438,8 @@
             g.fillStyle = pg; g.fillRect(0, 0, panel + 120 * u, H);
             const lx = 44 * u;
             g.textAlign = 'left'; g.textBaseline = 'alphabetic';
-            g.fillStyle = '#f4f4f0'; g.font = FONT(600, 38 * u); g.fillText('CARTE DU COMTÉ', lx, 74 * u);
-            g.fillStyle = '#9ea3a8'; g.font = FONT(500, 17 * u); g.fillText(Math.round(WORLD_R / 500) + ' × ' + Math.round(WORLD_R / 500) + ' km  ·  ' + Math.round(roads.reduce((s, R) => s + R.len, 0) / 1000) + ' km de routes  ·  ' + mtnRoads.length + ' cols  ·  ' + cities.length + ' villes  ·  ' + hides.length + ' planques', lx, 100 * u);
+            g.fillStyle = '#f4f4f0'; g.font = FONT(600, 38 * u); g.fillText('CARTE DU TERRITOIRE', lx, 74 * u);
+            g.fillStyle = '#9ea3a8'; g.font = FONT(500, 17 * u); g.fillText('27 × 20 km  ·  4 zones  ·  ' + Math.round(roads.reduce((s, R) => s + R.len, 0) / 1000) + ' km de routes  ·  ' + mtnRoads.length + ' cols  ·  ' + cities.length + ' villes  ·  ' + hides.length + ' planques', lx, 100 * u);
             g.fillStyle = 'rgba(255,255,255,0.18)'; g.fillRect(lx, 118 * u, panel - lx - 30 * u, 1.5 * u);
             let y = 160 * u;
             if(gpsHide) {
@@ -6570,7 +6792,7 @@
             const carReady = loadCar(carId).catch(() => carId === 'sf90' ? null : loadCar('sf90').then(F => { setPlayerCar(F); return F; }).catch(() => null));
             // 1) les nuages sont calculés tuile par tuile, 2) puis la carte est construite
             carReady.then(() => setTimeout(() => bakeClouds(pc => { f.textContent = 'Chargement du ciel… ' + pc + ' %'; }, () => {
-                f.textContent = 'Chargement du comté…';
+                f.textContent = 'Chargement du territoire…';
                 setTimeout(() => {
                     $('lobby').style.display = 'none';
                     buildWorld();
@@ -6741,8 +6963,10 @@
             hemi.color.setRGB(0.55 - 0.32 * n, 0.68 - 0.3 * n, 0.95 - 0.2 * n);
             renderer.toneMappingExposure = 0.78 + 0.3 * n + 0.06 * r;
             const fk = 0.055 + 0.945 * k, gr = r * 0.6;
-            scene.fog.color.setRGB((FOG_COLOR.r * (1 - gr) + 0.56 * gr) * fk, (FOG_COLOR.g * (1 - gr) + 0.59 * gr) * fk, (FOG_COLOR.b * (1 - gr) + 0.63 * gr) * fk);
-            scene.fog.density = FOG_DENSITY * (1 + 2.4 * r) * (1 + 0.5 * n);
+            for(let q = 0; q < 4; q++) ZTW[q] += (ZTT[q] - ZTW[q]) * Math.min(1, dt * 0.7);   // ambiance de la zone traversée : brume froide en montagne, voile chaud dans le désert
+            const zmt = ZTW[1] * 0.55, zdt = ZTW[2] * 0.4, fr0 = (FOG_COLOR.r * (1 - gr) + 0.56 * gr) * fk, fg0 = (FOG_COLOR.g * (1 - gr) + 0.59 * gr) * fk, fb0 = (FOG_COLOR.b * (1 - gr) + 0.63 * gr) * fk;
+            scene.fog.color.setRGB(fr0 + (0.80 * fk - fr0) * zmt + (0.90 * fk - fr0) * zdt, fg0 + (0.86 * fk - fg0) * zmt + (0.74 * fk - fg0) * zdt, fb0 + (0.95 * fk - fb0) * zmt + (0.52 * fk - fb0) * zdt);
+            scene.fog.density = FOG_DENSITY * (1 + 2.4 * r) * (1 + 0.5 * n) * (1 + 0.45 * ZTW[1]);
             const U = skyMat.uniforms; U.uDay.value = k; U.uRain.value = r; U.uFogC.value.copy(scene.fog.color);
             // Reflets (environnement) : recalculés quand le ciel a assez changé
             TOD.envT -= dt;
