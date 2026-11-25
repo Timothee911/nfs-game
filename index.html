@@ -2569,7 +2569,8 @@
 
         // ====== MONDE OUVERT : relief, réseau routier, décor ======
         const LIFT = 0.24;        // la chaussée est posée 24 cm au-dessus du terrain
-        const WORLD_R = 6900;     // rayon de la zone où l'on peut rouler (m) ; au-delà, les montagnes
+        const COUNTY_R = 6900;    // rayon du comté (plaine, villes, réseau d'origine)
+        const WORLD_R = 10600;    // rayon de la zone où l'on peut rouler (m) : le comté puis un massif traversé par des routes de col ; au-delà, la haute chaîne
         const GRAV = 9.81;
         let seed = 20240611;
         const rnd = () => { seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
@@ -2586,9 +2587,9 @@
         // Relief : collines et vallons dans le comté, lacs dans les cuvettes, chaîne de montagnes tout autour
         const lakes = [], cities = [], CORR = new Map();   // CORR : terrain retaillé sous les routes de raccordement de la ville 3D
         function hills(x, z) { return 34 * Math.sin(x / 640 + 0.7) * Math.cos(z / 700 - 0.4) + 10 * Math.sin(x / 300 + 0.7) * Math.cos(z / 340 - 0.4) + 6 * Math.sin((x + z) / 210 + 2) + 4 * Math.cos((x - z) / 170 + 1); }
-        function ridged(x, z) {   // bruit « à crêtes » : arêtes vives et vallées, comme un vrai massif
+        function ridged(x, z, oct = 6) {   // bruit « à crêtes » : arêtes vives et vallées, comme un vrai massif
             let a = 1, f = 1 / 4300, s = 0, w = 1;
-            for(let o = 0; o < 6; o++) { let n = 1 - Math.abs(vnoise(x * f + o * 17.3, z * f + o * 5.1) * 2 - 1); n *= n; s += n * a * w; w = clamp(n * 1.7, 0, 1); a *= 0.5; f *= 2.07; }
+            for(let o = 0; o < oct; o++) { let n = 1 - Math.abs(vnoise(x * f + o * 17.3, z * f + o * 5.1) * 2 - 1); n *= n; s += n * a * w; w = clamp(n * 1.7, 0, 1); a *= 0.5; f *= 2.07; }
             return s / 1.6;
         }
         function hAt(x, z) {
@@ -2606,13 +2607,50 @@
             }
             if(CORR.size) h = corrAt(x, z, h);
             const r2 = x * x + z * z;
-            if(r2 > (WORLD_R + 250) * (WORLD_R + 250)) {
-                const r = Math.sqrt(r2), m = sstep(WORLD_R + 250, WORLD_R + 3900, r) * (1 - sstep(15500, 20500, r));
-                if(m > 0) h += m * (140 + ridged(x, z) * (1100 + 1800 * vnoise(x / 9000 + 3, z / 9000)));
-            }
+            if(r2 > (COUNTY_R + 150) * (COUNTY_R + 150)) h += mtnRaw(x, z, Math.sqrt(r2));
+            if(MCORR.size) h = mcorrAt(x, z, h);
             return h;
         }
+        // Massif : contreforts dès le bord du comté (crêtes adoucies, 4 octaves), puis la haute chaîne au-delà de la zone où l'on roule.
+        // Les routes de col y sont posées sur un profil en long régulier : le terrain est retaillé autour (MCORR, plus bas).
+        function mtnRaw(x, z, r) {
+            let h = 0;
+            const m1 = sstep(COUNTY_R + 150, COUNTY_R + 2300, r);
+            if(m1 > 0) h += m1 * (30 + ridged(x, z, 4) * (480 + 380 * vnoise(x / 7000 + 5, z / 7000 - 2)));
+            const m2 = sstep(WORLD_R + 250, WORLD_R + 3900, r) * (1 - sstep(19000, 21500, r));
+            if(m2 > 0) h += m2 * (140 + ridged(x, z) * (1100 + 1800 * vnoise(x / 9000 + 3, z / 9000)));
+            return h;
+        }
+        const MCORR = new Map();   // cellules de 32 m → [x, z, hauteur du lit de la route]… (routes de col, un point tous les 8 m)
+        const MC_BED = 10, MC_L = 100;   // lit plat jusqu'à 10 m de l'axe, puis raccord au relief sur 100 m
+        const MC_N = 720, MNEAR = new Uint8Array(MC_N * MC_N);   // cellules de 32 m à moins de 4 cellules d'un point de MCORR (test rapide)
+        function mcorrAt(x, z, h) {
+            const cx = Math.floor(x / 32), cz = Math.floor(z / 32), rr = MC_BED + MC_L, rr2 = rr * rr, gi = cx + MC_N / 2, gj = cz + MC_N / 2;
+            if(gi < 0 || gj < 0 || gi >= MC_N || gj >= MC_N || !MNEAR[gj * MC_N + gi]) return h;
+            let d0 = 1e18, sw = 0, sy = 0;
+            for(let a = -4; a <= 4; a++) for(let b = -4; b <= 4; b++) {
+                const L = MCORR.get((cx + a) * 4096 + cz + b);
+                if(!L) continue;
+                for(let k = 0; k < L.length; k += 3) {
+                    const dx = x - L[k], dz = z - L[k + 1], d2 = dx * dx + dz * dz;
+                    if(d2 > rr2) continue;
+                    if(d2 < d0) d0 = d2;
+                    const e = Math.max(0, Math.sqrt(d2) - MC_BED) + 1, w = 1 / (e * e * Math.sqrt(e));
+                    sw += w; sy += w * L[k + 2];
+                }
+            }
+            if(!sw) return h;
+            const w = 1 - sstep(MC_BED, MC_BED + MC_L, Math.sqrt(d0));
+            return h + (sy / sw - h) * w;
+        }
         const forestAt = (x, z) => sstep(0.44, 0.60, vnoise(x / 380, z / 380 + 3)) * (vnoise(x / 150, z / 150 + 9) < 0.22 ? 0.25 : 1);
+        // Forêts du massif : par taches sur les contreforts, plus de résineux, rien au-dessus de 600 m (roche, puis neige)
+        function forestMt(x, z, r) {
+            const f = forestAt(x, z), m = sstep(COUNTY_R + 150, COUNTY_R + 900, r);
+            if(m <= 0) return f;
+            const alt = hAt(x, z);
+            return Math.max(f, sstep(0.36, 0.6, vnoise(x / 600 + 11, z / 600 - 4)) * 0.95 * m) * (1 - sstep(380, 600, alt));
+        }
 
         // --- Réseau routier : rocade, deux boucles, radiales sinueuses et traversantes (environ 100 km) ---
         const roads = [];
@@ -2717,7 +2755,7 @@
                 let bad = 0;
                 for(let q = 0; q < cells.length && bad < 40; q += 2) {
                     const w = mToW(C, cells[q], cells[q + 1]);
-                    if(Math.hypot(w[0], w[1]) > WORLD_R - 150) { bad += 5; continue; }
+                    if(Math.hypot(w[0], w[1]) > COUNTY_R - 150) { bad += 5; continue; }
                     for(let r = 0; r < rp.length; r += 4) { const dx = w[0] - rp[r], dz = w[1] - rp[r + 1]; if(Math.abs(dx) < 90 && Math.abs(dz) < 90 && dx * dx + dz * dz < (rp[r + 2] + (rp[r + 3] ? 40 : 60)) ** 2) { bad++; break; } }
                 }
                 cities.forEach(O => { if(Math.hypot(O.x - (C.tx + VG_C[0] * C.c + VG_C[1] * C.s), O.z - (C.tz - VG_C[0] * C.s + VG_C[1] * C.c)) < 1100) bad += 100; });
@@ -2891,7 +2929,7 @@
                     for(let s = 30; s < L - 50 && ok; s += 12) {
                         const t = s / L, x = S.E[0] + (A1[0] - S.E[0]) * Math.min(1, s / 35) + (s > 35 ? (T.x - A1[0]) * (s - 35) / (L - 35) : 0), z = S.E[1] + (A1[1] - S.E[1]) * Math.min(1, s / 35) + (s > 35 ? (T.z - A1[1]) * (s - 35) / (L - 35) : 0);
                         const Lm = wToM(C, x, z);
-                        if((s > 150 ? urbanAt(x, z) > 0 : bldAt(Lm[0], Lm[1])) || x * x + z * z > (WORLD_R - 80) ** 2 || nearRoad(x, z, 28, s > L - 90 ? T.R : null)) ok = false;
+                        if((s > 150 ? urbanAt(x, z) > 0 : bldAt(Lm[0], Lm[1])) || x * x + z * z > (COUNTY_R - 80) ** 2 || nearRoad(x, z, 28, s > L - 90 ? T.R : null)) ok = false;
                         for(const H of hideSpots) if(Math.hypot(H[0] - x, H[1] - z) < 80) ok = false;
                     }
                     if(ok) best = { S, T, A1, L, hT, score };
@@ -2922,6 +2960,134 @@
             console.log('Ville 3D : ' + C.ghosts.length + ' rues, ' + C.inner.length + ' rues nouvelles au centre, ' + C.links.length + ' raccordements (sur ' + ends.length + ' sorties)');
         }
         cities.forEach(C => { if(C.model) { buildModelNet(C); connectModelCity(C); } });
+
+        // ====== ROUTES DE COL : depuis la rocade extérieure, montée en lacets dans le massif jusqu'à un col, redescente 2 km plus loin ======
+        // Tracé : plus court chemin sur une grille de 80 m (16 directions) où chaque pas est limité à 12 % de pente ; la route serpente d'elle-même.
+        // Profil en long lissé (pente ≤ 9 %), puis le terrain est retaillé autour (MCORR : lit plat, talus de raccord vers le relief).
+        const mtnRoads = [];
+        (() => {
+            const G = 80, N = Math.ceil(2 * (WORLD_R + 300) / G), O = N / 2, NN = N * N;
+            const cX = (i) => (i - O + 0.5) * G, toC = (v) => clamp(Math.floor(v / G + O), 0, N - 1);
+            const hg = new Float32Array(NN).fill(NaN), blk = new Uint8Array(NN);
+            const H = (o) => { let v = hg[o]; if(v !== v) v = hg[o] = hAt(cX(o % N), cX(Math.floor(o / N))); return v; };
+            const mark = (x, z, r, val, arr) => { const i0 = toC(x - r), i1 = toC(x + r), j0 = toC(z - r), j1 = toC(z + r); for(let j = j0; j <= j1; j++) for(let i = i0; i <= i1; i++) { const dx = cX(i) - x, dz = cX(j) - z; if(dx * dx + dz * dz < r * r) arr[j * N + i] = val; } };
+            for(let o = 0; o < NN; o++) { const x = cX(o % N), z = cX(Math.floor(o / N)); if(x * x + z * z > (WORLD_R - 260) ** 2) blk[o] = 1; }
+            cities.forEach(C => mark(C.x, C.z, C.half * 4 + C.B + 260, 1, blk));
+            const blockRoad = (R) => { for(let i = 0; i < R.n; i += 3) mark(R.px[i], R.pz[i], R.hw + 70, 1, blk); };
+            roads.forEach(blockRoad);
+            const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1], [2, 1], [2, -1], [-2, 1], [-2, -1], [1, 2], [1, -2], [-1, 2], [-1, -2]];
+            const gS = new Float32Array(NN), came = new Int32Array(NN), done = new Uint8Array(NN), hp = [], hk = [];
+            const push = (o, k) => { hp.push(o); hk.push(k); let c = hp.length - 1; while(c > 0) { const p = (c - 1) >> 1; if(hk[p] <= hk[c]) break; [hp[p], hp[c]] = [hp[c], hp[p]]; [hk[p], hk[c]] = [hk[c], hk[p]]; c = p; } };
+            const pop = () => { const top = hp[0], lo = hp.pop(), lk = hk.pop(); if(hp.length) { hp[0] = lo; hk[0] = lk; let c = 0; for(;;) { const l = c * 2 + 1, r = l + 1; let m = c; if(l < hp.length && hk[l] < hk[m]) m = l; if(r < hp.length && hk[r] < hk[m]) m = r; if(m === c) break; [hp[m], hp[c]] = [hp[c], hp[m]]; [hk[m], hk[c]] = [hk[c], hk[m]]; c = m; } } return top; };
+            // plus court chemin de la cellule s à la cellule t ; free : cellules autorisées même si bloquées (abords du départ et de l'arrivée)
+            function astar(s, t, free, gmax) {
+                gS.fill(Infinity); done.fill(0); hp.length = hk.length = 0;
+                const tx = t % N, tz = Math.floor(t / N);
+                gS[s] = 0; came[s] = -1; push(s, 0);
+                while(hp.length) {
+                    const c = pop();
+                    if(done[c]) continue;
+                    if(c === t) break;
+                    done[c] = 1;
+                    const ci = c % N, cj = Math.floor(c / N), hc = H(c);
+                    for(const [di, dj] of DIRS) {
+                        const i = ci + di, j = cj + dj;
+                        if(i < 0 || j < 0 || i >= N || j >= N) continue;
+                        const o = j * N + i;
+                        if(done[o] || (blk[o] && !free(o))) continue;
+                        const len = G * Math.hypot(di, dj), gr = Math.abs(H(o) - hc) / len;
+                        if(gr > gmax) continue;
+                        const ng = gS[c] + len * (1 + 3 * (gr / gmax) ** 2);
+                        if(ng < gS[o]) { gS[o] = ng; came[o] = c; push(o, ng + G * Math.hypot(i - tx, j - tz)); }
+                    }
+                }
+                if(!done[t] && gS[t] === Infinity) return null;
+                const path = []; for(let c = t; c >= 0; c = came[c]) path.push(c);
+                return path.reverse();
+            }
+            const near = (o, x, z, r) => { const dx = cX(o % N) - x, dz = cX(Math.floor(o / N)) - z; return dx * dx + dz * dz < r * r; };
+            const R0 = outerRoad, MTN_NAMES = ['Col du Grand Serre', 'Col des Aiguilles', 'Col de la Brèche', 'Col du Mont Sauvage'];
+            [[0.03, 0.085], [0.27, 0.325], [0.455, 0.51], [0.80, 0.855]].forEach(([ua, ub], k) => {
+                const iA = Math.floor(ua * R0.n), iB = Math.floor(ub * R0.n);
+                const end = (i) => { let nx = -R0.tz[i], nz = R0.tx[i]; if(nx * R0.px[i] + nz * R0.pz[i] < 0) { nx = -nx; nz = -nz; } return { x: R0.px[i], z: R0.pz[i], nx, nz }; };
+                const A = end(iA), B = end(iB), PA = [A.x + A.nx * 90, A.z + A.nz * 90], PB = [B.x + B.nx * 90, B.z + B.nz * 90];
+                // col : deux points en haut du massif (environ 600 m d'écart), à l'altitude la plus proche de 560 m
+                const th = Math.atan2(PA[1] + PB[1], PA[0] + PB[0]);
+                let best = null;
+                for(let r = 8700; r <= 9800; r += 100) for(let da = -0.05; da <= 0.0501; da += 0.01) {
+                    const a = th + da, x = Math.cos(a) * r, z = Math.sin(a) * r, o = toC(z) * N + toC(x);
+                    if(blk[o]) continue;
+                    const sc = Math.abs(H(o) - 560) + Math.abs(da) * 800;
+                    if(!best || sc < best.sc) best = { sc, a, r };
+                }
+                if(!best) { console.warn('Col ' + k + ' : pas de sommet'); return; }
+                const cell = (p) => toC(p[1]) * N + toC(p[0]);
+                const P1 = [Math.cos(best.a - 0.033) * best.r, Math.sin(best.a - 0.033) * best.r], P2 = [Math.cos(best.a + 0.033) * best.r, Math.sin(best.a + 0.033) * best.r];
+                const wps = [PA, P1, P2, PB], used = new Uint8Array(NN);   // used : abords des tronçons déjà tracés (la route ne se recoupe pas)
+                let cells = [];
+                for(let q = 0; q < 3; q++) {
+                    const s = cell(wps[q]), t = cell(wps[q + 1]), a = wps[q], b = wps[q + 1];
+                    const free = (o) => near(o, a[0], a[1], 200) || near(o, b[0], b[1], 200) || (q === 0 && near(o, A.x, A.z, 170)) || (q === 2 && near(o, B.x, B.z, 170));
+                    let path = null;
+                    for(const gm of [0.12, 0.15, 0.2]) { path = astar(s, t, free, gm); if(path) break; }
+                    if(!path) { cells = null; break; }
+                    if(cells.length) path.shift();
+                    cells = cells.concat(path);
+                    path.forEach(o => { const x = cX(o % N), z = cX(Math.floor(o / N)); mark(x, z, 130, 1, used); });
+                    used.forEach((v, o) => { if(v) blk[o] = blk[o] || 3; });
+                }
+                // nettoyage des marques temporaires
+                blk.forEach((v, o) => { if(v === 3) blk[o] = 0; });
+                if(!cells) { console.warn('Col ' + k + ' : pas de tracé'); return; }
+                // polyligne : rééchantillonnée tous les 8 m puis lissée (laplacien) : lacets réguliers, virages en épingle d'environ 20 m de rayon
+                let pts = [[A.x, A.z], [A.x + A.nx * 45, A.z + A.nz * 45]].concat(cells.slice(1, -1).map(o => [cX(o % N), cX(Math.floor(o / N))]), [[B.x + B.nx * 45, B.z + B.nz * 45], [B.x, B.z]]);
+                { const rs = [pts[0]]; let acc = 0;
+                  for(let q = 1; q < pts.length; q++) { const p = pts[q - 1], c = pts[q], l = Math.hypot(c[0] - p[0], c[1] - p[1]); let t = 8 - acc; while(t <= l) { rs.push([p[0] + (c[0] - p[0]) * t / l, p[1] + (c[1] - p[1]) * t / l]); t += 8; } acc = l - (t - 8); }
+                  rs.push(pts[pts.length - 1]); pts = rs; }
+                for(let it = 0; it < 220; it++) { const o = pts.map(p => p.slice()); for(let q = 6; q < pts.length - 6; q++) for(let c = 0; c < 2; c++) o[q][c] = pts[q][c] * 0.5 + (pts[q - 1][c] + pts[q + 1][c]) * 0.25; pts = o; }
+                // virages trop serrés (rayon < 25 m) : lissage local jusqu'à ce qu'ils s'ouvrent
+                for(let it = 0; it < 1500; it++) {
+                    let moved = 0; const o = pts.map(p => p.slice());
+                    for(let q = 6; q < pts.length - 6; q++) {
+                        const a = pts[q - 2], b = pts[q], c = pts[q + 2], abx = b[0] - a[0], abz = b[1] - a[1], bcx = c[0] - b[0], bcz = c[1] - b[1];
+                        const cr = Math.abs(abx * bcz - abz * bcx), la = Math.hypot(abx, abz), lb = Math.hypot(bcx, bcz), lc = Math.hypot(c[0] - a[0], c[1] - a[1]);
+                        if(la * lb * lc > 50 * cr) continue;   // rayon du cercle par a, b, c = la·lb·lc / (2·aire) ≥ 25 m
+                        for(let k = q - 1; k <= q + 1; k++) for(let e = 0; e < 2; e++) o[k][e] = pts[k][e] * 0.5 + (pts[k - 1][e] + pts[k + 1][e]) * 0.25;
+                        moved++;
+                    }
+                    pts = o;
+                    if(!moved) break;
+                }
+                pts = pts.filter((_, q) => q % 3 === 0 || q === pts.length - 1);
+                const R = makeRoad(pts, false, 1);
+                R.mtn = 1; R.zo = 4 + k; R.name = MTN_NAMES[k];   // zo : petit décalage de profondeur (l'index de la route serait trop grand)
+                // profil en long : relief lissé (σ ≈ 40 m), pente bornée à 9 %, raccords à la rocade au niveau du terrain
+                const n = R.px.length, hn = new Float32Array(n), y = new Float32Array(n), gmax = 0.09 * R.step;
+                for(let i = 0; i < n; i++) hn[i] = hAt(R.px[i], R.pz[i]);
+                const gauss = (src, dst, sg) => { const w = Math.ceil(sg * 2.5); for(let i = 0; i < n; i++) { let s = 0, ws = 0; for(let q = -w; q <= w; q++) { const m = clamp(i + q, 0, n - 1), e = Math.exp(-q * q / (2 * sg * sg)); s += src[m] * e; ws += e; } dst[i] = s / ws; } };
+                gauss(hn, y, 10);
+                const anc = 8;
+                for(let i = 0; i < n; i++) { const e = Math.min(i, n - 1 - i); if(e < anc) y[i] = hn[i]; else if(e < anc * 3) y[i] += (hn[i] - y[i]) * (1 - (e - anc) / (anc * 2)); }
+                for(let it = 0; it < 4; it++) {
+                    for(let i = anc; i < n; i++) y[i] = clamp(y[i], y[i - 1] - gmax, y[i - 1] + gmax);
+                    for(let i = n - 1 - anc; i >= 0; i--) y[i] = clamp(y[i], y[i + 1] - gmax, y[i + 1] + gmax);
+                }
+                const y2 = new Float32Array(n); gauss(y, y2, 3);
+                for(let i = 0; i < n; i++) { const e = Math.min(i, n - 1 - i); y[i] = e < 3 ? y[i] : y2[i]; }
+                R.prof = y;
+                let cut = 0;
+                for(let i = 0; i < n; i += 2) {
+                    cut = Math.max(cut, Math.abs(y[i] - hn[i]));
+                    const x = R.px[i], z = R.pz[i], key = Math.floor(x / 32) * 4096 + Math.floor(z / 32);
+                    let L = MCORR.get(key); if(!L) MCORR.set(key, L = []); L.push(x, z, y[i]);
+                    const ci = Math.floor(x / 32) + MC_N / 2, cj = Math.floor(z / 32) + MC_N / 2;
+                    for(let b = -4; b <= 4; b++) for(let a = -4; a <= 4; a++) { const gi = ci + a, gj = cj + b; if(gi >= 0 && gj >= 0 && gi < MC_N && gj < MC_N) MNEAR[gj * MC_N + gi] = 1; }
+                }
+                blockRoad(R);
+                mtnRoads.push(R);
+                console.log(R.name + ' : ' + (R.len / 1000).toFixed(1) + ' km, sommet ' + Math.max(...y).toFixed(0) + ' m, déblai/remblai max ' + cut.toFixed(0) + ' m');
+            });
+        })();
 
         // Grille de recherche : route la plus proche d'un point (voiture, arbres, trafic)
         const CELL = 40, grid = new Map(), gR = [], gI = [];
@@ -2962,7 +3128,7 @@
             if(Q.R && Q.dist < R.hw + Q.R.hw + 34) R.jn[i] = 1;
             if(Q.R && Q.dist < 4.6) { addLink(R.g0 + i, Q.R.g0 + Q.i); addLink(Q.R.g0 + Q.i, R.g0 + i); }
         } });
-        roads.forEach(R => { for(let i = 0; i < R.n; i++) R.rail[i] = !R.jn[i] && !R.noRail && hash2(R.idx * 7.3 + 1, Math.floor(i / 55)) < (R.cls === 0 ? 0.62 : 0.4) ? 1 : 0; if(R.urb) for(let i = 0; i <= R.n; i++) if(R.urb[i]) R.rail[i] = 0; R.rail[R.n] = R.rail[0]; R.jn[R.n] = R.jn[0]; });
+        roads.forEach(R => { for(let i = 0; i < R.n; i++) R.rail[i] = !R.jn[i] && !R.noRail && hash2(R.idx * 7.3 + 1, Math.floor(i / 55)) < (R.cls === 0 ? 0.62 : R.mtn ? 0.9 : 0.4) ? 1 : 0; if(R.urb) for(let i = 0; i <= R.n; i++) if(R.urb[i]) R.rail[i] = 0; R.rail[R.n] = R.rail[0]; R.jn[R.n] = R.jn[0]; });
         // Composantes du réseau : un tronçon isolé (rue fermée de la ville 3D…) n'a pas de trafic ; rues de chaque ville pour le trafic urbain
         {
             const par = roads.map((_, k) => k), f = (k) => par[k] === k ? k : (par[k] = f(par[k]));
@@ -3279,7 +3445,7 @@
         const treeHash = new Map(), treeChunks = [], terrChunks = [], roadChunks = [], treeUni = { uTime: { value: 0 } };
         const roadPaths = [null, null];   // tracés des routes (rocade / autres) pour la mini-carte et la carte
         let mapImg = null, waterTex = null, updateTufts = null;
-        const MAP_HALF = 7400;            // demi-côté couvert par l'image de la carte (m)
+        const MAP_HALF = WORLD_R + 400;    // demi-côté couvert par l'image de la carte (m)
 
         // Bruit fractal périodique (se répète sans raccord) : sert de base aux textures du terrain
         function tileNoise(size) {
@@ -3695,12 +3861,13 @@
                 const x = ((i + 0.5) / LAND_N - 0.5) * LAND_SPAN, z = ((j + 0.5) / LAND_N - 0.5) * LAND_SPAN, r = Math.hypot(x, z);
                 let f = forestAt(x, z);
                 if(r > WORLD_R + 250) { const alt = hAt(x, z); f = Math.max(f, sstep(60, 200, alt) * 0.9) * (1 - sstep(380, 600, alt)); }
+                else if(r > COUNTY_R + 150) f = forestMt(x, z, r);
                 landD[(j * LAND_N + i) * 4] = f * 255; landD[(j * LAND_N + i) * 4 + 3] = 255;
             }
             const landTex = new THREE.DataTexture(landD, LAND_N, LAND_N, THREE.RGBAFormat);
             landTex.magFilter = landTex.minFilter = THREE.LinearFilter; landTex.needsUpdate = true;
             // Abords des routes et des planques (≈ 7 m par pixel, adouci) : bande de terre battue et d'herbe rase au-delà de l'accotement
-            const RM_N = 2048, RM_SPAN = 14800, rmPx = RM_N / RM_SPAN;
+            const RM_N = 3072, RM_SPAN = 2 * (WORLD_R + 400), rmPx = RM_N / RM_SPAN;
             const rmD = chan(canvasData(RM_N, RM_N, (g) => {
                 g.fillStyle = '#000'; g.fillRect(0, 0, RM_N, RM_N);
                 g.strokeStyle = '#fff'; g.lineJoin = g.lineCap = 'round';
@@ -3817,9 +3984,9 @@
                         normal = bumpN( -vViewPosition, normal, vec2( terrH( tp + tdx, tBl ) - th0, terrH( tp + tdy, tBl ) - th0 ) * tFade, 1.0 );
                     }`);
             };
-            // Terrain proche : 196 dalles de 1 km en trois niveaux de détail (mailles de 25, 50 et 100 m).
+            // Terrain proche : 484 dalles de 1 km en trois niveaux de détail (mailles de 25, 50 et 100 m) ; les deux plus fins sont calculés à la demande.
             // Les niveaux lointains sont posés un peu plus bas (ils ne recouvrent jamais la route) et chaque dalle a une jupe qui cache les raccords.
-            const NCH = 14, CS = 1024, half = NCH * CS / 2, idxCache = {};
+            const NCH = 22, CS = 1024, half = NCH * CS / 2, idxCache = {};
             const grid2 = (n) => { if(idxCache[n]) return idxCache[n]; const a = []; for(let i = 0; i < n; i++) for(let j = 0; j < n; j++) { const p = i * (n + 1) + j, q = p + n + 1; a.push(p, q, p + 1, p + 1, q, q + 1); } return idxCache[n] = a; };
             const terrGeo = (x0, z0, n, drop) => {
                 const V = n + 3, cs = CS / n, pos = new Float32Array(V * V * 3), nor = new Float32Array(V * V * 3), uv = new Float32Array(V * V * 2);
@@ -3836,8 +4003,9 @@
             };
             for(let cz = 0; cz < NCH; cz++) for(let cx = 0; cx < NCH; cx++) {
                 const x0 = -half + cx * CS, z0 = -half + cz * CS;
-                const ms = [[40, 0], [20, 0.6], [10, 2.6]].map(([n, drop], k) => { const m = new THREE.Mesh(terrGeo(x0, z0, n, drop), terrainMat); m.receiveShadow = k === 0; m.visible = k === 2; scene.add(m); return m; });
-                terrChunks.push({ ms, cx: x0 + CS / 2, cz: z0 + CS / 2 });
+                const mk = (k) => { const [n, drop] = [[40, 0], [20, 0.6], [10, 2.6]][k], m = new THREE.Mesh(terrGeo(x0, z0, n, drop), terrainMat); m.receiveShadow = k === 0; m.visible = false; scene.add(m); return m; };
+                const ms = [null, null, mk(2)]; ms[2].visible = true;
+                terrChunks.push({ ms, mk, cx: x0 + CS / 2, cz: z0 + CS / 2 });
             }
             // Terrain lointain : la même matière jusqu'à 21 km, maillée tous les 150 m (plaine, contreforts, sommets enneigés)
             const FC = 150, FT = 40, FN = 7, fHalf = FN * FT * FC / 2, FV = FT + 1;
@@ -4682,14 +4850,16 @@
                 a.push(x, z, hgt, wid, vr, tint);
             };
             const tryTree = (x, z, sparse) => {
-                if(x * x + z * z > 7050 * 7050) return;
+                const r2 = x * x + z * z, mt = r2 > (COUNTY_R + 150) ** 2;
+                if(r2 > (WORLD_R + 150) ** 2) return;
+                if(mt && hAt(x, z) > 500 + 140 * vnoise(x / 300, z / 300)) return;   // limite des arbres dans le massif
                 if(urbanAt(x, z) > 0) return;
                 if(!sparse && vnoise(x / 150, z / 150 + 9) < 0.22) return;                      // clairières
                 roadAt(x, z);
                 if(Q.R && Q.dist < Q.R.hw + 6.5) return;
                 for(let k = 0; k < sites.length; k++) { const H = sites[k]; if((Math.abs(H.x - x) < 28 && Math.abs(H.z - z) < 28) || Math.hypot(H.bx - x, H.bz - z) < 30) return; }
                 for(let k = 0; k < lakes.length; k++) { const L = lakes[k]; if(Math.hypot(L.x - x, L.z - z) < L.r && hAt(x, z) < L.level + 0.8) return; }
-                const conif = rnd() < 0.15 + 0.7 * sstep(0.35, 0.65, vnoise(x / 420 + 7, z / 420)), q = rnd();
+                const conif = rnd() < (mt ? 0.88 : 0.15 + 0.7 * sstep(0.35, 0.65, vnoise(x / 420 + 7, z / 420))), q = rnd();
                 const vr = conif ? (q < 0.7 ? 0 : 1) : (q < 0.42 ? 2 : q < 0.66 ? 3 : q < 0.82 ? 4 : 5);
                 const hgt = vr < 2 ? 12 + rnd() * 11 : vr === 5 ? 9 + rnd() * 5 : 8.5 + rnd() * 7;
                 plant(x, z, hgt, hgt * (vr < 2 ? 0.8 + rnd() * 0.25 : vr === 5 ? 0.85 + rnd() * 0.2 : 1.05 + rnd() * 0.35), vr, 0.82 + rnd() * 0.36);
@@ -4715,7 +4885,7 @@
                 if(q < 0.5) { const hg = 0.65 + rnd() * 0.6; plant(x, z, hg, hg * (2.6 + rnd()), 7, 0.85 + rnd() * 0.3); }
                 else { const hg = 1.1 + rnd() * 1.5; plant(x, z, hg, hg * (2.4 + rnd() * 0.8), 6, 0.8 + rnd() * 0.4); }
             }); });
-            for(let k = 0; k < 200000; k++) { const x = (rnd() - 0.5) * 14200, z = (rnd() - 0.5) * 14200, f = forestAt(x, z); if(f > 0.5) tryTree(x, z); else if(rnd() < 0.012) tryTree(x, z, true); }
+            for(let k = 0; k < 460000; k++) { const x = (rnd() - 0.5) * 2 * (WORLD_R + 200), z = (rnd() - 0.5) * 2 * (WORLD_R + 200), rr = Math.hypot(x, z); if(rr > WORLD_R + 200) continue; const f = rr > COUNTY_R + 150 ? forestMt(x, z, rr) : forestAt(x, z); if(f > 0.5) tryTree(x, z); else if(rnd() < 0.012) tryTree(x, z, true); }
             groups.forEach((list, key) => {
                 const [cx, cz] = key.split(':').map(Number), ox = (cx + 0.5) * TC, oz = (cz + 0.5) * TC, n = list.length / 6;
                 let nLo = 0;
@@ -5730,7 +5900,13 @@
             sunLight.position.set(PL.x + SUN_OFFSET.x, PL.y + SUN_OFFSET.y, PL.z + SUN_OFFSET.z);
             sunLight.target.position.set(PL.x, PL.y, PL.z);
             for(const c of treeChunks) { const dx = c.cx - PL.x, dz = c.cz - PL.z, d2 = dx * dx + dz * dz; c.hi.visible = d2 < 810000; if(c.lo) c.lo.visible = d2 >= 810000 && d2 < 3300 * 3300; }
-            for(const c of terrChunks) { const dx = c.cx - PL.x, dz = c.cz - PL.z, d2 = dx * dx + dz * dz, lv = d2 < 2250000 ? 0 : d2 < 11560000 ? 1 : 2; for(let k = 0; k < 3; k++) c.ms[k].visible = k === lv; }
+            let tBud = 2;   // dalles fines calculées par image (sans limite sous la voiture)
+            for(const c of terrChunks) {
+                const dx = c.cx - PL.x, dz = c.cz - PL.z, d2 = dx * dx + dz * dz, lv = d2 < 2250000 ? 0 : d2 < 11560000 ? 1 : 2;
+                if(!c.ms[lv] && (d2 < 1000000 || tBud-- > 0)) c.ms[lv] = c.mk(lv);
+                let sh = lv; while(!c.ms[sh]) sh++;
+                for(let k = 0; k < 3; k++) if(c.ms[k]) c.ms[k].visible = k === sh;
+            }
             for(const c of roadChunks) { const dx = c.cx - PL.x, dz = c.cz - PL.z, near = dx * dx + dz * dz < 640000; c.hi.visible = near; c.lo.visible = !near; }
             for(const h of sites) if(h.grp) { const dx = h.bx - PL.x, dz = h.bz - PL.z; h.grp.visible = dx * dx + dz * dz < 1800 * 1800; }
             for(const C of cities) if(C.palms) { const v = Math.hypot(C.x - PL.x, C.z - PL.z) < C.half * 4 + 900; C.palms[0].visible = C.palms[1].visible = v; }
@@ -6041,7 +6217,7 @@
             const lx = 44 * u;
             g.textAlign = 'left'; g.textBaseline = 'alphabetic';
             g.fillStyle = '#f4f4f0'; g.font = FONT(600, 38 * u); g.fillText('CARTE DU COMTÉ', lx, 74 * u);
-            g.fillStyle = '#9ea3a8'; g.font = FONT(500, 17 * u); g.fillText('14 × 14 km  ·  ' + Math.round(roads.reduce((s, R) => s + R.len, 0) / 1000) + ' km de routes  ·  ' + cities.length + ' villes  ·  ' + hides.length + ' planques', lx, 100 * u);
+            g.fillStyle = '#9ea3a8'; g.font = FONT(500, 17 * u); g.fillText(Math.round(WORLD_R / 500) + ' × ' + Math.round(WORLD_R / 500) + ' km  ·  ' + Math.round(roads.reduce((s, R) => s + R.len, 0) / 1000) + ' km de routes  ·  ' + mtnRoads.length + ' cols  ·  ' + cities.length + ' villes  ·  ' + hides.length + ' planques', lx, 100 * u);
             g.fillStyle = 'rgba(255,255,255,0.18)'; g.fillRect(lx, 118 * u, panel - lx - 30 * u, 1.5 * u);
             let y = 160 * u;
             if(gpsHide) {
