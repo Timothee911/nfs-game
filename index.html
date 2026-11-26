@@ -3433,6 +3433,17 @@
                 if(Math.hypot(px - sx, pz - VG_E[1]) < 9) wall[j * GW + i] = 0;
             }
             C.fg = { x0, z0, cell: CL, w: GW, h: GH, gr, wall };
+            // Hauteur des rues relevée dans le fichier : là où elle monte en rampe impossible (plus de 15 %) alors que le sol réel du modèle
+            // reste à plat, c'est le sol du modèle qui fait foi (sinon les voitures du trafic flotteraient au-dessus de la rue)
+            (C.ghosts || []).forEach(R => {
+                const A = R.gyA, n = A.length, fix = new Uint8Array(n);
+                for(let i = 0; i < n; i++) {
+                    const sl = Math.max(i > 0 ? Math.abs(A[i] - A[i - 1]) : 0, i < n - 1 ? Math.abs(A[i + 1] - A[i]) : 0) / R.step;
+                    const g = modelGround(C, R.px[i], R.pz[i]);
+                    if(g !== null && sl > 0.15 && Math.abs(A[i] - g) > 1) fix[i] = 1;
+                }
+                for(let i = 0; i < n; i++) if(fix[i]) A[i] = modelGround(C, R.px[i], R.pz[i]);
+            });
             // Immeubles du centre : mêmes façades que ceux du modèle (photos d'immeubles d'habitation et de bureaux en verre)
             C.lots = lots;
             if(C.cm) skinCenter(C);
@@ -3459,6 +3470,8 @@
         }
         // Hauteur de la chaussée au-dessus du terrain, à l'écart latéral d (m) : la route est mise presque à plat en travers
         // (remblai côté aval) ; l'accotement redescend jusqu'au terrain sur 3,5 m
+        // Ordre d'empilement des chaussées aux carrefours : petit décalage (au plus 8 cm), sans rapport avec le nombre de routes
+        const rZo = (R) => R.zo || 1 + R.idx % 8;
         function roadLift(R, i, d) {
             const ad = Math.abs(d), hw = R.hw;
             if(ad >= hw + 3.5) return 0;
@@ -4223,7 +4236,7 @@
                 const hw = R.hw, W = 2 * hw + 7, lat = [-hw - 3.5, -hw, -hw * 0.5, 0, hw * 0.5, hw, hw + 3.5];
                 const tex = texByCls[R.cls];
                 const mat = new THREE.MeshStandardMaterial({ map: tex.map, roughnessMap: tex.rough, roughness: 1, metalness: 0, envMapIntensity: 0.9, alphaTest: 0.5,
-                    polygonOffset: true, polygonOffsetFactor: -2 - (R.zo || R.idx), polygonOffsetUnits: -2 - (R.zo || R.idx) * 2 });
+                    polygonOffset: true, polygonOffsetFactor: -2 - rZo(R), polygonOffsetUnits: -2 - rZo(R) * 2 });
                 mat.extensions = { derivatives: true };
                 mat.onBeforeCompile = (sh) => patchRoadShader(sh, roadDet, W);
                 const rows = R.closed ? R.n + 1 : R.n, vS = Math.round(R.len / 48) / R.len, RC = 96;
@@ -4237,7 +4250,7 @@
                         for(let c = 0; c < 7; c++) {
                             const ub = R.urb && R.urb[i] && (c === 0 || c === 6), lc = ub ? Math.sign(lat[c]) * (hw + 0.4) : lat[c];   // en ville l'accotement s'arrête sous la bordure du trottoir
                             const x = R.px[i] + nx * lc, z = R.pz[i] + nz * lc, o = (j * 7 + c) * 3;
-                            pos[o] = x; pos[o + 1] = hAt(x, z) + ((c === 0 || c === 6) && !ub ? 0.03 : roadLift(R, i, lc) + (R.zo || R.idx) * 0.004); pos[o + 2] = z;   // le bord découpé de l'accotement se pose sur le terrain
+                            pos[o] = x; pos[o + 1] = hAt(x, z) + ((c === 0 || c === 6) && !ub ? 0.03 : roadLift(R, i, lc) + rZo(R) * 0.004); pos[o + 2] = z;   // le bord découpé de l'accotement se pose sur le terrain
                             nrm(x, z, nor, o, 2);
                             uv[(j * 7 + c) * 2] = (lc + hw + 3.5) / W; uv[(j * 7 + c) * 2 + 1] = i * R.step * vS;
                         }
@@ -4908,7 +4921,7 @@
                         if(ok && run >= 0) {   // tronçon entre l'échantillon précédent et celui-ci : dessus, bordure côté chaussée, flanc arrière
                             const kp = (i - 1) % R.n, b0 = tp.length / 3, c0 = cp.length / 3;
                             [kp, k].forEach(q => {
-                                const qx = -R.tz[q], qz = R.tx[q], yT = hAt(R.px[q], R.pz[q]) + LIFT + 0.14 + (R.zo || R.idx) * 0.004;
+                                const qx = -R.tz[q], qz = R.tx[q], yT = hAt(R.px[q], R.pz[q]) + LIFT + 0.14 + rZo(R) * 0.004;
                                 [R.hw + 0.15, R.hw + 3.4].forEach((d, c) => {
                                     const x = R.px[q] + qx * sd * d, z = R.pz[q] + qz * sd * d;
                                     tp.push(x, yT, z); tu.push(c * 1.6, q * R.step / 2);
@@ -5253,7 +5266,11 @@
                 { name: 'ludospace', L: 4.3, W: 1.83, r: 0.31, ax: [0.17, 0.80], doors: 4, st: [
                     [0, 0.36, 0.60, 0.64, 0.80, 0.76, 'p'], [0.02, 0.30, 0.74, 0.79, 0.93, 0.89, 'p'], [0.07, 0.28, 0.84, 0.89, 0.98, 0.94, 'p'], [0.17, 0.28, 0.95, 1.02, 1, 0.95, 'p'],
                     [0.20, 0.28, 0.97, 1.06, 1, 0.94, 'g'], [0.36, 0.28, 1.02, 1.76, 1, 0.88, 'r'], [0.42, 0.28, 1.03, 1.83, 1, 0.88, 'r'], [0.975, 0.28, 1.03, 1.82, 1, 0.88, 'g'],
-                    [0.99, 0.30, 1.02, 1.42, 0.99, 0.88, 'p'], [1, 0.40, 0.95, 1.08, 0.94, 0.86, 'p']] }
+                    [0.99, 0.30, 1.02, 1.42, 0.99, 0.88, 'p'], [1, 0.40, 0.95, 1.08, 0.94, 0.86, 'p']] },
+                { name: 'intercepteur', L: 4.95, W: 1.92, r: 0.34, ax: [0.16, 0.79], doors: 4, st: [
+                    [0, 0.33, 0.55, 0.59, 0.80, 0.76, 'p'], [0.02, 0.26, 0.65, 0.70, 0.93, 0.89, 'p'], [0.07, 0.24, 0.73, 0.78, 0.99, 0.95, 'p'], [0.30, 0.24, 0.81, 0.87, 1, 0.96, 'p'],
+                    [0.33, 0.24, 0.82, 0.91, 1, 0.94, 'g'], [0.50, 0.24, 0.86, 1.31, 1, 0.80, 'r'], [0.56, 0.24, 0.87, 1.35, 1, 0.80, 'r'], [0.73, 0.24, 0.89, 1.30, 1, 0.80, 'g'],
+                    [0.85, 0.25, 0.91, 0.99, 1, 0.93, 'p'], [0.97, 0.28, 0.91, 0.96, 0.98, 0.91, 'p'], [0.995, 0.34, 0.85, 0.89, 0.92, 0.86, 'p'], [1, 0.40, 0.76, 0.78, 0.86, 0.80, 'p']] }
             ];
             const crSpl = (a, b, c, d, t) => { const t2 = t * t, t3 = t2 * t; return 0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (-a + 3 * b - 3 * c + d) * t3); };
             const carSec = (T, u) => {   // section interpolée (u : 0 → nombre de stations - 1)
@@ -5366,6 +5383,7 @@
                 return { trim: mergeGeos(parts), lamps: mergeGeos(lamps), wheel: mergeGeos(wp) };
             }
             const carGeos = CAR_TYPES.map(T => Object.assign({ body: carBody(T) }, carTrim(T)));
+            secAtG = secAt;
             const tTrimMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0.25, side: THREE.DoubleSide });
             const tLampMat = new THREE.MeshBasicMaterial({ vertexColors: true, color: new THREE.Color(1.5, 1.5, 1.5) });
             const tGlassMat = new THREE.MeshStandardMaterial({ color: lin(0x10151b), roughness: 0.06, metalness: 0.2, envMapIntensity: 1.6 });
@@ -5409,7 +5427,8 @@
             [[0xe9e9e6, 0], [0xa9adb1, 1], [0x1a1c1f, 1], [0x5d646c, 1], [0x2a3f63, 1], [0x7b1d1d, 1], [0xd6d2c6, 0], [0x3f4b40, 1], [0xf2f2ef, 0], [0x7c8a96, 1], [0xb64a1f, 0], [0x8e9093, 1], [0x24282e, 1], [0x9eb4c4, 0]]
                 .forEach(([c, met], k) => mkTraffic(c, met, [0, 1, 2, 4, 1, 3, 0, 2, 1, 4, 0, 3, 2, 1][k]));
             // Police : 4 berlines pie (2 en patrouille dans le trafic, 2 en renfort pour les poursuites)
-            for(let k = 0; k < 4; k++) gpCopInit(mkTraffic(0x0c0d10, 1, 2, { reserve: k >= 2 }));
+            // Police : 6 intercepteurs ; 2 patrouillent dans le trafic au départ (plus après chaque fuite réussie), les autres arrivent en renfort
+            for(let k = 0; k < 6; k++) gpCopInit(mkTraffic(0x07080b, 1, 5, { reserve: k >= 2 }));
             [[0xff5a10, 1, 4], [0x1d63ff, 1, 1], [0x18c060, 1, 3]].forEach(([c, met, gi]) => { const t = mkTraffic(c, met, gi, { rival: true }); t.m.visible = false; RIVALS.push(t); });
 
             // --- Voitures civiles en 3D : Pontiac Ventura (pontiac.glb) et Chevrolet Colorado (colorado.glb), une voiture sur deux.
@@ -5639,7 +5658,7 @@
             const l = R.hw * (R.cls === 0 ? 0.25 : 0.5);
             PL.x = R.px[i] - R.tz[i] * l; PL.z = R.pz[i] + R.tx[i] * l;
             PL.yaw = Math.atan2(-R.tx[i], -R.tz[i]);
-            PL.vx = PL.vz = PL.vf = PL.vl = PL.w = 0; PL.steer = 0; PL.drift = false; PL.inside = true;
+            PL.vx = PL.vz = PL.vf = PL.vl = PL.w = 0; PL.steer = 0; PL.drift = false; PL.dr = false; PL.axS = 0; PL.inside = true;
             PL.y = groundY(PL.x, PL.z);
             camYaw = PL.yaw; camY = PL.y + 2;
         }
@@ -5648,7 +5667,7 @@
             const lz = HIDE_D / 2 + 5.4;
             PL.x = H.bx + H.vx * lz; PL.z = H.bz + H.vz * lz;
             PL.yaw = Math.atan2(-H.vx, -H.vz);
-            PL.vx = PL.vz = PL.vf = PL.vl = PL.w = 0; PL.steer = 0; PL.drift = false; PL.inside = true;
+            PL.vx = PL.vz = PL.vf = PL.vl = PL.w = 0; PL.steer = 0; PL.drift = false; PL.dr = false; PL.axS = 0; PL.inside = true;
             PL.y = groundY(PL.x, PL.z);
             camYaw = PL.yaw; camY = PL.y + 2;
         }
@@ -5661,6 +5680,15 @@
             $('h-wreck').classList.remove('on');
         }
 
+        // Sol sous la voiture du joueur. Dans la ville 3D, la grille de sol garde la surface la plus haute (pont, passerelle) :
+        // sur une rue relevée dans le modèle, on prend la hauteur de la rue quand elle est plus proche de la hauteur actuelle (on passe sous le pont)
+        function playerGround(x, z, yPrev) {
+            const gy = groundY(x, z);
+            const R = Q.R;
+            if(!R || Math.abs(Q.d) > R.hw + 1 || yPrev === undefined || !modelCity || !modelCity.fg) return gy;
+            const sy = R.gyA ? R.gyA[Math.min(Q.i, R.gyA.length - 1)] : hAt(x, z) + roadLift(R, Q.i, Q.d);
+            return Math.abs(gy - sy) > 0.6 && Math.abs(sy - yPrev) < Math.abs(gy - yPrev) ? sy : gy;
+        }
         function stepPlayer(dt) {
             const dead = PL.wreck > 0;
             const kUp = keys.ArrowUp || keys.z || keys.w, kDown = keys.ArrowDown || keys.s;
@@ -5676,78 +5704,119 @@
             const onRoad = !!Q.R && Math.abs(Q.d) <= Q.R.hw + 0.5;
             PL.onRoad = onRoad;
 
-            // ===== Conduite arcade façon NFS =====
-            // La voiture va où pointe le nez (adhérence forte, petit glissement qui suit le volant), avec un vrai mode DRIFT :
-            //  - entrée au frein à main (Espace / Rond), ou en « frein-drift » : un coup de frein bref en braquant fort à plus de 65 km/h ;
-            //  - en glisse, braquer vers le virage creuse l'angle et serre la trajectoire, contre-braquer redresse ; l'accélérateur tient la vitesse ;
-            //  - sortie quand la caisse est réalignée : l'adhérence revient en douceur.
-            // État : vitesse signée s le long de la trajectoire, cap de la trajectoire psi, cap de la caisse PL.yaw, angle de glisse beta.
-            const sinY0 = Math.sin(PL.yaw), cosY0 = Math.cos(PL.yaw), fwx = -sinY0, fwz = -cosY0;
-            const vNow = Math.hypot(PL.vx, PL.vz), dotF = PL.vx * fwx + PL.vz * fwz;
-            let s = dotF >= 0 ? vNow : -vNow;
-            let psi = vNow > 0.5 && dotF > 0 ? Math.atan2(-PL.vx, -PL.vz) : PL.yaw;
-            const v = Math.abs(s), s0 = s;
-            // Volant : vif à basse vitesse, plus posé à haute vitesse, retour au centre rapide
+            // ===== Conduite : modèle « bicyclette » à deux essieux =====
+            // Chaque essieu a son pneu : la force latérale monte avec l'angle de dérive, plafonne (adhérence × charge) puis retombe un peu en glisse.
+            // Le transfert de charge (freinage : l'avant mord, l'arrière s'allège ; accélération : l'inverse) et le cercle d'adhérence
+            // (un pneu qui pousse ou freine tient moins en latéral) donnent un comportement naturel :
+            //  - en appui : la voiture tourne vite et précisément, sous-vire légèrement à la limite (stable) ;
+            //  - drift : frein à main (Espace / Rond), ou lever de pied / coup de frein en entrée de virage, ou gros gaz en sortie ;
+            //    l'accélérateur entretient la glisse, le contre-braquage (aidé automatiquement) la dose, relâcher redresse ;
+            //  - aides arcade : contre-braquage automatique, anti-tête-à-queue, stabilité en ligne droite à haute vitesse.
+            const fx0 = -Math.sin(PL.yaw), fz0 = -Math.cos(PL.yaw);
+            let vx = PL.vx * fx0 + PL.vz * fz0;            // vitesse longitudinale (avant > 0)
+            let vy = -(PL.vx * -fz0 + PL.vz * fx0);        // vitesse latérale (vers la gauche > 0)
+            let r = PL.w || 0;                              // vitesse de lacet (vers la gauche > 0)
+            const s0 = vx;
             const target = clamp((left ? 1 : 0) - (right ? 1 : 0) - (dead ? 0 : PAD.steer), -1, 1);
-            PL.steer += (target - PL.steer) * Math.min(1, dt * (target ? (PL.drift ? 10 : 8 / (1 + v / 70)) : 10));
-            const sens = 0.6 + 0.08 * SET.steer, st = PL.steer;
-            const zg = 1 - 0.1 * ZTW[1];   // neige : un peu moins d'accroche
-            const grip = (onRoad ? 1 : 0.62) * PERF.grip * WX.grip * zg;
-            const slope = (hAt(PL.x - sinY0 * 2, PL.z - cosY0 * 2) - hAt(PL.x + sinY0 * 2, PL.z + cosY0 * 2)) / 4;
-            // --- Moteur et freins (m/s²) ---
+            const v0 = Math.hypot(vx, vy);
+            // Volant : rapide à basse vitesse, plus doux à haute vitesse (clavier), retour au centre franc
+            const sRate = target === 0 ? 7 : Math.sign(target) !== Math.sign(PL.steer) && PL.steer ? 11 : 9 / (1 + v0 / 45);
+            PL.steer += clamp(target - PL.steer, -sRate * dt, sRate * dt);
+            const sens = 0.82 + 0.05 * SET.steer, st = clamp(PL.steer * sens, -1, 1);
+            const zg = 1 - 0.12 * ZTW[1];   // neige : un peu moins d'accroche
+            const surf = (onRoad ? 1 : 0.66) * PERF.grip * WX.grip * zg;
+            const slope = clamp((playerGround(PL.x - fx0 * 2, PL.z - fz0 * 2, PL.y) - playerGround(PL.x + fx0 * 2, PL.z + fz0 * 2, PL.y)) / 4, -0.35, 0.35);   // pente réelle sous la voiture (sol de la ville 3D compris)
             const vtop = 94 * PERF.top * (boost ? 1.12 : 1) * (onRoad ? 1 : 0.62);
-            let acc = 0;
-            if(up && s > -0.5) acc = thr * 10.5 * PERF.accel * Math.max(0, 1 - Math.pow(Math.max(0, s) / vtop, 2.4));
-            if(boost && s > -0.5) acc += 7.5 * PERF.accel * Math.max(0, 1 - Math.pow(Math.max(0, s) / vtop, 3));
-            if(up && s < -0.5) acc = 20 * thr;                                       // en marche arrière, l'accélérateur freine
-            if(down) { if(s > 0.5) acc -= 24 * brk; else if(ENG.on && !dead) acc -= 7 * brk * (s > -13 ? 1 : 0); }   // frein puissant, puis marche arrière
-            if(hb && s > 0.5) acc -= PL.drift ? 3.5 : 9;
-            let drag = 0.0004 * s * Math.abs(s) + 0.25 * Math.sign(s) * Math.min(1, v);
-            if(!up && !down && !boost) drag += 1.4 * Math.sign(s) * Math.min(1, v);    // frein moteur
-            if(!onRoad) drag += Math.sign(s) * Math.min(1, v) * (1.2 + 0.05 * v);
-            if(s > vtop) drag += (s - vtop) * 0.8;
-            if(dead) drag += Math.sign(s) * Math.min(1, v) * 6;
-            // --- Frein-drift : coup de frein bref en braquant fort ---
+            const CM = 1450, CL = 2.7, CA = 1.2, CB = 1.5, CH = 0.46, CI = 2300, G = GRAV;
             PL.brkT = down ? (PL.brkT || 0) + dt : 0;
-            if(!down && PL.brkHeld > 0 && PL.brkHeld < 0.45 && Math.abs(st) > 0.45 && v > 18 && !PL.drift) { PL.drift = true; PL.dDir = Math.sign(st); PL.beta = 0; }
-            PL.brkHeld = down ? PL.brkT : (PL.brkHeld > 0 ? -1 : 0);
-            if(hb && v > 11 && !PL.drift && !dead) { PL.drift = true; PL.dDir = Math.abs(st) > 0.1 ? Math.sign(st) : Math.sign(PL.w || 1); PL.beta = angDiff(PL.yaw, psi); }
-            if(PL.drift && (dotF < vNow * 0.5 || dead || v < 6)) { PL.drift = false; PL.gripT = 0; }   // choc, marche arrière : fin de la glisse
-            let w;
-            if(PL.drift) {
-                const d = PL.dDir, into = clamp(st * d, -1, 1);   // > 0 : braquer dans le sens de la glisse
-                const bT = into >= 0 ? d * (0.28 + 0.32 * into + 0.1 * thr + (hb ? 0.12 : 0)) : d * 0.32 * (1 + into * 1.3);
-                PL.beta += (bT - PL.beta) * Math.min(1, dt * (hb ? 5 : 3.6));
-                const turn = Math.min(v / 7, 14 * grip / Math.max(v, 1)) * (0.45 + 0.65 * Math.max(0, into) + (hb ? 0.25 : 0));
-                const psiRate = d * turn * (into < -0.2 ? 0.4 : 1);
-                psi += psiRate * dt;
-                const yawNew = psi + PL.beta;
-                w = angDiff(yawNew, PL.yaw) / dt;
-                PL.yaw = yawNew;
-                acc = acc * (up ? 0.8 : 1) - (up ? 0.8 : 2.4) * Math.min(1, v / 10);   // la glisse coûte un peu de vitesse
-                if(!hb && ((Math.abs(PL.beta) < 0.09 && into < 0.3) || v < 8)) { PL.drift = false; PL.gripT = 0; }
-            } else {
-                // Grip : lacet visé selon le volant, limité par l'accroche latérale (pas de tête-à-queue)
-                const aLat = (12.5 + 0.0016 * v * v) * grip;
-                const wT = st * sens * Math.min(v / 5.4, aLat / Math.max(v, 0.5)) * Math.sign(s || 1) * (v < 0.3 ? 0 : 1);
-                w = (PL.w || 0) + (wT - (PL.w || 0)) * Math.min(1, dt * 9);
-                PL.yaw += w * dt;
-                // La trajectoire suit le nez : glissement léger, plus marqué sur terre et sous la pluie, et à la sortie d'une glisse
-                PL.gripT = Math.min(1, (PL.gripT === undefined ? 1 : PL.gripT) + dt * 1.6);
-                const gk = (2.5 + 6.5 * PL.gripT) * (onRoad ? 1 : 0.55) * Math.min(1, WX.grip * 1.1);
-                if(v < 2.5 || s < 0) psi = PL.yaw; else psi += angDiff(PL.yaw, psi) * Math.min(1, dt * gk);
-                PL.beta = angDiff(PL.yaw, psi);
+            PL.escOff = down || hb ? 0.6 : Math.max(0, (PL.escOff || 0) - dt);   // coup de frein / frein à main : le drift reste possible
+            const nSub = Math.max(1, Math.ceil(dt / (1 / 240))), h = dt / nSub;
+            let axPrev = PL.axS || 0, slip = 0;
+            for(let k = 0; k < nSub; k++) {
+                const v = Math.hypot(vx, vy), fwdV = Math.max(0, vx);
+                // --- Forces longitudinales (en m/s², rapportées à la masse) ---
+                let drive = 0, brakeF = 0, brakeR = 0;
+                if(up && vx > -0.5) drive = thr * 10.5 * PERF.accel * Math.max(0, 1 - Math.pow(fwdV / vtop, 2.4));
+                if(boost && vx > -0.5) drive += 7.5 * PERF.accel * Math.max(0, 1 - Math.pow(fwdV / vtop, 3));
+                if(up && vx < -0.5) brakeF = 12 * thr, brakeR = 8 * thr;                         // en marche arrière, l'accélérateur freine
+                if(down) { if(vx > 0.5) { brakeF += 12.5 * brk; brakeR += 7.5 * brk; } else if(ENG.on && !dead && vx > -13) drive -= 7 * brk; }
+                if(hb && Math.abs(vx) > 0.5) brakeR += 6.5;
+                let drag = 0.0004 * vx * Math.abs(vx) + 0.25 * Math.sign(vx) * Math.min(1, Math.abs(vx));
+                if(!up && !down && !boost) drag += 1.3 * Math.sign(vx) * Math.min(1, Math.abs(vx));    // frein moteur
+                if(!onRoad) drag += Math.sign(vx) * Math.min(1, Math.abs(vx)) * (1.2 + 0.05 * Math.abs(vx));
+                if(vx > vtop) drag += (vx - vtop) * 0.8;
+                if(dead) drag += Math.sign(vx) * Math.min(1, Math.abs(vx)) * 6;
+                // --- Charges sur les essieux (transfert de masse) et adhérence (un peu d'appui aérodynamique à haute vitesse) ---
+                const mu = 1.32 * surf * (1 + 0.0035 * fwdV);
+                const nF = Math.max(0.25, (CB - CH * axPrev / G) / CL), nR = Math.max(0.25, (CA + CH * axPrev / G) / CL);   // fractions du poids
+                const dF = drive * 0.3, dR = drive * 0.7;   // transmission intégrale à dominante arrière
+                const sg = Math.sign(vx) || 1;
+                const fxF = dF - brakeF * sg, fxR = dR - brakeR * sg;
+                const capF = mu * G * nF, capR0 = mu * G * nR * (hb ? 0.42 : 1.12);   // arrière un peu plus accrocheur : stable à la limite
+                const pF = fxF > 0 ? 0.35 : 0.2, pR = fxR > 0 ? 0.55 : 0.22;   // cercle d'adhérence (adouci pour les freins)
+                const latF = Math.sqrt(Math.max(0.04 * capF * capF, capF * capF - pF * fxF * fxF));
+                let latR = Math.sqrt(Math.max(0.03 * capR0 * capR0, capR0 * capR0 - pR * fxR * fxR));
+                const beta = Math.atan2(vy, Math.max(Math.abs(vx), 1)), mb = Math.abs(beta);
+                // --- État de drift : entrée par glisse franche (frein à main, transfert de charge, gros gaz), sortie une fois réaligné ---
+                if(!PL.dr && mb > 0.2 && vx > 12 && (thr > 0.3 || hb)) { PL.dr = true; PL.dDir = -Math.sign(beta); PL.drN = 0; }
+                if(PL.dr && (mb < 0.06 || vx < 8 || dead || Math.sign(beta) === PL.dDir && mb > 0.1)) PL.dr = false;
+                const dd = PL.dDir || 1, into = PL.dr ? clamp(st * dd, -1, 1) : 0;
+                if(PL.dr && thr > 0.3 && !hb) latR *= 0.86;   // gaz en glisse : l'arrière reste décroché
+                // --- Braquage : angle maxi qui diminue avec la vitesse, contre-braquage automatique ---
+                const dMax = 0.52 / (1 + v / 10.5) + 0.028;
+                let delta = st * dMax;
+                if(vx > 6 && !hb) delta = (PL.dr ? st * dMax * 0.5 : delta) + clamp(beta, -0.6, 0.6) * (PL.dr ? 0.85 : 0.55) * clamp((v - 6) / 10, 0, 1);
+                // --- Pneus : angle de dérive de chaque essieu → force latérale (pic puis légère retombée) ---
+                const ux = Math.max(Math.abs(vx), 2.5);
+                const aF = sg * delta - Math.atan2(vy + CA * r, ux) * sg;
+                const aR = -Math.atan2(vy - CB * r, ux) * sg;
+                const FyF = latF * Math.sin(1.45 * Math.atan(15.5 * aF)) * sg, FyR = latR * Math.sin(1.3 * Math.atan(12 * aR)) * sg;
+                slip = Math.max(slip, Math.abs(aR));
+                // --- Intégration ---
+                const axL = (fxF + fxR) - drag + G * slope;
+                let dvx = axL - FyF * Math.sin(delta) + vy * r;
+                let dvy = FyF * Math.cos(delta) + FyR - vx * r;
+                let dr = (CA * FyF * Math.cos(delta) - CB * FyR) * CM / CI;
+                if(PL.dr && v > 10) {
+                    // Aide au drift : l'angle de glisse suit le volant (vers le virage : plus d'angle ; neutre : tenu ; contre-braquer : on redresse),
+                    // et la trajectoire se resserre quand on braque vers le virage
+                    PL.drN = into > 0.2 || hb ? 0 : (PL.drN || 0) + h;   // volant relâché : la glisse s'éteint en ~1,5 s
+                    const bt = hb ? 0.55 + 0.25 * Math.max(0, into) : thr > 0.3 ? (0.32 + 0.3 * Math.max(0, into)) * Math.exp(-PL.drN / 0.7) - 0.34 * Math.max(0, -into) : 0.03;
+                    const mdot = (mb - (PL.bPrev === undefined ? mb : PL.bPrev)) / h;
+                    dr += dd * (26 * (bt - mb) - 7 * mdot);
+                    const aEx = (thr > 0.3 || hb ? 1.5 + 4.5 * Math.max(0, into) : 0) * dd;
+                    dvx += -vy / v * aEx; dvy += vx / v * aEx;
+                }
+                PL.bPrev = mb;
+                vx += dvx * h; vy += dvy * h; r += dr * h;
+                // Les freins arrêtent la voiture sans la renvoyer en arrière
+                if((brakeF + brakeR) > 0 && drive >= 0 && Math.sign(vx) !== Math.sign(vx - dvx * h) && !(down && ENG.on && PL.brkT > 0.35)) vx = 0;
+                axPrev += (axL - axPrev) * Math.min(1, h * 8);
+                // --- Aides arcade ---
+                const b2 = Math.atan2(vy, Math.max(Math.abs(vx), 1));
+                if(Math.abs(b2) > 0.7 && r * b2 < 0) r *= Math.exp(-h * 9 * (Math.abs(b2) - 0.7) / 0.3);   // anti-tête-à-queue
+                if(Math.abs(b2) > 1.0) vy *= Math.exp(-h * 6);                                              // angle de glisse plafonné
+                if(!target && !hb && !PL.dr && Math.abs(b2) < 0.12) r *= Math.exp(-h * 1.2 * Math.min(1, v / 40));   // stabilité en ligne droite
+                // Contrôle de stabilité : hors drift (et hors coup de frein récent), le lacet ne dépasse pas ce que l'adhérence permet
+                if(!PL.dr && !hb && PL.escOff <= 0 && v > 12) { const rM = 1.2 * mu * G / v + 0.05; if(Math.abs(r) > rM) r += (Math.sign(r) * rM - r) * (1 - Math.exp(-h * 14)); }
+                // Très basse vitesse et marche arrière : roulage pur (pas de dérive)
+                const kin = vx < -0.3 ? 0 : clamp((v - 1.5) / 5, 0, 1);
+                if(kin < 1) { const rk = vx * Math.tan(st * 0.62) / CL; r = rk + (r - rk) * kin; vy *= kin; }
+                if(dead && hb) { vx *= Math.pow(0.3, h); vy *= Math.pow(0.3, h); }
             }
-            s += (acc - drag + GRAV * slope) * dt;
-            if(!up && !down && !boost && !hb && Math.abs(s) < 0.25 && Math.abs(slope) < 0.08) s = 0;
-            if(down && s0 > 0 && s < 0 && !(ENG.on && PL.brkT > 0.35)) s = 0;   // on s'arrête avant de partir en arrière
-            if(dead && hb) s *= Math.pow(0.3, dt);
-            const vx = (s >= 0 ? -Math.sin(psi) : -Math.sin(PL.yaw)) * Math.abs(s) * (s >= 0 ? 1 : -1), vz = (s >= 0 ? -Math.cos(psi) : -Math.cos(PL.yaw)) * Math.abs(s) * (s >= 0 ? 1 : -1);
-            PL.vx = vx; PL.vz = vz; PL.w = w;
-            const sinY = Math.sin(PL.yaw), cosY = Math.cos(PL.yaw);
-            const vf = PL.vx * -sinY + PL.vz * -cosY, vl = PL.vx * cosY + PL.vz * -sinY;
-            PL.ax = (s - s0) / dt;
-            PL.vf = vf; PL.vl = vl;
+            if(!up && !down && !boost && !hb && Math.hypot(vx, vy) < 0.25 && Math.abs(slope) < 0.08) { vx = vy = 0; r = 0; }
+            PL.axS = axPrev;
+            const w = r;
+            PL.yaw += r * dt;
+            // Retour dans le repère du monde (avec le nouveau cap)
+            const fx1 = -Math.sin(PL.yaw), fz1 = -Math.cos(PL.yaw);
+            PL.vx = fx1 * vx + fz1 * vy; PL.vz = fz1 * vx - fx1 * vy;
+            PL.w = w;
+            PL.beta = Math.atan2(vy, Math.max(Math.abs(vx), 1));
+            PL.drift = !!PL.dr || (Math.abs(PL.beta) > 0.14 && vx > 10);
+            PL.vf = vx; PL.vl = -vy;
+            PL.ax = (vx - s0) / dt;
+            const v = Math.hypot(vx, vy);
             PL.latA += (v * w - PL.latA) * Math.min(1, dt * 6);
             PL.accA += (PL.ax - PL.accA) * Math.min(1, dt * 6);
             PL.x += PL.vx * dt; PL.z += PL.vz * dt;
@@ -5832,13 +5901,15 @@
                 zoneTick = 20; const W = zoneW(PL.x, PL.z); for(let k = 0; k < 4; k++) ZTT[k] = W[k]; let b = 0; for(let k = 1; k < 4; k++) if(W[k] > W[b]) b = k;
                 if(W[b] > 0.75 && b !== curZone) { if(curZone >= 0) toast('Zone : ' + ZONES[b], ZONE_DESC[b], ''); curZone = b; }
             }
-            if(modelCity && modelCity.fg) modelWalls(modelCity);
-            PL.y = groundY(PL.x, PL.z);
+            roadAt(PL.x, PL.z);
+            const onStreet = Q.R && Math.abs(Q.d) < Q.R.hw - 0.3;   // sur une chaussée (rue de la ville 3D ou route ajoutée) : pas de mur
+            if(modelCity && modelCity.fg && !onStreet) modelWalls(modelCity);
+            PL.y = playerGround(PL.x, PL.z, PL.py);
             // Ville 3D : une marche de plus d'un mètre (bord de toit, rebord, mur oublié par la grille) arrête la voiture comme un mur
             if(modelCity && modelCity.fg && PL.py !== undefined && PL.y - PL.py > 1.0 && Math.hypot(PL.x - PL.ppx, PL.z - PL.ppz) < 5) {
                 const v = Math.hypot(PL.vx, PL.vz), ux = PL.vx / (v || 1), uz = PL.vz / (v || 1);
                 PL.x = PL.ppx; PL.z = PL.ppz; PL.vx *= -0.25; PL.vz *= -0.25; hit(v * 0.6, ux, uz);
-                PL.y = groundY(PL.x, PL.z);
+                PL.y = playerGround(PL.x, PL.z, PL.py);
             }
             PL.ppx = PL.x; PL.ppz = PL.z; PL.py = PL.y;
         }
@@ -5872,11 +5943,11 @@
                 if(i < 0 || i >= R.n) continue;
                 for(const l of [gLink[g], gLink2[g]]) if(l >= 0 && gR[l] !== R && !gR[l].noTraffic && !opts.includes(l)) opts.push(l);
             }
-            if(!opts.length) return false;
+            if(!opts.length) { t.dir = -t.dir; t.p = clamp(t.p, 3.2, R.n - 4.2); return true; }   // cul-de-sac : demi-tour
             const g = opts[Math.floor(Math.random() * opts.length)], R2 = gR[g], i2 = gI[g];
             const dir = R2.closed ? (Math.random() < 0.5 ? 1 : -1) : i2 < 6 ? 1 : i2 > R2.n - 7 ? -1 : (Math.random() < 0.5 ? 1 : -1);
             t.R = R2; t.dir = dir;
-            t.p = R2.closed ? (i2 + dir * 3 + R2.n) % R2.n : R2.n < 10 ? R2.n / 2 : clamp(i2 + dir * 3, 3.2, R2.n - 4.2);
+            t.p = R2.closed ? (i2 + dir + R2.n) % R2.n : R2.n < 10 ? R2.n / 2 : clamp(i2 + dir, 3.2, R2.n - 4.2);
             const v = t.v; trafficLane(t, R2); t.v = Math.min(v, t.v0 + 3);
             return true;
         }
@@ -5909,22 +5980,40 @@
             const steer = clamp(t.ya * (hl * 2) / Math.max(t.v, 3), -0.5, 0.5);
             for(const wh of t.wheels) { wh.w.rotation.x = t.spin; if(wh.front) wh.piv.rotation.y = steer; }
         }
+        // Distance de sécurité : une voiture qui en rattrape une autre (même sens, même file) ralentit derrière elle
+        function trafficGaps() {
+            const act = traffic.filter(t => t.R && t.m.visible && !t.rival && !t.chase);
+            for(const a of act) {
+                a.vCap = 1e9;
+                for(const b of act) {
+                    if(a === b || a.fx * b.fx + a.fz * b.fz < 0.6) continue;
+                    const ex = b.x - a.x, ez = b.z - a.z, along = ex * a.fx + ez * a.fz;
+                    if(along <= 0 || along > 40 || Math.abs(ex * -a.fz + ez * a.fx) > 2.4) continue;
+                    a.vCap = Math.min(a.vCap, Math.max(0, b.v + (along - 9) * 0.55));
+                }
+            }
+        }
         function stepTraffic(dt) {
             const pv = Math.hypot(PL.vx, PL.vz);
+            trafficGaps();
             for(const t of traffic) {
                 if(t.rival) continue;   // rivals : pilotés par la course
                 if(t.cop && (t.chase || t.reserve)) { if(!t.chase) t.m.visible = false; continue; }   // police en poursuite : conduite à part (copAI)
                 if(!t.R) { if(Math.random() < dt * 0.8) spawnTraffic(t); continue; }
                 let R = t.R;
                 t.stun = Math.max(0, t.stun - dt);
-                t.v += ((t.stun > 0 ? 0 : t.v0) - t.v) * Math.min(1, dt * (t.stun > 0 ? 2.5 : 0.6));
+                const vT = t.stun > 0 ? 0 : Math.min(t.v0, t.vCap === undefined ? 1e9 : t.vCap);
+                t.v += (vT - t.v) * Math.min(1, dt * (t.stun > 0 ? 2.5 : vT < t.v ? 2.2 : 0.6));
                 t.p += t.dir * t.v * dt / R.step;
                 if(R.closed) t.p = (t.p + R.n) % R.n;
-                else if(t.p < 3 || t.p > R.n - 4) { if(!turnTraffic(t)) { spawnTraffic(t); continue; } R = t.R; }
+                else if(t.p < 3 || t.p > R.n - 4) { const ox = t.x, oz = t.z; if(!turnTraffic(t)) { spawnTraffic(t); continue; } R = t.R; t.jx = ox; t.jz = oz; }
                 const i = Math.floor(t.p), f = t.p - i, i2 = R.closed ? (i + 1) % R.n : Math.min(R.n - 1, i + 1);
                 const tx = R.tx[i] + (R.tx[i2] - R.tx[i]) * f, tz = R.tz[i] + (R.tz[i2] - R.tz[i]) * f, l = t.dir * t.lat;
                 t.x = R.px[i] + (R.px[i2] - R.px[i]) * f - tz * l; t.z = R.pz[i] + (R.pz[i2] - R.pz[i]) * f + tx * l;
                 t.fx = tx * t.dir; t.fz = tz * t.dir;
+                // Changement de route : l'écart avec l'ancienne position est résorbé en douceur (plus de saut)
+                if(t.jx !== undefined) { t.ox = (t.ox || 0) + t.jx - t.x; t.oz = (t.oz || 0) + t.jz - t.z; t.jx = undefined; }
+                if(t.ox || t.oz) { const k = Math.exp(-dt * 2.2); t.ox *= k; t.oz *= k; if(Math.abs(t.ox) + Math.abs(t.oz) < 0.02) t.ox = t.oz = 0; t.x += t.ox; t.z += t.oz; }
                 const ex = PL.x - t.x, ez = PL.z - t.z, d = Math.hypot(ex, ez);
                 if(d > 950) { spawnTraffic(t); continue; }
                 placeTraffic(t, i, l, dt);
@@ -7103,63 +7192,119 @@
         }
 
         // ---------- Police : patrouilles, poursuites, niveau de recherche, prime, arrestation ----------
-        const COP = { lvl: 0, t: 0, bounty: 0, cool: 0, bust: 0, heatT: 0, reinT: 0, near: 1e9, busted: 0, hideT: 0 };
+        const COP = { lvl: 0, t: 0, bounty: 0, cool: 0, bust: 0, heatT: 0, reinT: 0, near: 1e9, busted: 0, hideT: 0, grace: 0, esc: 0, fieldT: 0, field: null };
         const COPS = [];
+        let secAtG = null;   // gabarits de caisse (définis dans buildWorld), pour habiller la police
         const COP_V = [0, 47, 54, 61, 69, 77];   // vitesse maxi des poursuivants (m/s) selon le niveau de recherche
         const copGlowTex = radialTex([[0, 'rgba(255,255,255,1)'], [0.25, 'rgba(255,255,255,0.55)'], [1, 'rgba(255,255,255,0)']]);
-        const policeTex = (() => {
-            const c = document.createElement('canvas'); c.width = 512; c.height = 96;
-            const g = c.getContext('2d');
-            g.font = '700 74px "Barlow Condensed", "Arial Narrow", Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-            g.fillStyle = '#0b1640'; g.fillText('POLICE', 256, 52);
-            g.fillStyle = '#1f4fd6'; g.fillRect(40, 84, 432, 8);
-            const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = 4;
-            return t;
-        })();
-        // Habille une voiture du trafic en voiture de police : livrée noire et blanche, inscriptions, rampe de gyrophares
+        // Inscriptions de la livrée : POLICE (portières, capot, coffre) et numéro de toit, dessinés une fois sur des canvas
+        const polTex = (w, h, draw) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); draw(g, w, h); const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = 4; return t; };
+        const policeTex = polTex(512, 96, (g, w, h) => {
+            g.font = '800 78px "Barlow Condensed", "Arial Narrow", Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+            g.fillStyle = '#0a1a52'; g.fillText('POLICE', w / 2, h / 2 + 4);
+        });
+        const policeTexW = polTex(512, 96, (g, w, h) => {
+            g.font = '800 78px "Barlow Condensed", "Arial Narrow", Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+            g.fillStyle = '#f4f6fa'; g.fillText('POLICE', w / 2, h / 2 + 4);
+        });
+        const policeRoofTex = (n) => polTex(256, 256, (g, w, h) => {
+            g.font = '800 150px "Barlow Condensed", "Arial Narrow", Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+            g.fillStyle = '#0b0c10'; g.fillText(String(n), w / 2, h / 2 + 10);
+        });
+        // Intercepteur de police : caisse dédiée (basse et large), livrée noire à portières blanches, bandeau bleu liseré rouge,
+        // toit blanc numéroté, pare-buffle, rampe à LED, flashs dans la calandre, projecteur de recherche, antenne et becquet
         function gpCopInit(t) {
             t.cop = true; t.chase = false; t.hp = 100; t.down = 0; t.stun = 0;
             COPS.push(t);
             const bodyMesh = t.body.children.find(o => o.isMesh && Array.isArray(o.material));
-            if(bodyMesh) {
-                const pm = bodyMesh.material[0].clone();
-                pm.color.copy(lin(0x0c0d10)); pm.metalness = 0.4; pm.roughness = 0.3;
-                const half = t.T.L * (t.T.ax[1] - t.T.ax[0]) / 2 - 0.15;
-                pm.onBeforeCompile = (sh) => {
-                    sh.vertexShader = 'varying vec3 vPolP;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvPolP = position;');
-                    sh.fragmentShader = 'varying vec3 vPolP;\n' + sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n\tdiffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.86, 0.87, 0.88), step(abs(vPolP.z), ' + half.toFixed(2) + ') * step(vPolP.y, 1.0) * step(0.42, vPolP.y));');
-                };
-                pm.customProgramCacheKey = () => 'policeLivery' + half.toFixed(2);
-                bodyMesh.material = [pm, bodyMesh.material[1]];
-                bodyMesh.geometry.computeBoundingBox();
-                const bb = bodyMesh.geometry.boundingBox, top = bb.max.y, hw = (bb.max.x - bb.min.x) / 2;
-                // Inscriptions POLICE sur les portières
-                const decM = new THREE.MeshBasicMaterial({ map: policeTex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
-                [-1, 1].forEach(sd => { const d = new THREE.Mesh(new THREE.PlaneGeometry(1.55, 0.29), decM); d.position.set(sd * (hw * 0.985 + 0.012), 0.74, 0.05); d.rotation.y = sd * Math.PI / 2; t.body.add(d); });
-                // Rampe de gyrophares sur le toit
-                const bar = new THREE.Group();
-                bar.position.set(0, top + 0.02, 0.15);
-                const base = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.07, 0.26), new THREE.MeshStandardMaterial({ color: lin(0x15171a), roughness: 0.6 }));
-                const red = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.5, 0.02, 0.02) }), blue = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.02, 0.05, 0.5) });
-                const lr = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.1, 0.22), red), lb = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.1, 0.22), blue);
-                lr.position.set(-0.29, 0.07, 0); lb.position.set(0.29, 0.07, 0);
-                const gr = new THREE.Sprite(new THREE.SpriteMaterial({ map: copGlowTex, color: 0xff2020, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }));
-                const gb = new THREE.Sprite(new THREE.SpriteMaterial({ map: copGlowTex, color: 0x2a5cff, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }));
-                gr.position.copy(lr.position); gb.position.copy(lb.position); gr.scale.set(2.4, 2.4, 1); gb.scale.set(2.4, 2.4, 1);
-                bar.add(base, lr, lb, gr, gb);
-                t.body.add(bar);
-                t.bar = { red, blue, gr, gb };
+            if(!bodyMesh) return;
+            const T = t.T, L = T.L, hw = T.W / 2, Z = (zf) => (zf - 0.5) * L;
+            bodyMesh.geometry.computeBoundingBox();
+            const bb = bodyMesh.geometry.boundingBox, top = bb.max.y;
+            const pm = bodyMesh.material[0].clone();
+            pm.color.copy(lin(0x111a2e)); pm.metalness = 0.15; pm.roughness = 0.38; pm.clearcoat = 0.7; pm.clearcoatRoughness = 0.12; pm.envMapIntensity = 0.55;
+            const d0 = Z(T.ax[0]) + T.r + 0.18, d1 = Z(T.ax[1]) - T.r - 0.18;   // portières : entre les passages de roues
+            pm.onBeforeCompile = (sh) => {
+                sh.vertexShader = 'varying vec3 vPolP;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvPolP = position;');
+                sh.fragmentShader = 'varying vec3 vPolP;\n' + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+                    float pz = vPolP.z, py = vPolP.y;
+                    float door = step(${d0.toFixed(3)}, pz) * step(pz, ${d1.toFixed(3)}) * step(0.36, py) * step(py, 0.86) * step(${(hw * 0.78).toFixed(3)}, abs(vPolP.x));
+                    vec3 col = mix(diffuseColor.rgb, vec3(0.88, 0.9, 0.92), door);
+                    float band = step(0.55, py) * step(py, 0.64);
+                    col = mix(col, mix(vec3(0.012, 0.05, 0.32), vec3(0.03, 0.14, 0.62), door), band);
+                    col = mix(col, vec3(0.55, 0.02, 0.03), step(0.515, py) * step(py, 0.538) * step(abs(pz), ${(L / 2 - 0.25).toFixed(2)}));
+                    col = mix(col, vec3(0.88, 0.9, 0.92), step(${(top - 0.07).toFixed(3)}, py));
+                    diffuseColor.rgb = col;`);
+            };
+            const pKey = 'policeLivery3-' + COPS.length; pm.customProgramCacheKey = () => pKey;
+            bodyMesh.material = [pm, bodyMesh.material[1]];
+            const dark = new THREE.MeshStandardMaterial({ color: lin(0x111215), roughness: 0.5, metalness: 0.4 });
+            const chrome = new THREE.MeshStandardMaterial({ color: lin(0x9a9fa6), roughness: 0.25, metalness: 0.9 });
+            const add = (geo, mat, x, y, z, rx, ry, rz) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx || 0, ry || 0, rz || 0); t.body.add(m); return m; };
+            const secAt = secAtG, sec = (zf) => { const sd = secAt(T, zf); return { w: sd.wB * hw, belt: sd.belt, top: sd.top }; };
+            // Inscriptions
+            const decM = (map) => new THREE.MeshBasicMaterial({ map, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+            const dDoor = decM(policeTex), dWhite = decM(policeTexW);
+            const sm = sec(0.5);
+            [-1, 1].forEach(sd => add(new THREE.PlaneGeometry(1.7, 0.31), dDoor, sd * (sm.w * 1.005 + 0.012), 0.73, (d0 + d1) / 2, 0, sd * Math.PI / 2, 0));
+            const sh = sec(0.16);
+            add(new THREE.PlaneGeometry(1.1, 0.2), dWhite, 0, sh.top + 0.012, Z(0.15), -Math.PI / 2 + 0.09, 0, Math.PI);   // capot (lisible dans un rétroviseur… à l'endroit vu de face)
+            const st = sec(0.92);
+            add(new THREE.PlaneGeometry(0.9, 0.17), dWhite, 0, st.top + 0.012, Z(0.91), -Math.PI / 2 - 0.05, 0, 0);       // coffre
+            add(new THREE.PlaneGeometry(0.8, 0.8), decM(policeRoofTex(10 + COPS.length * 7)), 0, top + 0.005, Z(0.6), -Math.PI / 2, 0, 0);   // numéro de toit
+            // Pare-buffle
+            const fz = Z(0) - 0.13;
+            [-0.42, 0.42].forEach(x => add(new THREE.BoxGeometry(0.07, 0.42, 0.07), dark, x, 0.5, fz));
+            add(new THREE.BoxGeometry(1.0, 0.07, 0.08), dark, 0, 0.7, fz);
+            add(new THREE.BoxGeometry(1.0, 0.07, 0.08), dark, 0, 0.36, fz);
+            add(new THREE.BoxGeometry(0.9, 0.05, 0.12), dark, 0, 0.3, fz + 0.06);
+            // Becquet, antenne, projecteur de recherche (montant de pare-brise côté conducteur)
+            add(new THREE.BoxGeometry(hw * 1.5, 0.04, 0.2), dark, 0, st.top + 0.07, Z(0.975));
+            [-0.6, 0.6].forEach(x => add(new THREE.BoxGeometry(0.04, 0.07, 0.12), dark, x * hw, st.top + 0.035, Z(0.97)));
+            add(new THREE.CylinderGeometry(0.006, 0.01, 0.75, 5), dark, hw * 0.45, top + 0.37, Z(0.7), -0.25, 0, 0);
+            const sp = sec(0.34);
+            add(new THREE.CylinderGeometry(0.075, 0.075, 0.13, 10), chrome, -(sp.w * 0.9), sp.belt + 0.12, Z(0.335), Math.PI / 2, 0, 0);
+            // Rampe à LED (8 modules : rouges à gauche, bleus à droite, en deux groupes pour les séquences de flash)
+            const bar = new THREE.Group();
+            bar.position.set(0, top + 0.015, Z(0.5));
+            bar.add(new THREE.Mesh(new THREE.BoxGeometry(1.32, 0.05, 0.3), dark));
+            const lens = new THREE.Mesh(new THREE.BoxGeometry(1.26, 0.075, 0.25), new THREE.MeshStandardMaterial({ color: lin(0x22242a), roughness: 0.1, metalness: 0.2, transparent: true, opacity: 0.55 }));
+            lens.position.y = 0.06; bar.add(lens);
+            const mk = (c) => new THREE.MeshBasicMaterial({ color: c.clone() });
+            const mats = [mk(new THREE.Color(0.3, 0.01, 0.01)), mk(new THREE.Color(0.3, 0.01, 0.01)), mk(new THREE.Color(0.01, 0.03, 0.3)), mk(new THREE.Color(0.01, 0.03, 0.3))];
+            for(let k = 0; k < 8; k++) {
+                const side = k < 4 ? 0 : 2, grp = side + (k % 2);
+                const m = new THREE.Mesh(new THREE.BoxGeometry(0.135, 0.055, 0.2), mats[grp]);
+                m.position.set(-0.55 + k * 0.157, 0.06, 0); bar.add(m);
             }
+            const glow = (c) => { const g = new THREE.Sprite(new THREE.SpriteMaterial({ map: copGlowTex, color: c, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 })); g.scale.set(2.8, 2.8, 1); bar.add(g); return g; };
+            const gr = glow(0xff2020), gb = glow(0x2a5cff);
+            gr.position.set(-0.4, 0.07, 0); gb.position.set(0.4, 0.07, 0);
+            t.body.add(bar);
+            // Flashs dans la calandre et la lunette arrière
+            const sf = sec(0.03);
+            [[-1, 0], [1, 2]].forEach(([sd, mi]) => {
+                add(new THREE.BoxGeometry(0.16, 0.05, 0.03), mats[mi + 1], sd * 0.24, sf.belt - 0.12, Z(0.006));
+                add(new THREE.BoxGeometry(0.18, 0.04, 0.03), mats[mi], sd * 0.3, secAt(T, 0.8).top - 0.05, Z(0.82));
+            });
+            t.bar = { mats, gr, gb };
         }
         // Deux lumières pour toute la police (créées dès le départ : en ajouter en cours de route recompilerait tous les shaders)
         const copLights = [new THREE.PointLight(0xff2020, 0, 30, 2), new THREE.PointLight(0x3060ff, 0, 30, 2)];
         copLights.forEach(l => scene.add(l));
+        // Séquence des gyrophares : alternance gauche / droite, triple flash rapide, modules intérieurs et extérieurs décalés
         function copLightsSet(t, on, ph) {
             if(!t.bar) return;
-            const a = on && Math.sin(ph) > 0 ? 1 : 0, b = on && Math.sin(ph) <= 0 ? 1 : 0, f = on ? 0.55 + 0.45 * Math.abs(Math.sin(ph * 3)) : 0;
-            t.bar.red.color.setRGB(0.5 + 5 * a * f, 0.02 + 0.4 * a * f, 0.02 + 0.3 * a * f);
-            t.bar.blue.color.setRGB(0.02 + 0.3 * b * f, 0.05 + 0.6 * b * f, 0.5 + 6 * b * f);
-            t.bar.gr.material.opacity = a * f * (0.5 + 0.5 * (1 - TOD.k)); t.bar.gb.material.opacity = b * f * (0.5 + 0.5 * (1 - TOD.k));
+            const cyc = (ph / (2 * Math.PI)) % 1, half = cyc < 0.5, sub = (cyc % 0.5) / 0.5;
+            const flash = on ? (sub < 0.78 && Math.floor(sub * 9) % 3 !== 2 ? 1 : 0) : 0;
+            const A = half ? flash : 0, B = half ? 0 : flash, inner = on && Math.sin(ph * 2.3) > 0 ? 1 : 0.25;
+            const M = t.bar.mats;
+            M[0].color.setRGB(0.3 + 6 * A, 0.01 + 0.5 * A, 0.01 + 0.35 * A);
+            M[1].color.setRGB(0.3 + 6 * A * inner, 0.01 + 0.5 * A * inner, 0.01 + 0.35 * A * inner);
+            M[2].color.setRGB(0.01 + 0.35 * B, 0.03 + 0.7 * B, 0.3 + 7 * B);
+            M[3].color.setRGB(0.01 + 0.35 * B * inner, 0.03 + 0.7 * B * inner, 0.3 + 7 * B * inner);
+            const k = 0.5 + 0.5 * (1 - TOD.k);
+            t.bar.gr.material.opacity = A * k; t.bar.gb.material.opacity = B * k;
         }
         function copStart(src, why) {
             if(COP.lvl > 0 || EV.cur || leaving || PL.wreck > 0 || !COPS.length) return;
@@ -7197,14 +7342,20 @@
             t.chase = false; t.down = 0; t.R = null; t.m.visible = false; t.ready = false;
             copLightsSet(t, false, 0);
         }
+        // Patrouilles : 2 au départ, une de plus après chaque fuite réussie (4 au plus) ; les autres voitures restent en renfort
+        function copPatrols() {
+            const n = Math.min(4, 2 + COP.esc);
+            COPS.forEach((t, k) => { if(t.chase) return; const res = k >= n; if(res && !t.reserve) { t.R = null; t.m.visible = false; } t.reserve = res; });
+        }
         function copReset() {
             COPS.forEach(t => { if(t.chase) copEnd(t); });
+            copPatrols();
             COP.lvl = 0; COP.bust = 0; COP.cool = 0; COP.near = 1e9;
             copLights.forEach(l => { l.intensity = 0; });
         }
         function copEscaped() {
             const b = Math.round(COP.bounty);
-            GS.escapes++; GS.maxEscHeat = Math.max(GS.maxEscHeat, COP.lvl); GS.bestBounty = Math.max(GS.bestBounty, b);
+            GS.escapes++; COP.esc++; COP.grace = 15; GS.maxEscHeat = Math.max(GS.maxEscHeat, COP.lvl); GS.bestBounty = Math.max(GS.bestBounty, b);
             addSP(b);
             toast('Police semée', 'Niveau de recherche ' + COP.lvl, '+' + fmtSP(b) + ' SP');
             copReset(); gsSave();
@@ -7216,7 +7367,7 @@
             chain.pts = 0; chain.mult = 1; chain.hits = 0; chain.t = 0;
             $('hb-sub').textContent = fine > 0 ? 'Amende : ' + fmtSP(fine) + ' SP · prime perdue' : 'Prime perdue';
             $('h-busted').classList.add('on');
-            COP.busted = 2.6;
+            COP.busted = 2.6; COP.grace = 15;
             copReset();
             if(EV.cur) evEnd();
             setTimeout(() => leaveToGarage('Arrêté'), 2600);
@@ -7229,20 +7380,59 @@
             shake = Math.max(shake, 0.5);
             toast('Policier neutralisé', 'Niveau de recherche ' + COP.lvl, '+' + fmtSP(b) + ' de prime');
         }
-        // Conduite d'un poursuivant : vise la position future du joueur, braquage limité par la vitesse, freine dans les virages serrés
+        // Conduite d'un poursuivant : par les routes (itinéraire le plus court vers le joueur, recalculé toutes les 0,8 s),
+        // droit sur le joueur quand il est tout près ou hors route ; freine avant les virages serrés, braquage limité par l'adhérence
+        function copField(dt) {
+            COP.fieldT -= dt;
+            if(COP.fieldT > 0) return;
+            COP.fieldT = 0.8;
+            roadAt(PL.x, PL.z);
+            COP.field = Q.R && Q.dist < 45 ? routeField(Q.R.g0 + Q.i) : null;
+        }
+        function copWalk(g, n) {   // descend l'itinéraire de n pas (4 m) à partir du point g
+            const F = COP.field;
+            for(let k = 0; k < n && F[g] > 0; k++) {
+                const m = neighbours(g); let nb = g, nd = F[g];
+                for(let q = 0; q < m; q++) { const d = F[nbr[q]]; if(d >= 0 && d < nd) { nd = d; nb = nbr[q]; } }
+                if(nb === g) break;
+                g = nb;
+            }
+            return g;
+        }
         function copAI(t, dt) {
             const dx = PL.x - t.x, dz = PL.z - t.z, d = Math.hypot(dx, dz) || 1;
-            const lead = clamp(d / 45, 0, 1.4);
-            const ax = PL.x + PL.vx * lead - t.x, az = PL.z + PL.vz * lead - t.z;
-            const err = angDiff(Math.atan2(-ax, -az), t.yaw);
-            const rate = clamp(15 / Math.max(t.v, 6), 0.35, 2.2);
-            t.yaw += clamp(err, -rate * dt, rate * dt);
             const pspd = Math.hypot(PL.vx, PL.vz);
-            let vmax = COP_V[COP.lvl] * (d > 380 ? 1.12 : 1) * (COP.cool > 0.35 ? 0.82 : 1);
+            let ax, az, vCurve = 1e9;
+            roadAt(t.x, t.z);
+            const g0 = Q.R ? Q.R.g0 + Q.i : -1, F = COP.field;
+            if(d > 75 && F && g0 >= 0 && F[g0] > 0 && Q.dist < 35) {
+                const n1 = Math.round(5 + t.v / 5), g1 = copWalk(g0, n1), g2 = copWalk(g1, 9);
+                ax = gR[g1].px[gI[g1]] - t.x; az = gR[g1].pz[gI[g1]] - t.z;
+                // virage à venir : angle entre les deux tronçons de l'itinéraire
+                const a1 = Math.atan2(ax, az), a2 = Math.atan2(gR[g2].px[gI[g2]] - gR[g1].px[gI[g1]], gR[g2].pz[gI[g2]] - gR[g1].pz[gI[g1]]);
+                const ang = Math.abs(angDiff(a2, a1));
+                if(ang > 0.05) vCurve = Math.sqrt(13 * 36 / ang) + n1 * 0.6;
+            } else if(d > 75 && Q.R && Q.dist >= 35 && Q.dist < 200) {   // hors route : rejoint la route la plus proche
+                ax = Q.R.px[Q.i] - t.x; az = Q.R.pz[Q.i] - t.z;
+            } else {
+                const lead = clamp(d / 45, 0, 1.4);
+                ax = PL.x + PL.vx * lead - t.x; az = PL.z + PL.vz * lead - t.z;
+            }
+            const err = angDiff(Math.atan2(-ax, -az), t.yaw);
+            // Bloquée contre un mur ou un arbre : marche arrière en braquant, puis repart ; au 3e échec, réapparaît plus loin sur une route
+            if(t.rev > 0) { t.rev -= dt; t.v = -7; t.yaw -= Math.sign(err || 1) * 1.1 * dt; copMove(t, dt); return; }
+            if(t.v < 2.5 && t.stun <= 0 && d > 12) t.stk = (t.stk || 0) + dt; else { t.stk = Math.max(0, (t.stk || 0) - dt); if(t.v > 15) t.nrev = 0; }
+            if(t.stk > 1.2) { t.stk = 0; t.nrev = (t.nrev || 0) + 1; if(t.nrev > 2) { t.nrev = 0; copPlace(t); } else { t.rev = 1.1; return; } }
+            const rate = Math.min(2.4, 14 / Math.max(t.v, 5.5));
+            t.yaw += clamp(err, -rate * dt, rate * dt);
+            let vmax = COP_V[COP.lvl] * (d > 380 ? 1.15 : 1) * (COP.cool > 0.35 ? 0.85 : 1);
+            vmax = Math.min(vmax, vCurve);
             if(d < 30) vmax = Math.min(vmax, pspd + 4 + d * 0.3);
             t.stun = Math.max(0, t.stun - dt);
-            const vt = t.stun > 0 ? 0 : vmax * (1 - 0.55 * Math.min(1, Math.abs(err) / 1.1));
-            t.v += clamp(vt - t.v, -16 * dt, 10 * dt);
+            const vt = t.stun > 0 ? 0 : vmax * (1 - 0.6 * Math.min(1, Math.abs(err) / 1.1));
+            t.v += clamp(vt - t.v, -15 * dt, 9.5 * dt);
+            // Trop loin derrière (et hors de vue) : réapparaît plus près, sur une route
+            if(d > 720) copPlace(t);
             copMove(t, dt);
         }
         function copMove(t, dt) {
@@ -7300,10 +7490,13 @@
             if(!COP.lvl) {
                 // Patrouilles : elles repèrent un excès de vitesse ou un choc
                 if(EV.cur || PL.wreck > 0 || !ENG.on) return;
+                COP.grace -= dt;
                 for(const t of COPS) {
                     if(t.chase || t.reserve || !t.R || !t.m.visible) continue;
+                    const d = Math.hypot(t.x - PL.x, t.z - PL.z);
                     if(t.stun > 2.3) { copStart(t, 'Tu as percuté une voiture de police'); break; }
-                    if(PL.kmh > 140 && Math.hypot(t.x - PL.x, t.z - PL.z) < 120) { copStart(t, 'Excès de vitesse repéré : ' + Math.round(PL.kmh) + ' km/h'); break; }
+                    if(COP.grace <= 0 && d < 48) { copStart(t, 'Une patrouille t’a repéré'); break; }
+                    if(COP.grace <= 0 && PL.kmh > 160 && d < 130) { copStart(t, 'Excès de vitesse repéré : ' + Math.round(PL.kmh) + ' km/h'); break; }
                 }
                 return;
             }
@@ -7312,9 +7505,16 @@
             COP.reinT -= dt;
             if(COP.reinT <= 0) { COP.reinT = 10; copReinforce(); }
             COP.bounty += dt * (12 + 18 * COP.lvl) * (PL.kmh > 100 ? 1 : 0.4);
+            copField(dt);
             let near = 1e9, close = 0;
             for(const t of COPS) {
                 if(!t.chase) continue;
+                // les poursuivants ne traversent pas les voitures du trafic : ils sont déviés et ralentis, la voiture percutée s'arrête
+                for(const c of traffic) {
+                    if(c.cop || c.rival || !c.R || !c.m.visible) continue;
+                    const ex = t.x - c.x, ez = t.z - c.z, dc = Math.hypot(ex, ez);
+                    if(dc < 3.2 && dc > 1e-4) { t.x += ex / dc * (3.2 - dc); t.z += ez / dc * (3.2 - dc); t.v *= 0.82; c.stun = Math.max(c.stun, 2); }
+                }
                 if(t.down > 0) { t.down -= dt; t.v *= Math.pow(0.15, dt); copMove(t, dt); if(t.down <= 0) copEnd(t); continue; }
                 copAI(t, dt);
                 const d = Math.hypot(t.x - PL.x, t.z - PL.z);
@@ -7702,6 +7902,7 @@
         let gpTick = 0, gpSaveT = 0;
         function gpSetupWorld() {
             evSetup();
+            COP.esc = 0; COP.grace = 6; copReset();   // nouvelle session : peu de patrouilles au départ
             envInit();
             dmgRepair();
             gpPrev.dist = mt.dist; gpPrev.drift = mt.drift; gpPrev.near = mt.near;
